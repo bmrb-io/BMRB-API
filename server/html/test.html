@@ -1,0 +1,69 @@
+<html>
+
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="javascript/jquery_serialize.js"></script>
+    <link rel="stylesheet" type="text/css" href="http://www.bmrb.wisc.edu/stylesheets/blue_white.css">
+    <title>Form JSON submission</title>
+</head>
+
+<script>
+
+function sendForm(){
+model_data = $("#frm").serializeObject();
+$("#query").html(JSON.stringify(model_data));
+
+$.ajax({
+url: 'query',
+type: 'POST',
+contentType: 'application/json',
+data: JSON.stringify(model_data),
+dataType: 'json',
+success:function(e){
+    m = e;
+    console.log(e['result']);
+    var table = $("<table class='alternating'></table>");
+    var thead = $("<thead></thead>");
+    for (var n = 0; n<model_data["params"]["query"]["select"].length; n++){
+        thead.append($("<td></td>").html(model_data["params"]["query"]["select"][n]))
+    }
+    table.append(thead);
+
+    for (var i=0; i<e['result'][$("#table").val() + ".Entry_ID"].length; i++){
+        var trow = $("<tr></tr>");
+        for (var n = 0; n<model_data["params"]["query"]["select"].length; n++){
+            trow.append($("<td></td>").html(e['result'][$("#table").val() + "." + model_data["params"]["query"]["select"][n]][i]));
+        }
+        table.append(trow);
+    }
+
+    $("#results").html("");
+    $("#results").append(table);
+   }
+});
+}
+
+</script>
+
+<h1>Form JSON submission</h1>
+<form id="frm">
+
+    <input type="hidden" name="id" value="1">
+    <input type="hidden" name="jsonrpc" value="2.0">
+    <input type="hidden" name="method" value="select">
+
+    <p>From: <input type="text" id="table" name="params[query][from]" value="Chem_comp_descriptor"></p>
+    <input type="hidden" name="params[query][select][0]" value="Entry_ID">
+    <p>Select: <input type="text" id="select" name="params[query][select][1]" value="Descriptor"></p>
+    <p><span contentEditable="True" onblur='$("#equals").attr("name","params[query][where]["+this.innerHTML+"]");'>Type</span>: <input id='equals' type="text" name="params[query][where][Type]" value="INCHI"></p>
+    <p><span contentEditable="True" onblur='$("#like").attr("name","params[query][where]["+this.innerHTML+"]");'>Descriptor</span>: <input id="like" type="text" name="params[query][where][Descriptor]" value="%1S%"></p>
+    <p>Search metabolomics? <input type="checkbox" checked value="metabolomics" name="params[database]"></p>
+    <p>Case insensitive? <input type="checkbox" checked value="lower" name="params[query][modifiers]"></p>
+    <button type="button" onclick="sendForm()">Send</button>
+</form>
+
+<div id="query"></div>
+<br>
+<div id="results"></div>
+
+</html>
