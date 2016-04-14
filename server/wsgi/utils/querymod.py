@@ -12,7 +12,7 @@ from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 import bmrb
 
 # Set up some variables
-redis_host = '144.92.167.172'
+redis_host = '127.0.0.1'
 psql_config = {'user':'web', 'host':'localhost'}
 debug = False
 logging.basicConfig()

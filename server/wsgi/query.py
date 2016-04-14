@@ -11,11 +11,11 @@ from jsonrpc import JSONRPCResponseManager, dispatcher
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 
 # Load bmrb by path
-sys.path.append("/share/wedell/files/python/")
-import bmrb
+from utils import bmrb
+from utils import jsonrpc
 
 # Set up some variables
-redis_host = '144.92.167.172'
+redis_host = '127.0.0.1'
 psql_config = {'user':'web', 'host':'localhost'}
 logging.basicConfig()
 debug = False

@@ -2,12 +2,10 @@
 
 import logging
 from werkzeug.wrappers import Request, Response
-from jsonrpc import JSONRPCResponseManager, dispatcher
+from utils.jsonrpc import JSONRPCResponseManager, dispatcher
 
 # Local
-import sys
-sys.path.append("/websites/webapi/wsgi/utils")
-import querymod
+from utils import querymod
 
 logging.basicConfig()
 
