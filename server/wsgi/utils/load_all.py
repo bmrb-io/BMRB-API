@@ -144,7 +144,7 @@ elif cmd_input[0] == "server":
 
     # Load the keys into REDIS
     for one_file in os.listdir(options.indir):
-        r.set(one_file, open(one_file, "r").read())
+        r.set(one_file, open(os.path.join(options.indir, one_file),  "r").read())
 
     # Save
     try:
