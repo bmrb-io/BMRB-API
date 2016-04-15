@@ -13,6 +13,8 @@ import bmrb
 
 # Set up some variables
 redis_host = '127.0.0.1'
+# You won't find this in the git :)
+redis_password = open("../configs/redis_password", "r").read()
 psql_config = {'user':'web', 'host':'localhost'}
 debug = False
 logging.basicConfig()
@@ -30,7 +32,7 @@ def get_valid_entries_from_REDIS(search_ids):
 
     # Connect to redis
     try:
-        r = redis.StrictRedis(host=redis_host)
+        r = redis.StrictRedis(host=redis_host, password=redis_password)
         all_ids = loads(r.get("loaded"))
     except redis.exceptions.ConnectionError:
         raise JSONException(-32603, 'Could not connect to database server.')
