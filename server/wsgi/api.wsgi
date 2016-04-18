@@ -4,6 +4,7 @@ import os
 import sys
 import logging
 logging.basicConfig()
+from werkzeug.wrappers import Request, Response
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
