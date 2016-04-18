@@ -17,7 +17,7 @@ def postIt(method, params):
     }
 
     request_counter += 1
-    r =  requests.post("http://webapi-master.bmrb.wisc.edu/query", json=request)
+    r =  requests.post("http://webapi.bmrb.wisc.edu/query/v1", json=request)
 
     try:
         print(r.json())
