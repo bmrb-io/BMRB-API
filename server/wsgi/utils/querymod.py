@@ -14,7 +14,7 @@ from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 import bmrb
 
 # Load the configuration file
-configuration = json.loads(open("../configs/api_configuration.json", "r").read())
+configuration = json.loads(open("../configs/api_config.json", "r").read())
 # Set up logging
 logging.basicConfig()
 
