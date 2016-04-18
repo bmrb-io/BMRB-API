@@ -1,0 +1,14 @@
+{
+    "redis": {
+        "sentinels": [
+            ["sentinel1_ip", port],
+            ["sentinel2_ip", port],
+            ["sentinel3_ip", port]],
+        "password": "redis_password_here"
+    },
+    "postgres": {
+        "user": "postgres_user",
+        "host": "hostname"
+    },
+    "debug": false
+}
