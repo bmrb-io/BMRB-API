@@ -1,22 +1,21 @@
 #!/usr/bin/python
 
 import sys
+import json
 import redis
 import logging
 import psycopg2
 from cPickle import loads
+from redis.sentinel import Sentinel
 from psycopg2.extensions import AsIs
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 
 # Load bmrb locally
 import bmrb
 
-# Set up some variables
-redis_host = '127.0.0.1'
-# You won't find this in the git :)
-redis_password = open("../configs/redis_password", "r").read()
-psql_config = {'user':'web', 'host':'localhost'}
-debug = False
+# Load the configuration file
+configuration = json.loads(open("../configs/api_configuration.json", "r").read())
+# Set up logging
 logging.basicConfig()
 
 # Helper method that yields only whatever valid IDs were loaded from REDIS
@@ -32,7 +31,10 @@ def get_valid_entries_from_REDIS(search_ids):
 
     # Connect to redis
     try:
-        r = redis.StrictRedis(host=redis_host, password=redis_password)
+        # Figure out where we should connect
+        sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
+        redis_host, redis_port = sentinel.discover_master('tarpon_master')
+        r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
         all_ids = loads(r.get("loaded"))
     except redis.exceptions.ConnectionError:
         raise JSONException(-32603, 'Could not connect to database server.')
@@ -128,8 +130,8 @@ def get_fields_by_fields(fetch_list, table, where_dict=None, database="bmrb",
                         modifiers=[], as_hash=True):
 
     # Errors connecting will be handled upstream
-    conn = psycopg2.connect(user=psql_config['user'],
-                                host=psql_config['host'], database=database)
+    conn = psycopg2.connect(user=configuration['postgres']['user'],
+                                host=configuration['postgres']['host'], database=database)
 
     cur = conn.cursor()
 
@@ -192,7 +194,7 @@ def get_fields_by_fields(fetch_list, table, where_dict=None, database="bmrb",
             for row in rows:
                 result[table + "." + search_field].append(row[s_index])
 
-    if debug:
+    if configuration['debug']:
         result['debug'] = cur.query
 
     return result
