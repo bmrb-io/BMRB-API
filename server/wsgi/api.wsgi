@@ -1,13 +1,19 @@
 #!/usr/bin/python
 
+import os
+import sys
 import logging
+logging.basicConfig()
 from werkzeug.wrappers import Request, Response
-from utils.jsonrpc import JSONRPCResponseManager, dispatcher
+
+# Set up paths for imports and such
+local_dir = os.path.dirname(__file__)
+os.chdir(local_dir)
+sys.path.append(local_dir)
 
 # Local
 from utils import querymod
-
-logging.basicConfig()
+from utils.jsonrpc import JSONRPCResponseManager, dispatcher
 
 @Request.application
 def application(request):
