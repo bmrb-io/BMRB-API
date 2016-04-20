@@ -89,7 +89,7 @@ while len(to_process) > 0:
     for proc in processes:
         if proc[0].poll():
             data = proc[0].recv()
-            if data:
+            if data and data != "ready":
                 loaded.append(data)
             proc[0].send(to_process.pop())
             break
