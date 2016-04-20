@@ -19,7 +19,7 @@ configuration = json.loads(open("../../../api_config.json", "r").read())
 logging.basicConfig()
 
 # Helper method that yields only whatever valid IDs were loaded from REDIS
-def get_valid_entries_from_REDIS(search_ids):
+def get_valid_entries_from_REDIS(search_ids, fetch_all=False):
 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
@@ -39,6 +39,12 @@ def get_valid_entries_from_REDIS(search_ids):
     except redis.exceptions.ConnectionError:
         raise JSONException(-32603, 'Could not connect to database server.')
 
+    # Return all the IDs
+    if fetch_all:
+        for each_entry in all_ids:
+            yield each_entry
+        return
+
     valid_ids = []
 
     # Figure out which IDs in the query exist in the database
@@ -55,6 +61,10 @@ def get_valid_entries_from_REDIS(search_ids):
             entry = loads(entry)
             if entry:
                 yield entry
+
+# Returns all valid entry IDS
+def list_entries(**kwargs):
+    return get_valid_entries_from_REDIS([], fetch_all=True)
 
 # Return the tags
 def get_tags(**kwargs):
@@ -126,7 +136,7 @@ def get_entries(**kwargs):
 def wrap_it_up(item):
     return AsIs('"' + item + '"')
 
-def get_fields_by_fields(fetch_list, table, where_dict=None, database="bmrb",
+def get_fields_by_fields(fetch_list, table, where_dict={}, database="bmrb",
                         modifiers=[], as_hash=True):
 
     # Errors connecting will be handled upstream
