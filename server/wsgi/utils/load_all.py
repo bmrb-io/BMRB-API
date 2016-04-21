@@ -28,8 +28,11 @@ for one_dir in os.listdir("/share/subedit/metabolomics/"):
 # Get the released entries from ETS
 conn = psycopg2.connect(user=configuration['ets']['user'], host=configuration['ets']['host'], database=configuration['ets']['database'])
 cur = conn.cursor()
+cur.execute("select bmrbnum from entrylog;")
+all_ids = [x[0] for x in cur.fetchall()]
 cur.execute("select bmrbnum from entrylog where status like 'rel%';")
 valid_ids = [x[0] for x in cur.fetchall()]
+
 
 # Load the normal data
 for entry_id in valid_ids:
@@ -116,10 +119,10 @@ for thread in xrange(0, num_threads):
         loaded.append(data)
 
 # Delete all entries that might have been withdrawn
-for x in range(0, 35000):
+for x in all_ids:
     if x not in valid_ids:
-        print("Deleting entry that is no longer valid: %d" % x)
-        r.delete(x)
+        if r.delete(x) == 1:
+            print("Deleting entry that is no longer valid: %d" % x)
 
 # Put a few more things in REDIS
 r.set("schema", cPickle.dumps(bmrb.schema()))
