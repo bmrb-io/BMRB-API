@@ -5,7 +5,7 @@ import requests
 debug = False
 request_counter = 1
 
-def postIt(method, params):
+def postIt(method, params={}):
 
     global request_counter
 
@@ -17,7 +17,7 @@ def postIt(method, params):
     }
 
     request_counter += 1
-    r =  requests.post("http://webapi.bmrb.wisc.edu/query/v1", json=request)
+    r = requests.post("http://webapi.bmrb.wisc.edu/current/query", json=request)
 
     try:
         print(r.json())
@@ -25,6 +25,9 @@ def postIt(method, params):
         print("You triggered an enhandled server error.")
 
     print()
+
+# Test the list entries function
+postIt("list_entries")
 
 # Get all the metabolomics entries that have at least one datum in the Chem_comp_descriptor field
 postIt("select",
