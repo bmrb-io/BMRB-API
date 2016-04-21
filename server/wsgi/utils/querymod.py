@@ -5,7 +5,7 @@ import json
 import redis
 import logging
 import psycopg2
-from cPickle import loads
+from cPickle import loads, dumps
 from redis.sentinel import Sentinel
 from psycopg2.extensions import AsIs
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
@@ -18,8 +18,23 @@ configuration = json.loads(open("../../../api_config.json", "r").read())
 # Set up logging
 logging.basicConfig()
 
+# Method to connect to REDIS and load the valid IDS
+def get_REDIS_connection():
+    # Connect to redis
+    try:
+        # Figure out where we should connect
+        sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
+        redis_host, redis_port = sentinel.discover_master('tarpon_master')
+        r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
+        if loads(r.get("ready")) is False:
+            logging.warning("Serviced request during update.")
+    except redis.exceptions.ConnectionError:
+        raise JSONException(-32603, 'Could not connect to database server.')
+
+    return r
+
 # Helper method that yields only whatever valid IDs were loaded from REDIS
-def get_valid_entries_from_REDIS(search_ids, fetch_all=False):
+def get_valid_entries_from_REDIS(search_ids):
 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
@@ -29,21 +44,9 @@ def get_valid_entries_from_REDIS(search_ids, fetch_all=False):
     if len(search_ids) > 500:
         raise JSONException(-32602, 'Too many IDs queried. Please query 500 or fewer entries at a time. You attempted to query %d IDs.' % len(search_ids))
 
-    # Connect to redis
-    try:
-        # Figure out where we should connect
-        sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
-        redis_host, redis_port = sentinel.discover_master('tarpon_master')
-        r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
-        all_ids = loads(r.get("loaded"))
-    except redis.exceptions.ConnectionError:
-        raise JSONException(-32603, 'Could not connect to database server.')
-
-    # Return all the IDs
-    if fetch_all:
-        for each_entry in all_ids:
-            yield each_entry
-        return
+    # Get the connection to REDIS
+    r = get_REDIS_connection()
+    all_ids = loads(r.get("loaded"))
 
     valid_ids = []
 
@@ -62,9 +65,13 @@ def get_valid_entries_from_REDIS(search_ids, fetch_all=False):
             if entry:
                 yield entry
 
-# Returns all valid entry IDS
+# Returns all valid entry IDs
 def list_entries(**kwargs):
-    return get_valid_entries_from_REDIS([], fetch_all=True)
+    return loads(get_REDIS_connection().get("loaded"))
+
+# Get one unpickled entry
+def get_pickled_entry(entry_id):
+    return get_REDIS_connection().get(entry_id)
 
 # Return the tags
 def get_tags(**kwargs):

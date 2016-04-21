@@ -5,7 +5,7 @@ import json
 import time
 import redis
 import cPickle
-
+import psycopg2
 from utils import bmrb
 from redis.sentinel import Sentinel
 from multiprocessing import Pipe, cpu_count
@@ -25,9 +25,15 @@ print("Found REDIS host: %s" % redis_host)
 for one_dir in os.listdir("/share/subedit/metabolomics/"):
     to_process.append([str(one_dir), os.path.join("/share/subedit/metabolomics/", one_dir, one_dir + ".str")])
 
+# Get the released entries from ETS
+conn = psycopg2.connect(user=configuration['ets']['user'], host=configuration['ets']['host'], database=configuration['ets']['database'])
+cur = conn.cursor()
+cur.execute("select bmrbnum from entrylog where status like 'rel%';")
+valid_ids = [x[0] for x in cur.fetchall()]
+
 # Load the normal data
-for x in xrange(0,35000):
-    to_process.append([str(x), "/share/subedit/entries/bmr%d/clean/bmr%d_3.str" % (x,x)])
+for entry_id in valid_ids:
+    to_process.append([str(entry_id), "/share/subedit/entries/bmr%d/clean/bmr%d_3.str" % (entry_id, entry_id)])
 
 def one_entry(entry_name, entry_location, r):
     """ Load an entry and add it to REDIS """
@@ -41,9 +47,13 @@ def one_entry(entry_name, entry_location, r):
         ent = None
         print("On %s: error: %s" % (entry_name, str(e)))
 
-    r.set(entry_name, cPickle.dumps(ent))
+    r.set(entry_name, cPickle.dumps(ent, cPickle.HIGHEST_PROTOCOL))
     if ent:
         return entry_name
+
+# Since we are about to start, tell REDIS it is being updated
+r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
+r.set("ready", cPickle.dumps(False))
 
 processes = []
 num_threads = cpu_count()
@@ -105,14 +115,13 @@ for thread in xrange(0, num_threads):
     if data:
         loaded.append(data)
 
-# Put a few more things in REDIS
-r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
-r.set("schema", cPickle.dumps(bmrb.schema()))
-r.set("loaded", cPickle.dumps(loaded))
+# Delete all entries that might have been withdrawn
+for x in range(0, 35000):
+    if x not in valid_ids:
+        print("Deleting entry that is no longer valid: %d" % x)
+        r.delete(x)
 
-try:
-    r.save()
-except redis.exceptions.ResponseError:
-    print("REDIS was already saving. Waiting and trying again.")
-    time.sleep(120)
-    r.save()
+# Put a few more things in REDIS
+r.set("schema", cPickle.dumps(bmrb.schema()))
+r.set("loaded", cPickle.dumps(sorted(loaded)))
+r.set("ready", cPickle.dumps(True))
