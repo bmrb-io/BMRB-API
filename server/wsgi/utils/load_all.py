@@ -42,6 +42,15 @@ def one_entry(entry_name, entry_location, r):
     """ Load an entry and add it to REDIS """
     try:
         ent = bmrb.entry.fromFile(entry_location)
+
+        # Update the entry source
+        ent_source = "fromDatabase(%s)" % entry_name
+        ent.source = ent_source
+        for saveframe in ent:
+            saveframe.source = ent_source
+            for loop in saveframe:
+                loop.source = ent_source
+
         print("On %s: loaded." % entry_name)
     except IOError as e:
         ent = None
