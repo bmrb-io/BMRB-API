@@ -45,7 +45,7 @@ def application(request):
             if request_params[0] == "chemical_shifts":
                 wd = {}
                 if len(request_params) > 1:
-                    wd = {'Atom_ID':request_params[1]}
+                    wd = {'Atom_ID':request_params[1].replace("*", "%")}
                 message = querymod.get_fields_by_fields(["Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"], "Atom_chem_shift", as_hash=False, where_dict=wd)
             elif request_params[0] == "loop":
                 message = querymod.get_loops(ids=request_params[1], keys=request_params[2:])
@@ -53,7 +53,7 @@ def application(request):
                 message = querymod.get_entries(ids=request_params[1])
             elif request_params[0] == "raw_entry":
                 if not request.is_secure:
-                    message = {"error": "Entry pickles can only be served over HTTPS for securit."}
+                    message = {"error": "Entry pickles can only be served over HTTPS. Please go to: %s" % request.url.replace("http:", "https:")}
                 else:
                     entry = querymod.get_pickled_entry(request_params[1])
                     # Need this or raw entries will get stuck as JSON
