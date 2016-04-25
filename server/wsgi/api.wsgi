@@ -26,7 +26,7 @@ def application(request):
         if not request.path.endswith("/"):
             request.path += "/"
         request_params = request.path[6:].split("/")
-        while request_params[-1] == "":
+        while len(request_params) > 0 and request_params[-1] == "":
             request_params.pop()
 
         # Make sure there is a method
@@ -37,23 +37,27 @@ def application(request):
         elif len(request_params) == 1:
             if request_params[0] == "list_entries":
                 message =  querymod.list_entries()
-            elif request_params[0] == "chemical_shifts":
-                message = querymod.get_fields_by_fields(["Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"], "Atom_chem_shift", as_hash=False)
             else:
                 message = {"error": "Unknown method specified!"}
 
         # Process requests that require an entry
         else:
-            if len(request_params) == 1:
-                message = "No entry specified."
+            if request_params[0] == "chemical_shifts":
+                wd = {}
+                if len(request_params) > 1:
+                    wd = {'Atom_ID':request_params[1]}
+                message = querymod.get_fields_by_fields(["Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"], "Atom_chem_shift", as_hash=False, where_dict=wd)
             elif request_params[0] == "loop":
                 message = querymod.get_loops(ids=request_params[1], keys=request_params[2:])
             elif request_params[0] == "entry":
                 message = querymod.get_entries(ids=request_params[1])
             elif request_params[0] == "raw_entry":
-                # Need this or raw entries will get stuck as JSON
-                entry = querymod.get_pickled_entry(request_params[1])
-                return Response(entry, mimetype='application/octet-stream')
+                if not request.is_secure:
+                    message = {"error": "Entry pickles can only be served over HTTPS for securit."}
+                else:
+                    entry = querymod.get_pickled_entry(request_params[1])
+                    # Need this or raw entries will get stuck as JSON
+                    return Response(entry, mimetype='application/octet-stream')
             elif request_params[0] == "saveframe":
                 message = querymod.get_saveframes(ids=request_params[1], keys=request_params[2:])
             elif request_params[0] == "tag":
