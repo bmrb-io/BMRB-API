@@ -34,12 +34,7 @@ def no_params():
 def list_entries(entry_type=None):
     """ Return a list of all valid BMRB entries."""
 
-    entries = querymod.list_entries()
-    if entry_type == "metabolomics":
-        entries = [x for x in entries if x.startswith("bm")]
-    elif entry_type == "macromolecule":
-        entries = [x for x in entries if not x.startswith("bm")]
-
+    entries = querymod.list_entries(database=entry_type)
     return return_json(entries)
 
 @application.route('/debug')
@@ -48,6 +43,7 @@ def debug():
     debug_str += "<br>URL: " + str(request.url)
     debug_str += "<br>Method: " + str(request.method)
     debug_str += "<br>Viewing from: " + str(request.remote_addr)
+    debug_str += "<br>Avail: %s" % dir(request)
     return debug_str
 
 @application.route('/chemical_shifts/')
@@ -63,7 +59,7 @@ def chemical_shifts(atom_type=None):
     chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID", "Atom_ID", "Atom_type", "Val", "Val_err", "Ambiguity_code", "Assigned_chem_shift_list_ID"]
     return return_json(querymod.get_fields_by_fields(chem_shift_fields, "Atom_chem_shift", as_hash=False, where_dict=wd))
 
-@application.route('/entry/<entry_id>')
+@application.route('/entry/<entry_id>/')
 def get_entry(entry_id):
     """ Returns an entry in JSON format."""
     return return_json(querymod.get_raw_entry(entry_id), encode=False)

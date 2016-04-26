@@ -59,15 +59,16 @@ def get_valid_entries_from_REDIS(search_ids, raw=False):
     for entry_id in valid_ids:
 
         # See if it is in REDIS
-        entry_json = r.get(zlib.decompress(entry_id))
+        entry_json = r.get(entry_id)
         if entry_json:
+            entry_json = zlib.decompress(entry_json)
 
             # If they just want the JSON dictionary
             if raw:
                 yield json.loads(entry_json)
             else:
                 try:
-                    yield bmrb.entry.fromJSON(json.loads(entry))
+                    yield bmrb.entry.fromJSON(json.loads(entry_json))
                 except ValueError:
                     pass
 
@@ -80,11 +81,21 @@ def get_raw_entry(entry_id):
     if entry is None:
         return json.dumps({"error": "No such entry: %s" % entry_id})
     else:
-        return zlib.decompress(entry)
+        return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
 
 # Returns all valid entry IDs
 def list_entries(**kwargs):
-    return get_REDIS_connection().lrange("loaded", 0, -1)
+
+    entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
+
+    db = kwargs.get("database", None)
+    if db:
+        if db == "metabolomics":
+            entry_list = [x for x in entry_list if x.startswith("bm")]
+        if db == "macromolecule":
+            entry_list = [x for x in entry_list if not x.startswith("bm")]
+
+    return entry_list
 
 # Return the tags
 def get_tags(**kwargs):
