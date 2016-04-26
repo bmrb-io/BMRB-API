@@ -3,8 +3,8 @@
 import os
 import json
 import time
+import zlib
 import redis
-import cPickle
 import psycopg2
 from utils import bmrb
 from redis.sentinel import Sentinel
@@ -43,14 +43,6 @@ def one_entry(entry_name, entry_location, r):
     try:
         ent = bmrb.entry.fromFile(entry_location)
 
-        # Update the entry source
-        ent_source = "fromDatabase(%s)" % entry_name
-        ent.source = ent_source
-        for saveframe in ent:
-            saveframe.source = ent_source
-            for loop in saveframe:
-                loop.source = ent_source
-
         print("On %s: loaded." % entry_name)
     except IOError as e:
         ent = None
@@ -59,13 +51,13 @@ def one_entry(entry_name, entry_location, r):
         ent = None
         print("On %s: error: %s" % (entry_name, str(e)))
 
-    r.set(entry_name, cPickle.dumps(ent, cPickle.HIGHEST_PROTOCOL))
-    if ent:
+    if ent != None:
+        r.set(entry_name, zlib.compress(json.dumps(ent.getJSON())))
         return entry_name
 
 # Since we are about to start, tell REDIS it is being updated
 r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
-r.set("ready", cPickle.dumps(False))
+r.set("ready", 0)
 
 processes = []
 num_threads = cpu_count()
@@ -134,6 +126,14 @@ for x in all_ids:
             print("Deleting entry that is no longer valid: %d" % x)
 
 # Put a few more things in REDIS
-r.set("schema", cPickle.dumps(bmrb.schema()))
-r.set("loaded", cPickle.dumps(sorted(loaded)))
-r.set("ready", cPickle.dumps(True))
+
+# Use a REDIS list so other applications can read the list of entries
+for x in sorted(loaded):
+    r.rpush("loading", x)
+r.rename("loading", "loaded")
+
+# Set the time
+r.set("update_time", time.time())
+
+# Set the ready state
+r.set("ready", 1)

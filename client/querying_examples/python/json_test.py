@@ -9,6 +9,9 @@ def postIt(method, params={}):
 
     global request_counter
 
+    print("Calling method: %s" % method)
+    print("Args: %s\n" % params)
+
     request = {
         "method": method,
         "jsonrpc": "2.0",
@@ -17,17 +20,22 @@ def postIt(method, params={}):
     }
 
     request_counter += 1
-    r = requests.post("http://webapi.bmrb.wisc.edu/current/query", json=request)
+    r = requests.post("http://webapi.bmrb.wisc.edu/current/jsonrpc", json=request)
 
     try:
         print(r.json())
-    except ValueError:
-        print("You triggered an enhandled server error.")
+    except ValueError as e:
+        print("You triggered an enhandled server error: " + repr(e))
+        print("Response:\n" + r.text)
 
-    print()
+    print("\n\n")
 
 # Test the list entries function
-postIt("list_entries")
+postIt("list_entries",
+    {
+        "database": "metabolomics",
+    }
+)
 
 # Get all the metabolomics entries that have at least one datum in the Chem_comp_descriptor field
 postIt("select",

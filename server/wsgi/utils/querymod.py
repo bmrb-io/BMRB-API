@@ -2,10 +2,10 @@
 
 import sys
 import json
+import zlib
 import redis
 import logging
 import psycopg2
-from cPickle import loads, dumps
 from redis.sentinel import Sentinel
 from psycopg2.extensions import AsIs
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
@@ -26,7 +26,7 @@ def get_REDIS_connection():
         sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
         redis_host, redis_port = sentinel.discover_master('tarpon_master')
         r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
-        if loads(r.get("ready")) is False:
+        if not int(r.get("ready")):
             logging.warning("Serviced request during update.")
     except redis.exceptions.ConnectionError:
         raise JSONException(-32603, 'Could not connect to database server.')
@@ -34,7 +34,7 @@ def get_REDIS_connection():
     return r
 
 # Helper method that yields only whatever valid IDs were loaded from REDIS
-def get_valid_entries_from_REDIS(search_ids):
+def get_valid_entries_from_REDIS(search_ids, raw=False):
 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
@@ -46,7 +46,7 @@ def get_valid_entries_from_REDIS(search_ids):
 
     # Get the connection to REDIS
     r = get_REDIS_connection()
-    all_ids = loads(r.get("loaded"))
+    all_ids = r.lrange("loaded", 0, -1)
 
     valid_ids = []
 
@@ -59,19 +59,43 @@ def get_valid_entries_from_REDIS(search_ids):
     for entry_id in valid_ids:
 
         # See if it is in REDIS
-        entry = r.get(entry_id)
-        if entry:
-            entry = loads(entry)
-            if entry:
-                yield entry
+        entry_json = r.get(entry_id)
+        if entry_json:
+            entry_json = zlib.decompress(entry_json)
+
+            # If they just want the JSON dictionary
+            if raw:
+                yield json.loads(entry_json)
+            else:
+                try:
+                    yield bmrb.entry.fromJSON(json.loads(entry_json))
+                except ValueError:
+                    pass
+
+# Get one serialized entry
+def get_raw_entry(entry_id):
+
+    entry = get_REDIS_connection().get(entry_id)
+
+    # See if the entry is in the database
+    if entry is None:
+        return json.dumps({"error": "No such entry: %s" % entry_id})
+    else:
+        return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
 
 # Returns all valid entry IDs
 def list_entries(**kwargs):
-    return loads(get_REDIS_connection().get("loaded"))
 
-# Get one unpickled entry
-def get_pickled_entry(entry_id):
-    return get_REDIS_connection().get(entry_id)
+    entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
+
+    db = kwargs.get("database", None)
+    if db:
+        if db == "metabolomics":
+            entry_list = [x for x in entry_list if x.startswith("bm")]
+        if db == "macromolecule":
+            entry_list = [x for x in entry_list if not x.startswith("bm")]
+
+    return entry_list
 
 # Return the tags
 def get_tags(**kwargs):
@@ -131,11 +155,9 @@ def get_entries(**kwargs):
     result = {}
 
     # Go through the IDs
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
-        if kwargs.get('raw', False):
-            result[entry.bmrb_id] = str(entry)
-        else:
-            result[entry.bmrb_id] = entry.getJSON()
+    raw = kwargs.get('raw', False)
+    for entry in get_valid_entries_from_REDIS(kwargs['ids'], raw=raw):
+        result[entry.bmrb_id] = entry.getJSON()
 
     return result
 

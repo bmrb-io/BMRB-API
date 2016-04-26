@@ -1,9 +1,9 @@
 <html>
 
 <head>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
     <script src="javascript/jquery_serialize.js"></script>
-    <link rel="stylesheet" type="text/css" href="http://www.bmrb.wisc.edu/stylesheets/blue_white.css">
+    <link rel="stylesheet" type="text/css" href="//www.bmrb.wisc.edu/stylesheets/blue_white.css">
     <title>Form JSON submission</title>
 </head>
 
@@ -14,7 +14,7 @@ model_data = $("#frm").serializeObject();
 $("#query").html(JSON.stringify(model_data));
 
 $.ajax({
-url: 'query',
+url: 'jsonrpc',
 type: 'POST',
 contentType: 'application/json',
 data: JSON.stringify(model_data),
