@@ -3,8 +3,8 @@
 import os
 import json
 import time
+import zlib
 import redis
-import cPickle
 import psycopg2
 from utils import bmrb
 from redis.sentinel import Sentinel
@@ -43,14 +43,6 @@ def one_entry(entry_name, entry_location, r):
     try:
         ent = bmrb.entry.fromFile(entry_location)
 
-        # Update the entry source
-        ent_source = "fromDatabase(%s)" % entry_name
-        ent.source = ent_source
-        for saveframe in ent:
-            saveframe.source = ent_source
-            for loop in saveframe:
-                loop.source = ent_source
-
         print("On %s: loaded." % entry_name)
     except IOError as e:
         ent = None
@@ -60,9 +52,7 @@ def one_entry(entry_name, entry_location, r):
         print("On %s: error: %s" % (entry_name, str(e)))
 
     if ent != None:
-        r.set(entry_name + "_json", ent.getJSON())
-        r.set(entry_name, cPickle.dumps(ent, cPickle.HIGHEST_PROTOCOL))
-    if ent:
+        r.set(entry_name, zlib.compress(json.dumps(ent.getJSON())))
         return entry_name
 
 # Since we are about to start, tell REDIS it is being updated
@@ -136,7 +126,6 @@ for x in all_ids:
             print("Deleting entry that is no longer valid: %d" % x)
 
 # Put a few more things in REDIS
-#r.set("schema", cPickle.dumps(bmrb.schema()))
 
 # Use a REDIS list so other applications can read the list of entries
 for x in sorted(loaded):

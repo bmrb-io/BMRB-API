@@ -18,9 +18,11 @@ from utils.jsonrpc import JSONRPCResponseManager, dispatcher
 from flask import Flask, request, Response
 application = Flask(__name__)
 
-def return_json(unserialized_obj):
-    return Response(response=json.dumps(unserialized_obj),
-                    mimetype="application/json")
+def return_json(obj, encode=True):
+    if encode:
+        return Response(response=json.dumps(obj), mimetype="application/json")
+    else:
+        return Response(response=obj, mimetype="application/json")
 
 @application.route('/')
 def no_params():
@@ -61,34 +63,20 @@ def chemical_shifts(atom_type=None):
     chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID", "Atom_ID", "Atom_type", "Val", "Val_err", "Ambiguity_code", "Assigned_chem_shift_list_ID"]
     return return_json(querymod.get_fields_by_fields(chem_shift_fields, "Atom_chem_shift", as_hash=False, where_dict=wd))
 
-@application.route('/pickled_entry/<entry_id>')
-def pickled_entry(entry_id):
-
-    if not request.is_secure:
-        return return_json({"error": "Entry pickles can only be served over HTTPS. Please go to: %s" % request.url.replace("http:", "https:")})
-    else:
-        # Return raw entries as octet streams
-        entry = querymod.get_pickled_entry(entry_id)
-        return Response(entry, mimetype='application/octet-stream')
-
-@application.route('/json_entry/<entry_id>')
-def json_entry(entry_id):
-    return return_json(querymod.get_json_entry(entry_id))
-
 @application.route('/entry/<entry_id>')
 def get_entry(entry_id):
     """ Returns an entry in JSON format."""
-    return return_json(querymod.get_entries(ids=entry_id))
+    return return_json(querymod.get_raw_entry(entry_id), encode=False)
 
-@application.route('/saveframe/<entry_id>/<saveframe_name>')
-def get_saveframe(entry_id, saveframe_name):
+@application.route('/saveframe/<entry_id>/<saveframe_category>')
+def get_saveframe(entry_id, saveframe_category):
     """ Returns a saveframe in JSON format."""
-    return return_json(querymod.get_saveframes(ids=entry_id, keys=saveframe_name))
+    return return_json(querymod.get_saveframes(ids=entry_id, keys=saveframe_category))
 
-@application.route('/loop/<entry_id>/<loop_name>')
-def get_loop(entry_id, loop_name):
+@application.route('/loop/<entry_id>/<loop_category>')
+def get_loop(entry_id, loop_category):
     """ Returns a loop in JSON format."""
-    return return_json(querymod.get_loops(ids=entry_id, keys=loop_name))
+    return return_json(querymod.get_loops(ids=entry_id, keys=loop_category))
 
 @application.route('/tag/<entry_id>/<tag_name>')
 def get_tag(entry_id, tag_name):
