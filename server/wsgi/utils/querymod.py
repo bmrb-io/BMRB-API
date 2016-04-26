@@ -73,6 +73,10 @@ def list_entries(**kwargs):
 def get_pickled_entry(entry_id):
     return get_REDIS_connection().get(entry_id)
 
+# Get one unpickled entry
+def get_json_entry(entry_id):
+    return get_REDIS_connection().get(entry_id + "_json")
+
 # Return the tags
 def get_tags(**kwargs):
 

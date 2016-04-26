@@ -59,7 +59,9 @@ def one_entry(entry_name, entry_location, r):
         ent = None
         print("On %s: error: %s" % (entry_name, str(e)))
 
-    r.set(entry_name, cPickle.dumps(ent, cPickle.HIGHEST_PROTOCOL))
+    if ent != None:
+        r.set(entry_name + "_json", ent.getJSON())
+        r.set(entry_name, cPickle.dumps(ent, cPickle.HIGHEST_PROTOCOL))
     if ent:
         return entry_name
 
@@ -134,7 +136,7 @@ for x in all_ids:
             print("Deleting entry that is no longer valid: %d" % x)
 
 # Put a few more things in REDIS
-r.set("schema", cPickle.dumps(bmrb.schema()))
+#r.set("schema", cPickle.dumps(bmrb.schema()))
 
 # Use a REDIS list so other applications can read the list of entries
 for x in sorted(loaded):

@@ -45,6 +45,7 @@ def debug():
     debug_str = "Secure: " + str(request.is_secure)
     debug_str += "<br>URL: " + str(request.url)
     debug_str += "<br>Method: " + str(request.method)
+    debug_str += "<br>Viewing from: " + str(request.remote_addr)
     return debug_str
 
 @application.route('/chemical_shifts/')
@@ -70,6 +71,9 @@ def pickled_entry(entry_id):
         entry = querymod.get_pickled_entry(entry_id)
         return Response(entry, mimetype='application/octet-stream')
 
+@application.route('/json_entry/<entry_id>')
+def json_entry(entry_id):
+    return return_json(querymod.get_json_entry(entry_id))
 
 @application.route('/entry/<entry_id>')
 def get_entry(entry_id):
