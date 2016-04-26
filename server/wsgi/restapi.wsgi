@@ -28,9 +28,17 @@ def no_params():
     return "No method specified!"
 
 @application.route('/list_entries/')
-def list_entries():
+@application.route('/list_entries/<entry_type>')
+def list_entries(entry_type=None):
     """ Return a list of all valid BMRB entries."""
-    return return_json(querymod.list_entries())
+
+    entries = querymod.list_entries()
+    if entry_type == "metabolomics":
+        entries = [x for x in entries if x.startswith("bm")]
+    elif entry_type == "macromolecule":
+        entries = [x for x in entries if not x.startswith("bm")]
+
+    return return_json(entries)
 
 @application.route('/debug')
 def debug():

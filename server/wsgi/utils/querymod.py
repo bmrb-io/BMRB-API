@@ -26,7 +26,7 @@ def get_REDIS_connection():
         sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
         redis_host, redis_port = sentinel.discover_master('tarpon_master')
         r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
-        if loads(r.get("ready")) is False:
+        if not int(r.get("ready")):
             logging.warning("Serviced request during update.")
     except redis.exceptions.ConnectionError:
         raise JSONException(-32603, 'Could not connect to database server.')
@@ -46,7 +46,7 @@ def get_valid_entries_from_REDIS(search_ids):
 
     # Get the connection to REDIS
     r = get_REDIS_connection()
-    all_ids = loads(r.get("loaded"))
+    all_ids = r.lrange("loaded", 0, -1)
 
     valid_ids = []
 
@@ -67,7 +67,7 @@ def get_valid_entries_from_REDIS(search_ids):
 
 # Returns all valid entry IDs
 def list_entries(**kwargs):
-    return loads(get_REDIS_connection().get("loaded"))
+    return get_REDIS_connection().lrange("loaded", 0, -1)
 
 # Get one unpickled entry
 def get_pickled_entry(entry_id):

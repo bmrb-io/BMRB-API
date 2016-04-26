@@ -65,7 +65,7 @@ def one_entry(entry_name, entry_location, r):
 
 # Since we are about to start, tell REDIS it is being updated
 r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
-r.set("ready", cPickle.dumps(False))
+r.set("ready", 0)
 
 processes = []
 num_threads = cpu_count()
@@ -135,5 +135,14 @@ for x in all_ids:
 
 # Put a few more things in REDIS
 r.set("schema", cPickle.dumps(bmrb.schema()))
-r.set("loaded", cPickle.dumps(sorted(loaded)))
-r.set("ready", cPickle.dumps(True))
+
+# Use a REDIS list so other applications can read the list of entries
+for x in sorted(loaded):
+    r.rpush("loading", x)
+r.rename("loading", "loaded")
+
+# Set the time
+r.set("update_time", time.time())
+
+# Set the ready state
+r.set("ready", 1)
