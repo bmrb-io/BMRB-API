@@ -14,7 +14,8 @@ loaded = []
 to_process = []
 
 # Load the configuration file
-configuration = json.loads(open("api_config.json", "r").read())
+cpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "api_config.json")
+configuration = json.loads(open(cpath, "r").read())
 
 # Figure out which REDIS to connect to
 sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
