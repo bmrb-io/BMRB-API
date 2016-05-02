@@ -25,7 +25,7 @@ def get_REDIS_connection():
         # Figure out where we should connect
         sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
         redis_host, redis_port = sentinel.discover_master('tarpon_master')
-        r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
+        r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'], db=configuration['redis']['db'])
         if not int(r.get("ready")):
             logging.warning("Serviced request during update.")
     except redis.exceptions.ConnectionError:
