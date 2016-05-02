@@ -1,6 +1,6 @@
 #!/bin/sh
 
-yum install redis python-redis python-psycopg2 python-flask
+yum install redis python-redis python-psycopg2 python-flask mod-evasive
 
 # Configure redis installation
 systemctl enable redis
