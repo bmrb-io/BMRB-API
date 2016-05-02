@@ -10,5 +10,10 @@
         "user": "postgres_user",
         "host": "postgres_host"
     },
+    "ets": {
+        "user": "ets_user",
+        "database": "ets_db",
+        "host": "ets_host"
+    },
     "debug": false
 }
