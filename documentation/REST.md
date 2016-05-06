@@ -17,18 +17,20 @@ at the end will only return the entries of that type.
 
 #### /entry/$ENTRY_ID
 
-Returns the given BMRB entry.
+Returns the given BMRB entry in [JSON format](documentation/ENTRY.md#entry).
 [Here](http://webapi.bmrb.wisc.edu/current/rest/entry/15000/) is an example.
 
 #### /saveframe/$ENTRY_ID/$SAVEFRAME_CATEGORY
 
-Returns all saveframes of the given category for an entry.
+Returns all saveframes of the given category for an entry in
+[JSON format](documentation/ENTRY.md#saveframe).
 [Here](http://webapi.bmrb.wisc.edu/current/rest/saveframe/15000/assigned_chemical_shifts)
 is an example.
 
 #### /loop/$ENTRY_ID/$LOOP_CATEGORY
 
-Returns all loops of a given category for a given entry.
+Returns all loops of a given category for a given entry in
+[JSON format](documentation/ENTRY.md#loop)
 [Here](http://webapi.bmrb.wisc.edu/current/rest/loop/15000/_Sample_condition_variable)
 is an example.
 

@@ -50,12 +50,14 @@ individual methods below.
 
 #### list_entries
 
-This query returns a list of all of the valid BMRB entry IDs. There is an
-optional parameter - `database` whose value should either be `metabolomics` or
+This query returns a list of all of the valid BMRB entry IDs.
+
+Optional parameters:
+* `database` - A string whose value should either be `metabolomics` or
 `macromolecule`. If the `database` paramater is supplied than only entries of
 the given type will be returned.
 
-An example query:
+Example query (returns a list with all valid macromolecule BMRB IDs):
 
 ```json
 {
@@ -66,25 +68,328 @@ An example query:
 }
 ```
 
-An example response:
+Example response:
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": ["bmse000001", "bmse000002", "bmse000003", ...],
+    'jsonrpc': '2.0',
+    'id': 1,
+    'result': ['bmse000001', 'bmse000002', 'bmse000003', '...'],
 }
 ```
 
 #### entry
 
-This query returns the BMRB entry in JSON format.
+This query returns the queried BMRB entr(y|ies) in JSON format. Unlike the REST
+API, you may query up to 500 entries simultaneously.
 
+Mandatory parameters:
+* `ids`: A list of BMRB IDs to return.
 
+Optional parameters:
+* `raw`: A boolean value that defaults to False. If set to True then the BMRB
+entries are returned in NMR-STAR format rather than JSON format.
 
+Example query (returns the full BMRB entries 15000 and 16000):
 
+```json
+{
+    "method": "entry",
+    "jsonrpc": "2.0",
+    "params": {
+        "raw": False,
+        "ids": [15000, 16000]
+    },
+    "id": 1
+}
+```
 
+Example response:
 
+```json
+{
+    'jsonrpc': '2.0',
+    'id': 1,
+    'result': {
+        "15000":{}
+        "16000":{}
+    },
+}
+```
 
+Note that in the above example the `{}`s will actually contain the BMRB entries
+in JSON format. For more information on BMRB entry JSON format, please see the
+[dedicated page](documentation/ENTRY.md).
 
-{'database': 'metabolomics', 'query': {'where': {'Descriptor': '%1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1%'}, 'select': '*', 'hash': False, 'from': 'Chem_comp_descriptor'}}
+#### saveframe
+
+This query returns the queried BMRB saveframe(s) in
+[JSON format](documentation/ENTRY.md#saveframe). Unlike the REST
+API, you may query an unlimited number of saveframes from up to 500 entries
+simultaneously.
+
+Mandatory parameters:
+* `ids`: A list of BMRB IDs to search for the specified saveframes.
+* `keys`: A list of the saveframes you want returned from each of the specified
+entries.
+
+Optional parameters:
+* `raw`: A boolean value that defaults to False. If set to True then the BMRB
+saveframes are returned in NMR-STAR format rather than JSON format.
+
+Example query (returns all saveframes of category "sample_conditions" from the
+BMRB entries 15000 and 16000):
+
+```json
+{
+    "method": "saveframe",
+    "jsonrpc": "2.0",
+    "params": {
+        "ids": [15000, 16000],
+        "keys": ["sample_conditions"]
+    },
+    "id": 1
+}
+```
+
+Example response:
+
+```json
+{
+    'jsonrpc': '2.0',
+    'id': 1,
+    'result': {
+        'jsonrpc': '2.0',
+        'result': {
+            '15010': {
+                'sample_conditions': [{},{}]
+            },
+            '15000': {
+                'sample_conditions': [{}, {}]
+            }
+        }
+    }
+}
+```
+
+Note that in the above example the `{}`s will actually contain the saveframes in
+JSON format.
+
+#### loop
+
+This query returns the queried BMRB loop(s) in JSON format. Unlike the REST
+API, you may query an unlimited number of loops from up to 500 entries
+simultaneously.
+
+Mandatory parameters:
+* `ids`: A list of BMRB IDs to search for the specified loops.
+* `keys`: A list of the loops you want returned from each of the specified
+entries.
+
+Optional parameters:
+* `raw`: A boolean value that defaults to False. If set to True then the BMRB
+loops are returned in NMR-STAR format rather than JSON format.
+
+Example query (returns all loops of category "Vendor" from the BMRB entries
+15000 and 16000):
+
+```json
+{
+    "method": "loop",
+    "jsonrpc": "2.0",
+    "params": {
+        "ids": [15000, 16000],
+        "keys": ["_Vendor"]
+    },
+    "id": 1
+}
+```
+
+Example response:
+
+```json
+{
+    'jsonrpc': '2.0',
+    'id': 1,
+    'result': {
+        'jsonrpc': '2.0',
+        'result': {
+            '15010': {
+                '_Vendor': [{},{}]
+            },
+            '15000': {
+                '_Vendor': [{}, {}]
+            }
+        }
+    }
+}
+```
+
+Note that in the above example the `{}`s will actually contain the loops in
+JSON format.
+
+#### tag
+
+Returns all specified tags for all the specified entries.
+
+Mandatory parameters:
+* `ids`: A list of BMRB IDs to search for the specified tags.
+* `keys`: A list of the tags you want returned from each of the specified
+entries. You must specify the full tag - for example, `_Entry.Title` is valid,
+but `Title` is not because the server will not know which saveframe to look for
+the tag in. Note that capitalization is not important but the key in the results
+sent back to you will use the same capitalization that you used in the request.
+
+Example query (returns the entry title for entries 15000 and 16000):
+
+```json
+{
+    "method": "tag",
+    "jsonrpc": "2.0",
+    "params": {
+        "ids": [15000, 16000],
+        "keys": ["_Entry.Title"]
+    },
+    "id": 1
+}
+```
+
+Example response:
+
+```json
+{
+    'jsonrpc': '2.0',
+    'result': {
+        '16000': {
+            '_Entry.Title': ['Solution structure of the nucleocapsid-binding domain of the measles virus phosphoprotein\n']
+        },
+        '15000': {
+            '_Entry.Title': ['Solution structure of chicken villin headpiece subdomain containing a fluorinated side chain in the core\n']
+        }
+    },
+    'id': 1
+}
+```
+
+#### select
+
+This query allows you to perform a SELECT query against the BMRB relational
+database with an arbitrary number of selectors. It allows you to get any number
+of tags from a given saveframe type, or any number of tags from a given loop
+type - with optional filters applied to the results.
+
+Mandatory parameters:
+* `query`: A dictionary containing the parameters for the given query.
+  * `from`: The name of the table you want to select from. I.e. -
+  `Chem_comp_descriptor`.
+
+Optional parameters:
+* `database`: Either `metabolomics` or `macromolecule`. If omitted defaults to
+`macromolecule`.
+* `query`: Not optional, but the following children are:
+  * `modifiers`: A list of modifiers to use. The currently allowed values
+  (specified by adding their name as a string to the `modifiers` list) are:
+    * `lower`: Performs the filters in a case-insensitive way.
+    * `count`: Returns the count of matching results rather than the actual
+    results.
+  * `select`: A list of columns (tags) that you want to select from the table
+  spefified. If you want all of them you can use "*" rather than a list.
+  * `where`: A dictionary of as many `key` -> `filter on key` pairs as you want.
+  If you don't have the `key` in your `from` paramter, it will automatically be
+  added. An example is `Type`: `SMILES` which specifies that the `Type` column
+  MUST BE `SMILES` in order to print the result. You can use `%` multiple times
+  anywhere in the value as a wildcharacter.
+  * `hash`: A boolean. True makes the results ordered such that each column is
+  a key that points to a list of all of it's values. False results in the values
+  being returned as a list of rows (as lists).
+
+Example query (returns all tags from the chemical compound descriptor loop where
+the `Descriptor` contains (but does not have to be exactly) the value `1S/...`):
+```json
+{
+    "method": "select",
+    "jsonrpc": "2.0",
+    "params": {
+        'database': 'metabolomics',
+        'query': {
+            'where': {
+                'Descriptor': '%1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1%'
+            },
+            'select': '*',
+            'hash': False,
+            'from': 'Chem_comp_descriptor'
+        }
+    },
+    "id": 1
+}
+```
+
+Response:
+
+```json
+{
+    'jsonrpc': '2.0',
+    'result': {
+        'columns': [
+            'Chem_comp_descriptor.Descriptor',
+            'Chem_comp_descriptor.Type',
+            'Chem_comp_descriptor.Program',
+            'Chem_comp_descriptor.Program_version',
+            'Chem_comp_descriptor.Sf_ID',
+            'Chem_comp_descriptor.Entry_ID',
+            'Chem_comp_descriptor.Comp_ID'
+        ],
+        'data': [
+            ['InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1', 'INCHI', 'OpenBabel', '2.3.2', 20182, 'bmse001100', 'BMET001100'],
+            ['InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1', 'INCHI', 'PUBCHEM_IUPAC', 'na', 20182, 'bmse001100', 'BMET001100'],
+            ['InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1', 'INCHI', 'RDKit', '2015.09.2', 20182, 'bmse001100', 'BMET001100']
+        ]
+    },
+    'id': 1
+}
+```
+
+### Example code
+
+It is very simple to send queries to the server using Python and the requests
+module. If you don't have the requests module installed run:
+
+```bash
+sudo pip install requests
+```
+
+Here is an example which queries for 500 BMRB entries in a loop:
+
+```python
+
+import time
+import requests
+
+for x in range(15000,15100):
+
+    entry_request = {
+        "method": "entry",
+        "jsonrpc": "2.0",
+        "params": {"ids": [x]},
+        "id": x
+    }
+
+    response = requests.post("http://webapi.bmrb.wisc.edu/current/jsonrpc",
+                           json=entry_request)
+
+    if response.status_code == 403:
+        print "Waiting to continue because of rate limiting."
+        time.sleep(10)
+        response = requsts.get("http://webapi.bmrb.wisc.edu/current/jsonapi",
+                           json=entry_request)
+
+    if response.status_code != 200:
+        print "Server error: %s" % response.text
+        continue
+
+    try:
+        bmrb_entry = response.json()
+        print bmrb_entry.keys(), bmrb_enrtry['result'].keys()
+    except Exception as e:
+        print "Exception occured: %s" % str(e)
+```

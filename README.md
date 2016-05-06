@@ -9,7 +9,8 @@ macromolecule and metabolomics databases are accessbile through the API.
 The API is free to use and doesn't require an API key; though if you submit a
 large number of queries you may be rate limited.
 
-The URL of the API is [webapi.bmrb.wisc.edu](http://webapi.bmrb.wisc.edu/)
+The URL of the API is [webapi.bmrb.wisc.edu](http://webapi.bmrb.wisc.edu/). If
+you navigate there you will see links to all active versions of the API.
 
 ### Why REST and JSON-RPC?
 
@@ -40,6 +41,26 @@ for the JSON-RPC interface.
 
 HTTPS is available, though due to the overhead in establishing a TLS session,
 slightly slower.
+
+### Results
+
+Certain queries return results on an entry, saveframe, or loop in JSON format.
+To see how we convert our NMR-STAR entries, saveframes, and loops into JSON
+format please see the reference [here](documentation/ENTRY.md).
+
+### Rate limiting
+
+We have a rate limit enforced in order to guarantee a responsive API server. It
+is unlikely that you will encounter the limit, but if you do you will receive a
+HTTP 403 error as a response to all requests. Please ensure to check for this
+error in your applications and wait before sending further queries.
+
+If you are blacklisted simply wait at least 10 seconds before sending ANY
+queries and you will be removed from the blacklist.
+
+Limits:
+* Up to 3 queries of the same resource (URI) per second.
+* Up to 50 queries per second of different URIs.
 
 ## REST
 
