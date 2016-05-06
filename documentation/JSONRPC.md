@@ -72,9 +72,9 @@ Example response:
 
 ```json
 {
-    'jsonrpc': '2.0',
-    'id': 1,
-    'result': ['bmse000001', 'bmse000002', 'bmse000003', '...'],
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": ["bmse000001", "bmse000002", "bmse000003", "..."],
 }
 ```
 
@@ -87,7 +87,7 @@ Mandatory parameters:
 * `ids`: A list of BMRB IDs to return.
 
 Optional parameters:
-* `raw`: A boolean value that defaults to False. If set to True then the BMRB
+* `raw`: A boolean value that defaults to `false`. If set to `true` then the BMRB
 entries are returned in NMR-STAR format rather than JSON format.
 
 Example query (returns the full BMRB entries 15000 and 16000):
@@ -97,7 +97,7 @@ Example query (returns the full BMRB entries 15000 and 16000):
     "method": "entry",
     "jsonrpc": "2.0",
     "params": {
-        "raw": False,
+        "raw": false,
         "ids": [15000, 16000]
     },
     "id": 1
@@ -108,9 +108,9 @@ Example response:
 
 ```json
 {
-    'jsonrpc': '2.0',
-    'id': 1,
-    'result': {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
         "15000":{}
         "16000":{}
     },
@@ -134,7 +134,7 @@ Mandatory parameters:
 entries.
 
 Optional parameters:
-* `raw`: A boolean value that defaults to False. If set to True then the BMRB
+* `raw`: A boolean value that defaults to `false`. If set to `true` then the BMRB
 saveframes are returned in NMR-STAR format rather than JSON format.
 
 Example query (returns all saveframes of category "sample_conditions" from the
@@ -156,16 +156,16 @@ Example response:
 
 ```json
 {
-    'jsonrpc': '2.0',
-    'id': 1,
-    'result': {
-        'jsonrpc': '2.0',
-        'result': {
-            '15010': {
-                'sample_conditions': [{},{}]
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+        "jsonrpc": "2.0",
+        "result": {
+            "15010": {
+                "sample_conditions": [{},{}]
             },
-            '15000': {
-                'sample_conditions': [{}, {}]
+            "15000": {
+                "sample_conditions": [{}, {}]
             }
         }
     }
@@ -187,7 +187,7 @@ Mandatory parameters:
 entries.
 
 Optional parameters:
-* `raw`: A boolean value that defaults to False. If set to True then the BMRB
+* `raw`: A boolean value that defaults to `false`. If set to `true` then the BMRB
 loops are returned in NMR-STAR format rather than JSON format.
 
 Example query (returns all loops of category "Vendor" from the BMRB entries
@@ -209,16 +209,16 @@ Example response:
 
 ```json
 {
-    'jsonrpc': '2.0',
-    'id': 1,
-    'result': {
-        'jsonrpc': '2.0',
-        'result': {
-            '15010': {
-                '_Vendor': [{},{}]
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+        "jsonrpc": "2.0",
+        "result": {
+            "15010": {
+                "_Vendor": [{},{}]
             },
-            '15000': {
-                '_Vendor': [{}, {}]
+            "15000": {
+                "_Vendor": [{}, {}]
             }
         }
     }
@@ -258,16 +258,16 @@ Example response:
 
 ```json
 {
-    'jsonrpc': '2.0',
-    'result': {
-        '16000': {
-            '_Entry.Title': ['Solution structure of the nucleocapsid-binding domain of the measles virus phosphoprotein\n']
+    "jsonrpc": "2.0",
+    "result": {
+        "16000": {
+            "_Entry.Title": ["Solution structure of the nucleocapsid-binding domain of the measles virus phosphoprotein\n"]
         },
-        '15000': {
-            '_Entry.Title': ['Solution structure of chicken villin headpiece subdomain containing a fluorinated side chain in the core\n']
+        "15000": {
+            "_Entry.Title": ["Solution structure of chicken villin headpiece subdomain containing a fluorinated side chain in the core\n"]
         }
     },
-    'id': 1
+    "id": 1
 }
 ```
 
@@ -299,8 +299,8 @@ Optional parameters:
   added. An example is `Type`: `SMILES` which specifies that the `Type` column
   MUST BE `SMILES` in order to print the result. You can use `%` multiple times
   anywhere in the value as a wildcharacter.
-  * `hash`: A boolean. True makes the results ordered such that each column is
-  a key that points to a list of all of it's values. False results in the values
+  * `hash`: A boolean. `true` makes the results ordered such that each column is
+  a key that points to a list of all of it's values. `false` results in the values
   being returned as a list of rows (as lists).
 
 Example query (returns all tags from the chemical compound descriptor loop where
@@ -316,7 +316,7 @@ the `Descriptor` contains (but does not have to be exactly) the value `1S/...`):
                 'Descriptor': '%1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1%'
             },
             'select': '*',
-            'hash': False,
+            'hash': false,
             'from': 'Chem_comp_descriptor'
         }
     },
@@ -328,24 +328,24 @@ Response:
 
 ```json
 {
-    'jsonrpc': '2.0',
-    'result': {
-        'columns': [
-            'Chem_comp_descriptor.Descriptor',
-            'Chem_comp_descriptor.Type',
-            'Chem_comp_descriptor.Program',
-            'Chem_comp_descriptor.Program_version',
-            'Chem_comp_descriptor.Sf_ID',
-            'Chem_comp_descriptor.Entry_ID',
-            'Chem_comp_descriptor.Comp_ID'
+    "jsonrpc": "2.0",
+    "result": {
+        "columns": [
+            "Chem_comp_descriptor.Descriptor",
+            "Chem_comp_descriptor.Type",
+            "Chem_comp_descriptor.Program",
+            "Chem_comp_descriptor.Program_version",
+            "Chem_comp_descriptor.Sf_ID",
+            "Chem_comp_descriptor.Entry_ID",
+            "Chem_comp_descriptor.Comp_ID"
         ],
-        'data': [
-            ['InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1', 'INCHI', 'OpenBabel', '2.3.2', 20182, 'bmse001100', 'BMET001100'],
-            ['InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1', 'INCHI', 'PUBCHEM_IUPAC', 'na', 20182, 'bmse001100', 'BMET001100'],
-            ['InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1', 'INCHI', 'RDKit', '2015.09.2', 20182, 'bmse001100', 'BMET001100']
+        "data": [
+            ["InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1", "INCHI", "OpenBabel", "2.3.2", 20182, "bmse001100", "BMET001100"],
+            ["InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1", "INCHI", "PUBCHEM_IUPAC", "na", 20182, "bmse001100", "BMET001100"],
+            ["InChI=1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1", "INCHI", "RDKit", "2015.09.2", 20182, "bmse001100", "BMET001100"]
         ]
     },
-    'id': 1
+    "id": 1
 }
 ```
 

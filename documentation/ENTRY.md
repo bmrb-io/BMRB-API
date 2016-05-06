@@ -48,7 +48,7 @@ Again - the `...` above contains the saveframes' loops in JSON format:
 
 ```json
 {
-    category": "_Entry_author",
+    "category": "_Entry_author",
     "tags": ["tag1", "tag2", "etc."]
     "data": [
         ["row", 1, "data"],
@@ -91,7 +91,7 @@ saveframe removed.
             ["Experimental_method_subtype", "solution"],
             ["Details", "."],
             ["BMRB_internal_directory_name", "."]
-        ]
+        ],
         "loops": [
             {
                 "category": "_Entry_author",
