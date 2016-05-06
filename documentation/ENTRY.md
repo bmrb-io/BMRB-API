@@ -37,7 +37,7 @@ And the `...` above contains all of the entries' saveframes in JSON format:
     "category": "saveframe_category",
     "tag_prefix": "_Entry",
     "name": "saveframe_name",
-    "tags": [["tag1", "value1"], ["tag2", "value2"], ["etc.", "etc."]]
+    "tags": [["tag1", "value1"], ["tag2", "value2"], ["etc.", "etc."]],
     "loops": ["..."]
 }
 ```
@@ -49,7 +49,7 @@ Again - the `...` above contains the saveframes' loops in JSON format:
 ```json
 {
     "category": "_Entry_author",
-    "tags": ["tag1", "tag2", "etc."]
+    "tags": ["tag1", "tag2", "etc."],
     "data": [
         ["row", 1, "data"],
         ["row", 2, "data"],
