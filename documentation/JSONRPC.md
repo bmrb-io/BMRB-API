@@ -111,7 +111,7 @@ Example response:
     "jsonrpc": "2.0",
     "id": 1,
     "result": {
-        "15000":{}
+        "15000":{},
         "16000":{}
     },
 }
@@ -310,14 +310,14 @@ the `Descriptor` contains (but does not have to be exactly) the value `1S/...`):
     "method": "select",
     "jsonrpc": "2.0",
     "params": {
-        'database': 'metabolomics',
-        'query': {
-            'where': {
-                'Descriptor': '%1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1%'
+        "database": "metabolomics",
+        "query": {
+            "where": {
+                "Descriptor": "%1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,2-3H2,1H3,(H,7,8)(H,9,10)/t5-/m0/s1%"
             },
-            'select': '*',
-            'hash': false,
-            'from': 'Chem_comp_descriptor'
+            "select": "*",
+            "hash": false,
+            "from": "Chem_comp_descriptor"
         }
     },
     "id": 1
