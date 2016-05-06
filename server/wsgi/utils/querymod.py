@@ -125,7 +125,7 @@ def get_loops(**kwargs):
             if kwargs.get('raw', False):
                 result[entry.bmrb_id][loop_category] = [str(x) for x in matches]
             else:
-                result[entry.bmrb_id][loop_category] = [x.getJSON() for x in matches]
+                result[entry.bmrb_id][loop_category] = [x.getJSON(serialize=False) for x in matches]
 
     return result
 
@@ -144,7 +144,7 @@ def get_saveframes(**kwargs):
             if kwargs.get('raw', False):
                 result[entry.bmrb_id][saveframe_category] = [str(x) for x in matches]
             else:
-                result[entry.bmrb_id][saveframe_category] = [x.getJSON() for x in matches]
+                result[entry.bmrb_id][saveframe_category] = [x.getJSON(serialize=False) for x in matches]
     return result
 
 # Return the full entry
@@ -157,7 +157,7 @@ def get_entries(**kwargs):
     # Go through the IDs
     raw = kwargs.get('raw', False)
     for entry in get_valid_entries_from_REDIS(kwargs['ids'], raw=raw):
-        result[entry.bmrb_id] = entry.getJSON()
+        result[entry.bmrb_id] = entry.getJSON(serialize=False)
 
     return result
 
