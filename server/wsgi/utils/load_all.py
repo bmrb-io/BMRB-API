@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import sys
 import json
 import time
 import zlib
@@ -20,7 +21,16 @@ configuration = json.loads(open(cpath, "r").read())
 # Figure out which REDIS to connect to
 sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
 redis_host, redis_port = sentinel.discover_master('tarpon_master')
+redis_db = 1
 print("Found REDIS host: %s" % redis_host)
+
+# By default put data into a "staging" db. Only put it in master if they
+#  specify the first argument as "master"
+if len(sys.argv) > 1 and sys.argv[1] == "master":
+    redis_db = 0
+    print("Operating on master DB.")
+else:
+    print("Operating on staging DB.")
 
 # Load the metabalomics data
 for one_dir in os.listdir("/share/subedit/metabolomics/"):
@@ -53,11 +63,11 @@ def one_entry(entry_name, entry_location, r):
         print("On %s: error: %s" % (entry_name, str(e)))
 
     if ent != None:
-        r.set(entry_name, zlib.compress(json.dumps(ent.getJSON())))
+        r.set(entry_name, zlib.compress(ent.getJSON()))
         return entry_name
 
 # Since we are about to start, tell REDIS it is being updated
-r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
+r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'], db=redis_db)
 r.set("ready", 0)
 
 processes = []
@@ -76,7 +86,7 @@ for thread in xrange(0,num_threads):
     if newpid == 0:
 
         # Each child gets a REDIS
-        red = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'])
+        red = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'], db=redis_db)
         child_conn.send("ready")
         while True:
             parent_message = child_conn.recv()

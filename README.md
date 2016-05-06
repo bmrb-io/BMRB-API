@@ -9,7 +9,8 @@ macromolecule and metabolomics databases are accessbile through the API.
 The API is free to use and doesn't require an API key; though if you submit a
 large number of queries you may be rate limited.
 
-The URL of the API is [webapi.bmrb.wisc.edu](http://webapi.bmrb.wisc.edu/)
+The URL of the API is [webapi.bmrb.wisc.edu](http://webapi.bmrb.wisc.edu/). If
+you navigate there you will see links to all active versions of the API.
 
 ### Why REST and JSON-RPC?
 
@@ -17,7 +18,7 @@ The URL of the API is [webapi.bmrb.wisc.edu](http://webapi.bmrb.wisc.edu/)
 * The JSON-RPC API exists to allow the building and submission of complex
 queries.
 
-Both APIs return the same results in the same format.
+Both APIs return the same results in the same format, with some minor caveats.
 
 ### Versioning
 
@@ -41,52 +42,30 @@ for the JSON-RPC interface.
 HTTPS is available, though due to the overhead in establishing a TLS session,
 slightly slower.
 
-### REST API queries
+### Results
 
-All queries return results in JSON format.
+Certain queries return results on an entry, saveframe, or loop in JSON format.
+To see how we convert our NMR-STAR entries, saveframes, and loops into JSON
+format please see the reference [here](documentation/ENTRY.md).
 
-#### /entry/$ENTRY_ID
+### Rate limiting
 
-Returns the given BMRB entry.
-[Here](http://webapi.bmrb.wisc.edu/current/rest/entry/15000/) is an example.
+We have a rate limit enforced in order to guarantee a responsive API server. It
+is unlikely that you will encounter the limit, but if you do you will receive a
+HTTP 403 error as a response to all requests. Please ensure to check for this
+error in your applications and wait before sending further queries.
 
-#### /saveframe/$ENTRY_ID/$SAVEFRAME_CATEGORY
+If you are blacklisted simply wait at least 10 seconds before sending ANY
+queries and you will be removed from the blacklist.
 
-Returns all saveframes of the given category for an entry.
-[Here](http://webapi.bmrb.wisc.edu/current/rest/saveframe/15000/assigned_chemical_shifts)
-is an example.
+Limits:
+* Up to 3 queries of the same resource (URI) per second.
+* Up to 50 queries per second of different URIs.
 
-#### /loop/$ENTRY_ID/$LOOP_CATEGORY
+## REST
 
-Returns all loops of a given category for a given entry.
-[Here](http://webapi.bmrb.wisc.edu/current/rest/loop/15000/_Sample_condition_variable)
-is an example.
+Click [here](documentation/REST.md) to view the REST documentation.
 
-#### /tag/$ENTRY_ID/$TAG_NAME
+## JSON-RPC
 
-Returns tags of a specified type for a given entry.
-[Here](http://webapi.bmrb.wisc.edu/current/rest/tag/15000/_Entry.Title)
-is an example.
-
-#### /list_entries/[metabolomics|macromolecule]
-
-Returns a list of all entries.
-[Here](http://webapi.bmrb.wisc.edu/current/rest/list_entries/)
-is an example.\
-Adding
-[/macromolecule/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/macromolecule)
-or
-[/metabolomics/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/metabolomics)
-at the end will only return the entries of that type.
-
-#### /chemical_shifts/[$ATOM_TYPE]
-
-Returns all of the chemical shifts in the BMRB for the specified atom type. You
-can omit the atom type to fetch all chemical shifts and you can use a * to
-symbolize a wildcard character.
-
-* [All chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/)
-* [All CA chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/CA)
-* [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/HB*)
-
-
+Click [here](documentation/JSONRPC.md) to view the JSON-RPC documentation.
