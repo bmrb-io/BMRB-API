@@ -92,8 +92,9 @@ def list_entries(**kwargs):
     if db:
         if db == "metabolomics":
             entry_list = [x for x in entry_list if x.startswith("bm")]
-        if db == "macromolecule":
+        if db == "macromolecules":
             entry_list = [x for x in entry_list if not x.startswith("bm")]
+        #TODO: Chemcomps
 
     return entry_list
 
@@ -165,12 +166,13 @@ def get_entries(**kwargs):
 def wrap_it_up(item):
     return AsIs('"' + item + '"')
 
-def get_fields_by_fields(fetch_list, table, where_dict={}, database="bmrb",
-                        modifiers=[], as_hash=True):
+def get_fields_by_fields(fetch_list, table, where_dict={},
+                         schema="metabolomics", modifiers=[], as_hash=True):
 
     # Errors connecting will be handled upstream
     conn = psycopg2.connect(user=configuration['postgres']['user'],
-                                host=configuration['postgres']['host'], database=database)
+                                host=configuration['postgres']['host'],
+                                database=configuration['postgres']['database'])
 
     cur = conn.cursor()
 
@@ -182,12 +184,12 @@ def get_fields_by_fields(fetch_list, table, where_dict={}, database="bmrb",
         parameters = [wrap_it_up(x) for x in fetch_list]
     query = "SELECT "
     if "count" in modifiers:
-        query += "count(" + "),count(".join(["%s"]*len(fetch_list)) + ') from "' + table + '"'
+        query += "count(" + "),count(".join(["%s"]*len(fetch_list)) + ') from %s."%s"' % (schema, table)
     else:
         if len(fetch_list) == 1 and fetch_list[0] == "*":
-            query += "*" + ' from "' + table + '"'
+            query += '* from %s."%s"' % (schema, table)
         else:
-            query += ",".join(["%s"]*len(fetch_list)) + ' from "' + table + '"'
+            query += ",".join(["%s"]*len(fetch_list)) + ' from %s."%s"' % (schema, table)
     if len(where_dict) > 0:
         query += " WHERE"
         need_and = False
@@ -205,7 +207,7 @@ def get_fields_by_fields(fetch_list, table, where_dict={}, database="bmrb",
     if not "count" in modifiers:
         query += ' ORDER BY "Entry_ID"'
         # Order the parameters as ints if they are normal BMRB IDS
-        if database == "bmrb":
+        if schema == "macromolecule":
             query += "::int "
 
     query += ';'
@@ -259,11 +261,11 @@ def process_STAR_query(params):
 def process_select(**params):
 
     # Get the database name
-    database = params.get("database", "macromolecule")
-    database = {'macromolecule':'bmrb', 'metabolomics':'metabolomics', 'both':'both'}.get(database,None)
-    if database == "both":
+    schema = params.get("database", "macromolecules")
+
+    if schema == "all":
         raise JSONException(-32602, 'Merged database not yet available.')
-    if database != "bmrb" and database != "metabolomics":
+    if schema not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
         raise JSONException(-32602, "Invalid database specified.")
 
     # Okay, now we need to go through each query and get the results
@@ -297,9 +299,9 @@ def process_select(**params):
         each_query['where'] = each_query.get("where", {})
 
         if len(params['query']) > 1:
-            result_list.append(get_fields_by_fields(each_query['select'], each_query['from'], where_dict=each_query['where'], database=database, modifiers=each_query['modifiers'], as_hash=False))
+            result_list.append(get_fields_by_fields(each_query['select'], each_query['from'], where_dict=each_query['where'], schema=schema, modifiers=each_query['modifiers'], as_hash=False))
         else:
-            return get_fields_by_fields(each_query['select'], each_query['from'], where_dict=each_query['where'], database=database, modifiers=each_query['modifiers'], as_hash=each_query['hash'])
+            return get_fields_by_fields(each_query['select'], each_query['from'], where_dict=each_query['where'], schema=schema, modifiers=each_query['modifiers'], as_hash=each_query['hash'])
 
     return result_list
 
