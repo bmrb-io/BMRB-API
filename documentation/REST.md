@@ -45,8 +45,8 @@ is an example.
 #### /chemical_shifts/[$ATOM_TYPE]
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
-can omit the atom type to fetch all chemical shifts and you can use a * to
-symbolize a wildcard character.
+can omit the atom type to fetch all chemical shifts and you can use `*` as a
+wildcard character.
 
 * [All chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/)
 * [All CA chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/CA)

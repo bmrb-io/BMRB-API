@@ -11,15 +11,15 @@ saveframes, and loops that allow you to convert into and read from JSON format.
 [This page](http://www.jsoneditoronline.org/?url=http://webapi.bmrb.wisc.edu/current/rest/entry/15000/)
 will allow you to view a full entry interactively.
 
-If you need a reminder on the format of NMR-STAR, which the JSON is created
-from, please see the
+If you need a reminder on the format of NMR-STAR - which the JSON is created
+from - please see the
 [NMR-STAR viewer page](http://www.bmrb.wisc.edu/dictionary/starviewer/?entry=15000)
 for the same entry. As an aside, the STAR-viewer page linked here is using the
 API to load the data which it displays in NMR-STAR format.
 
 ### Entry
 
-Here is the minimal structure of one entry in JSON format:
+Here is the structure of one entry in JSON format:
 
 ```json
 {
@@ -28,7 +28,7 @@ Here is the minimal structure of one entry in JSON format:
 }
 ```
 
-And the `...` above contains all of the entries' saveframes in JSON format:
+The `...` above contains all of the entry's saveframes in JSON format:
 
 ### Saveframe
 
@@ -37,7 +37,7 @@ And the `...` above contains all of the entries' saveframes in JSON format:
     "category": "saveframe_category",
     "tag_prefix": "_Entry",
     "name": "saveframe_name",
-    "tags": [["tag1", "value1"], ["tag2", "value2"], ["etc.", "etc."]]
+    "tags": [["tag1", "value1"], ["tag2", "value2"], ["etc.", "etc."]],
     "loops": ["..."]
 }
 ```
@@ -49,7 +49,7 @@ Again - the `...` above contains the saveframes' loops in JSON format:
 ```json
 {
     "category": "_Entry_author",
-    "tags": ["tag1", "tag2", "etc."]
+    "tags": ["tag1", "tag2", "etc."],
     "data": [
         ["row", 1, "data"],
         ["row", 2, "data"],
