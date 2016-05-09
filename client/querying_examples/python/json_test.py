@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import sys
 import requests
 
 debug = False
@@ -20,7 +21,13 @@ def postIt(method, params={}):
     }
 
     request_counter += 1
-    r = requests.post("http://webapi.bmrb.wisc.edu/current/jsonrpc", json=request)
+
+    url = "http://webapi.bmrb.wisc.edu/current/jsonrpc"
+    # Take command line input of URL
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+
+    r = requests.post(url, json=request)
 
     try:
         print(r.json())
@@ -158,7 +165,7 @@ postIt("select",
 # Another INCHI query
 postIt("select",
     {
-        "database": "macromolecule",
+        "database": "macromolecules",
         "query": {
             "modifiers":["lower"],
             "from": "Chem_comp_descriptor",
