@@ -3,12 +3,15 @@
         "sentinels": [
             ["sentinel1_ip", 26379],
             ["sentinel2_ip", 26379],
-            ["sentinel3_ip", 26379]],
+            ["sentinel3_ip", 26379]
+        ],
+        "db": 0,
         "password": "redis_password"
     },
     "postgres": {
         "user": "postgres_user",
-        "host": "postgres_host"
+        "host": "postgres_host",
+        "database": "postgres_database"
     },
     "ets": {
         "user": "ets_user",

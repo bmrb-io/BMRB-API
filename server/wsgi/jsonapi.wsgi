@@ -30,5 +30,6 @@ def application(request):
     dispatcher["select"] = querymod.process_select
 
     # Process the query
-    response = JSONRPCResponseManager.handle(request.get_data(cache=False, as_text=True), dispatcher)
+    request_data = request.get_data(cache=False, as_text=True)
+    response = JSONRPCResponseManager.handle(request_data, dispatcher)
     return Response(response.json, mimetype='application/json')
