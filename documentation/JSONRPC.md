@@ -380,7 +380,7 @@ for x in range(15000,15100):
     if response.status_code == 403:
         print "Waiting to continue because of rate limiting."
         time.sleep(10)
-        response = requsts.get("http://webapi.bmrb.wisc.edu/current/jsonapi",
+        response = requests.get("http://webapi.bmrb.wisc.edu/current/jsonrpc",
                            json=entry_request)
 
     if response.status_code != 200:
@@ -389,7 +389,7 @@ for x in range(15000,15100):
 
     try:
         bmrb_entry = response.json()
-        print bmrb_entry.keys(), bmrb_enrtry['result'].keys()
+        print bmrb_entry.keys(), bmrb_entry['result'].keys()
     except Exception as e:
         print "Exception occured: %s" % str(e)
 ```
