@@ -53,9 +53,9 @@ individual methods below.
 This query returns a list of all of the valid BMRB entry IDs.
 
 Optional parameters:
-* `database` - A string whose value should either be `metabolomics` or
-`macromolecule`. If the `database` paramater is supplied than only entries of
-the given type will be returned.
+* `database` - A string whose value should either be `metabolomics`,
+`macromolecules`, or `chemcomps`. If the `database` paramater is supplied than
+only entries of the given type will be returned.
 
 Example query (returns a list with all valid macromolecule BMRB IDs):
 
@@ -284,8 +284,8 @@ Mandatory parameters:
   `Chem_comp_descriptor`.
 
 Optional parameters:
-* `database`: Either `metabolomics` or `macromolecule`. If omitted defaults to
-`macromolecule`.
+* `database` - A string whose value should either be `metabolomics`,
+`macromolecules`, or `chemcomps`. Defaults to `macromolecules`.
 * `query`: Not optional, but the following children are:
   * `modifiers`: A list of modifiers to use. The currently allowed values
   (specified by adding their name as a string to the `modifiers` list) are:
