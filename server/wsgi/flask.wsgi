@@ -15,8 +15,25 @@ sys.path.append(local_dir)
 from utils import querymod
 from utils.jsonrpc import JSONRPCResponseManager, dispatcher
 
+# Set up flask
 from flask import Flask, request, Response
+from flask_restful import Resource, Api
 application = Flask(__name__)
+api = Api(application)
+
+
+todos = {}
+
+class TodoSimple(Resource):
+    def get(self, todo_id):
+        return {todo_id: todos[todo_id]}
+
+    def put(self, todo_id):
+        todos[todo_id] = request.form['data']
+        return {todo_id: todos[todo_id]}
+
+api.add_resource(TodoSimple, '/<string:todo_id>')
+
 
 def return_json(obj, encode=True):
     if encode:
@@ -56,14 +73,8 @@ def chemical_shifts(atom_type=None):
     if atom_type != None:
         wd["Atom_ID"] = atom_type.replace("*", "%")
 
-    chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID",
-                         "Atom_ID", "Atom_type", "Val", "Val_err",
-                         "Ambiguity_code", "Assigned_chem_shift_list_ID"]
-    query_result = querymod.get_fields_by_fields(chem_shift_fields,
-                                                 "Atom_chem_shift",
-                                                 as_hash=False,
-                                                 where_dict=wd)
-    return return_json(query_result)
+    chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID", "Atom_ID", "Atom_type", "Val", "Val_err", "Ambiguity_code", "Assigned_chem_shift_list_ID"]
+    return return_json(querymod.get_fields_by_fields(chem_shift_fields, "Atom_chem_shift", as_hash=False, where_dict=wd))
 
 @application.route('/entry/<entry_id>/')
 def get_entry(entry_id):
@@ -73,8 +84,7 @@ def get_entry(entry_id):
 @application.route('/saveframe/<entry_id>/<saveframe_category>')
 def get_saveframe(entry_id, saveframe_category):
     """ Returns a saveframe in JSON format."""
-    result = querymod.get_saveframes(ids=entry_id, keys=saveframe_category)
-    return return_json(result)
+    return return_json(querymod.get_saveframes(ids=entry_id, keys=saveframe_category))
 
 @application.route('/loop/<entry_id>/<loop_category>')
 def get_loop(entry_id, loop_category):
