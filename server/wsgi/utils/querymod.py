@@ -167,7 +167,7 @@ def wrap_it_up(item):
     return AsIs('"' + item + '"')
 
 def get_fields_by_fields(fetch_list, table, where_dict={},
-                         schema="metabolomics", modifiers=[], as_hash=True):
+                         schema="macromolecules", modifiers=[], as_hash=True):
 
     # Errors connecting will be handled upstream
     conn = psycopg2.connect(user=configuration['postgres']['user'],
