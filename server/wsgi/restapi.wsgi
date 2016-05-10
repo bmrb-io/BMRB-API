@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+""" This code is used to provide the REST API interface. Under the hood
+all of the work is done in utils/querymod.py - this just routes the queries
+to the correct location and passes the results back."""
+
 import os
 import sys
 import json
@@ -11,14 +15,19 @@ local_dir = os.path.dirname(__file__)
 os.chdir(local_dir)
 sys.path.append(local_dir)
 
-# Local
-from utils import querymod
-from utils.jsonrpc import JSONRPCResponseManager, dispatcher
-
+# Import flask
 from flask import Flask, request, Response
+# Import the functions needed to service requests
+from utils import querymod
+
+# Set up the flask application
 application = Flask(__name__)
 
 def return_json(obj, encode=True):
+    """ Returns a flask Response object containing the JSON-encoded version of
+    the passed object. If encode is set to False than a Response with the string
+    version of the object is returned."""
+
     if encode:
         return Response(response=json.dumps(obj), mimetype="application/json")
     else:
@@ -39,6 +48,7 @@ def list_entries(entry_type=None):
 
 @application.route('/debug')
 def debug():
+    """ This method prints some debugging information. """
     debug_str = "Secure: " + str(request.is_secure)
     debug_str += "<br>URL: " + str(request.url)
     debug_str += "<br>Method: " + str(request.method)

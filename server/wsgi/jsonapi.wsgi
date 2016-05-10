@@ -1,8 +1,11 @@
 #!/usr/bin/python
 
+""" This code is used to provide the JSON-RPC API interface. Under the hood
+all of the work is done in utils/querymod.py - this just routes the queries
+to the correct location and passes the results back."""
+
 import os
 import sys
-import json
 import logging
 logging.basicConfig()
 from werkzeug.wrappers import Request, Response
@@ -18,6 +21,7 @@ from utils.jsonrpc import JSONRPCResponseManager, dispatcher
 
 @Request.application
 def application(request):
+    """ Services one request. Called by wsgi module in apache."""
 
     # REDIS driven queries
     dispatcher["tag"] = querymod.get_tags

@@ -1,40 +1,61 @@
 #!/usr/bin/python
 
-import sys
+""" This module provides methods to service the different query types that are
+provided through the REST and JSON-RPC interfaces. This is where the real work
+is done; jsonapi.wsgi and restapi.wsgi mainly just call the methods here and
+return the results."""
+
 import json
 import zlib
-import redis
 import logging
-import psycopg2
-from redis.sentinel import Sentinel
-from psycopg2.extensions import AsIs
-from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 
-# Load bmrb locally
+import psycopg2
+from psycopg2.extensions import AsIs
+import redis
+from redis.sentinel import Sentinel
+
+# Local imports
 import bmrb
+from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 
 # Load the configuration file
 configuration = json.loads(open("../../../api_config.json", "r").read())
 # Set up logging
 logging.basicConfig()
 
-# Method to connect to REDIS and load the valid IDS
 def get_REDIS_connection():
+    """ Figures out where the master redis instance is (and other paramaters
+    needed to connect like which database to use), and opens a connection
+    to it. It passes back that connection object."""
+
     # Connect to redis
     try:
         # Figure out where we should connect
-        sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
+        sentinel = Sentinel(configuration['redis']['sentinels'],
+                            socket_timeout=0.5)
         redis_host, redis_port = sentinel.discover_master('tarpon_master')
-        r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'], db=configuration['redis']['db'])
+
+        # Get the redis instance
+        r = redis.StrictRedis(host=redis_host,
+                              port=redis_port,
+                              password=configuration['redis']['password'],
+                              db=configuration['redis']['db'])
+
+        # If the redis instance is being updated during the request then
+        #  write a warning to the log
         if not int(r.get("ready")):
             logging.warning("Serviced request during update.")
+
+    # Raise an exception if we cannot connect to the database server
     except redis.exceptions.ConnectionError:
         raise JSONException(-32603, 'Could not connect to database server.')
 
     return r
 
-# Helper method that yields only whatever valid IDs were loaded from REDIS
 def get_valid_entries_from_REDIS(search_ids, raw=False):
+    """ Given a list of entries, yield the subset that exist in the database
+    as PyNMR-STAR objects. If raw is set to True then yield the entries in
+    unserialized JSON form."""
 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
@@ -42,7 +63,9 @@ def get_valid_entries_from_REDIS(search_ids, raw=False):
 
     # Make sure there are not too many entries
     if len(search_ids) > 500:
-        raise JSONException(-32602, 'Too many IDs queried. Please query 500 or fewer entries at a time. You attempted to query %d IDs.' % len(search_ids))
+        raise JSONException(-32602, 'Too many IDs queried. Please query 500 or '
+                                    'fewer entries at a time. You attempted to '
+                                    'query %d IDs.' % len(search_ids))
 
     # Get the connection to REDIS
     r = get_REDIS_connection()
@@ -72,8 +95,8 @@ def get_valid_entries_from_REDIS(search_ids, raw=False):
                 except ValueError:
                     pass
 
-# Get one serialized entry
 def get_raw_entry(entry_id):
+    """ Get one serialized entry. """
 
     entry = get_REDIS_connection().get(entry_id)
 
@@ -83,8 +106,9 @@ def get_raw_entry(entry_id):
     else:
         return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
 
-# Returns all valid entry IDs
 def list_entries(**kwargs):
+    """ Returns all valid entry IDs by default. If a database is specified than
+    only entries from that database are returned. """
 
     entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
 
@@ -94,12 +118,13 @@ def list_entries(**kwargs):
             entry_list = [x for x in entry_list if x.startswith("bm")]
         if db == "macromolecules":
             entry_list = [x for x in entry_list if not x.startswith("bm")]
-        #TODO: Chemcomps
+        if db == "chemcomps":
+            entry_list = [x for x in entry_list if not x.startswith("chem")]
 
     return entry_list
 
-# Return the tags
 def get_tags(**kwargs):
+    """ Returns results for the queried tags."""
 
     # Get the valid IDs and REDIS connection
     search_tags = process_STAR_query(kwargs)
@@ -111,8 +136,8 @@ def get_tags(**kwargs):
 
     return result
 
-# Return the loops
 def get_loops(**kwargs):
+    """ Returns the matching loops."""
 
     # Get the valid IDs and REDIS connection
     loop_categories = process_STAR_query(kwargs)
@@ -124,14 +149,15 @@ def get_loops(**kwargs):
         for loop_category in loop_categories:
             matches = entry.getLoopsByCategory(loop_category)
             if kwargs.get('raw', False):
-                result[entry.bmrb_id][loop_category] = [str(x) for x in matches]
+                matching_loops = [str(x) for x in matches]
             else:
-                result[entry.bmrb_id][loop_category] = [x.getJSON(serialize=False) for x in matches]
+                matching_loops = [x.getJSON(serialize=False) for x in matches]
+            result[entry.bmrb_id][loop_category] = matching_loops
 
     return result
 
-# Return the saveframes
 def get_saveframes(**kwargs):
+    """ Returns the matching saveframes."""
 
     # Get the valid IDs and REDIS connection
     saveframe_categories = process_STAR_query(kwargs)
@@ -143,16 +169,17 @@ def get_saveframes(**kwargs):
         for saveframe_category in saveframe_categories:
             matches = entry.getSaveframesByCategory(saveframe_category)
             if kwargs.get('raw', False):
-                result[entry.bmrb_id][saveframe_category] = [str(x) for x in matches]
+                matching_frames = [str(x) for x in matches]
             else:
-                result[entry.bmrb_id][saveframe_category] = [x.getJSON(serialize=False) for x in matches]
+                matching_frames = [x.getJSON(serialize=False) for x in matches]
+            result[entry.bmrb_id][saveframe_category] = matching_frames
     return result
 
-# Return the full entry
 def get_entries(**kwargs):
+    """ Returns the full entries."""
 
-    # Get the valid IDs and REDIS connection
-    ignore = process_STAR_query(kwargs)
+    # Check their paramters before proceeding
+    process_STAR_query(kwargs)
     result = {}
 
     # Go through the IDs
@@ -162,34 +189,46 @@ def get_entries(**kwargs):
 
     return result
 
-# Properly quote things for postgres
 def wrap_it_up(item):
+    """ Quote items in a way that postgres accepts and that doesn't allow
+    SQL injection."""
     return AsIs('"' + item + '"')
 
-def get_fields_by_fields(fetch_list, table, where_dict={},
-                         schema="macromolecules", modifiers=[], as_hash=True):
+def get_fields_by_fields(fetch_list, table, where_dict=None,
+                         schema="macromolecules", modifiers=None, as_hash=True):
+    """ Performs a SELECT query constructed from the supplied arguments."""
+
+    # Turn None parameters into the proper empty type
+    if where_dict is None:
+        where_dict = {}
+    if modifiers is None:
+        modifiers = []
 
     # Errors connecting will be handled upstream
     conn = psycopg2.connect(user=configuration['postgres']['user'],
-                                host=configuration['postgres']['host'],
-                                database=configuration['postgres']['database'])
+                            host=configuration['postgres']['host'],
+                            database=configuration['postgres']['database'])
 
     cur = conn.cursor()
 
     # Prepare the query
     if len(fetch_list) == 1 and fetch_list[0] == "*":
-        pass
         parameters = []
     else:
         parameters = [wrap_it_up(x) for x in fetch_list]
     query = "SELECT "
     if "count" in modifiers:
-        query += "count(" + "),count(".join(["%s"]*len(fetch_list)) + ') from %s."%s"' % (schema, table)
+        # Build the 'select * from *' part of the query
+        query += "count(" + "),count(".join(["%s"]*len(fetch_list))
+        query += ') from %s."%s"' % (schema, table)
     else:
         if len(fetch_list) == 1 and fetch_list[0] == "*":
             query += '* from %s."%s"' % (schema, table)
         else:
-            query += ",".join(["%s"]*len(fetch_list)) + ' from %s."%s"' % (schema, table)
+            # Build the 'select * from *' part of the query
+            query += ",".join(["%s"]*len(fetch_list))
+            query += ' from %s."%s"' % (schema, table)
+
     if len(where_dict) > 0:
         query += " WHERE"
         need_and = False
@@ -204,7 +243,7 @@ def get_fields_by_fields(fetch_list, table, where_dict={},
             parameters.extend([wrap_it_up(key), where_dict[key]])
             need_and = True
 
-    if not "count" in modifiers:
+    if "count" not in modifiers:
         query += ' ORDER BY "Entry_ID"'
         # Order the parameters as ints if they are normal BMRB IDS
         if schema == "macromolecule":
@@ -242,13 +281,16 @@ def get_fields_by_fields(fetch_list, table, where_dict={},
 
 
 def process_STAR_query(params):
+    """ A helper method that parses the keys out of the query and validates
+    the 'ids' parameter."""
 
     # Make sure they have IDS
-    if not "ids" in params:
-        raise JSONException(-32602, 'You must specify one or more entry IDs with the "ids" parameter.')
+    if "ids" not in params:
+        raise JSONException(-32602, 'You must specify one or more entry IDs '
+                                    'with the "ids" parameter.')
 
     # Set the keys to the empty list if not specified
-    if not 'keys' in params:
+    if 'keys' not in params:
         params['keys'] = []
 
     # Wrap the key in a list if necessary
@@ -257,8 +299,9 @@ def process_STAR_query(params):
 
     return params['keys']
 
-# Process a JSON request
 def process_select(**params):
+    """ Checks the parameters submitted before calling the get_fields_by_fields
+    method with them."""
 
     # Get the database name
     schema = params.get("database", "macromolecules")
@@ -274,7 +317,10 @@ def process_select(**params):
 
     result_list = []
 
-    #select distinct cast(T0."ID" as integer) as "Entry.ID" from "Entry" T0 join "Citation" T1 on T0."ID"=T1."Entry_ID" join "Chem_comp" T2 on T0."ID"=T2."Entry_ID" where T0."ID" ~* '1' and T1."Title" ~* 'T' and T2."Entry_ID" ~* '1' order by cast(T0."ID" as integer)
+    select_example = """select distinct cast(T0."ID" as integer) as "Entry.ID"
+    from "Entry" T0 join "Citation" T1 on T0."ID"=T1."Entry_ID" join "Chem_comp"
+    T2 on T0."ID"=T2."Entry_ID" where T0."ID" ~* '1' and T1."Title" ~* 'T'
+    and T2."Entry_ID" ~* '1' order by cast(T0."ID" as integer)"""
 
     # Build the amalgamation of queries
     for each_query in params['query']:
@@ -286,26 +332,40 @@ def process_select(**params):
         # We need the ID to join if they are doing multiple queries
         if len(params['query']) > 1:
             each_query['select'].append("Entry_ID")
-        if not "from" in each_query:
-            raise JSONException(-32602, 'You must specify which table to query with the "from" parameter.')
-        if not "hash" in each_query:
+        if "from" not in each_query:
+            raise JSONException(-32602, 'You must specify which table to query '
+                                        'with the "from" parameter.')
+        if "hash" not in each_query:
             each_query['hash'] = True
 
         # Get the query modifiers
-        each_query['modifiers'] = each_query.get("modifiers",[])
+        each_query['modifiers'] = each_query.get("modifiers", [])
         if not isinstance(each_query['modifiers'], list):
             each_query['modifiers'] = [each_query['modifiers']]
 
         each_query['where'] = each_query.get("where", {})
 
         if len(params['query']) > 1:
-            result_list.append(get_fields_by_fields(each_query['select'], each_query['from'], where_dict=each_query['where'], schema=schema, modifiers=each_query['modifiers'], as_hash=False))
+            # If there are multiple queries then add their results to the list
+            cur_res = get_fields_by_fields(each_query['select'],
+                                           each_query['from'],
+                                           where_dict=each_query['where'],
+                                           schema=schema,
+                                           modifiers=each_query['modifiers'],
+                                           as_hash=False)
+            result_list.append(cur_res)
         else:
-            return get_fields_by_fields(each_query['select'], each_query['from'], where_dict=each_query['where'], schema=schema, modifiers=each_query['modifiers'], as_hash=each_query['hash'])
+            # If there is only one query just return it
+            return get_fields_by_fields(each_query['select'],
+                                        each_query['from'],
+                                        where_dict=each_query['where'],
+                                        schema=schema,
+                                        modifiers=each_query['modifiers'],
+                                        as_hash=each_query['hash'])
 
     return result_list
 
-    # Synchronized list generation
+    # Synchronized list generation - in progress
     common_ids = []
     for pos, result in enumerate(result_list):
         id_pos = params['query'][pos]['select'].index('Entry_ID')
