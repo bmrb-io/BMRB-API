@@ -26,6 +26,23 @@ New API releases will be available at a unique URL so that you can continue to
 rely on a given API version as we continue to improve and develop the API.
 We intend to keep each released version of the API live as long as is feasible.
 
+Releases will be named with a major and minor version and optionally a revision
+number. For example, the current development version is v0.3.1. This means that
+it is the 0th API version (0 because it is still in beta) and the third point
+release. Furthermore, there was one revision since release of v0.3.
+
+Revision numbers incrementing means that bugs have been patched but no other
+substantial changes to the API have been made.
+
+Minor release version incrementing means that new features may have been
+released but the API should still be perfectly backwards compatible. As a result
+our release URLs will not include the minor release version.
+
+Major release version incrementing means that the API may have changed in a way
+that breaks existing queries. Therefore you should write you applications to use
+a specific major version and only change the URL you query once you are sure
+your application is up to date with any changes.
+
 ### API URLs
 
 From the root of the API server, first add the version you want to query. For
