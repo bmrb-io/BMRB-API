@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 """ Tests the JSON-RPC API."""
 
@@ -44,6 +44,14 @@ def postIt(method, params=None):
         print("Response:\n" + r.text)
 
     print("\n\n")
+
+# Test the chemical_shifts function
+postIt("chemical_shifts",
+    {
+        "atom_type": "C1",
+        "database": "metabolomics",
+    }
+)
 
 # Test the list entries function
 postIt("list_entries",

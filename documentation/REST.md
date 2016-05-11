@@ -42,12 +42,15 @@ Returns tags of a specified type for a given entry.
 [Here](http://webapi.bmrb.wisc.edu/current/rest/tag/15000/_Entry.Title)
 is an example.
 
-#### /chemical_shifts/[$ATOM_TYPE]
+#### /chemical_shifts/[$ATOM_TYPE]/[$DATABASE]
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
 can omit the atom type to fetch all chemical shifts and you can use `*` as a
-wildcard character.
+wildcard character. Optionally specify `macromolecule` or `metabolomics` for the
+database argument to search a specific database. `macromolecule` is the default.
 
 * [All chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/)
 * [All CA chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/CA)
 * [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/HB*)
+
+* [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/C1/metabolomics)

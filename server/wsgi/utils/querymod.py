@@ -123,6 +123,34 @@ def list_entries(**kwargs):
 
     return entry_list
 
+def get_chemical_shifts(**kwargs):
+    """ Returns all of the chemical shifts matching the given atom type (if
+    specified) and database (if specified)."""
+
+
+    # Create the search dicationary
+    wd = {}
+    schema = "macromolecules"
+
+    # See if they specified a specific atom type
+    if kwargs.get('atom_type', None):
+        wd['Atom_ID'] = kwargs['atom_type'].replace("*", "%").upper()
+
+    # See if they specified a database (a schema)
+    if kwargs.get('database', None):
+        schema = kwargs['database']
+
+    chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID",
+                         "Atom_ID", "Atom_type", "Val", "Val_err",
+                         "Ambiguity_code", "Assigned_chem_shift_list_ID"]
+
+    # Perform the query
+    query_result = get_fields_by_fields(chem_shift_fields, "Atom_chem_shift",
+                                        as_hash=False, where_dict=wd,
+                                        schema=schema)
+
+    return query_result
+
 def get_tags(**kwargs):
     """ Returns results for the queried tags."""
 
