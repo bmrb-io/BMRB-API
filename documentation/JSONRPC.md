@@ -53,8 +53,8 @@ individual methods below.
 This query returns a list of all of the valid BMRB entry IDs.
 
 Optional parameters:
-* `database` - A string whose value should either be `metabolomics`,
-`macromolecules`, or `chemcomps`. If the `database` paramater is supplied than
+* `database` - A string whose value should either be `metabolomics` or
+`macromolecules`. If the `database` paramater is supplied than
 only entries of the given type will be returned.
 
 Example query (returns a list with all valid macromolecule BMRB IDs):
@@ -75,6 +75,57 @@ Example response:
     "jsonrpc": "2.0",
     "id": 1,
     "result": ["bmse000001", "bmse000002", "bmse000003", "..."],
+}
+```
+
+#### chemical_shifts
+
+This query returns all chemical shifts. Allows filtering by atom type and
+database.
+
+Optional parameters:
+* `database` - A string whose value should either be `metabolomics` or
+`macromolecules`. If the `database` paramater is supplied than
+only entries of the given type will be returned.
+* `atom_type` - A string specifying which atom type to query for. `*` is
+interpreted as a wildcharacter. Specifying `HB*` would search for all `HB`
+shifts.
+
+By default all macromolecule chemical shifts are returned.
+
+Example query (returns a list of all shifts as lists from the metabolomics
+database):
+
+```json
+{
+    "method": "chemical_shifts",
+    "jsonrpc": "2.0",
+    "params": {"database": "metabolomics"},
+    "id": 1
+}
+```
+
+Example response:
+
+```json
+{
+    'jsonrpc': '2.0',
+    'result': {
+        'data': [
+            ['bmse000001', 1, 1, '1', 'C1', 'C', '39.309', None, 1, 1],
+            ['bmse000001', 1, 1, '1', 'C2', 'C', '27.664', None, 1, 1],
+            ["..."]
+        ],
+        'columns': [
+            'Atom_chem_shift.Entry_ID', 'Atom_chem_shift.Entity_ID',
+            'Atom_chem_shift.Comp_index_ID', 'Atom_chem_shift.Comp_ID',
+            'Atom_chem_shift.Atom_ID', 'Atom_chem_shift.Atom_type',
+            'Atom_chem_shift.Val', 'Atom_chem_shift.Val_err',
+            'Atom_chem_shift.Ambiguity_code',
+            'Atom_chem_shift.Assigned_chem_shift_list_ID'
+        ]
+    },
+    'id': 1
 }
 ```
 

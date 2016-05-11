@@ -29,6 +29,7 @@ def application(request):
     dispatcher["saveframe"] = querymod.get_saveframes
     dispatcher["entry"] = querymod.get_entries
     dispatcher["list_entries"] = querymod.list_entries
+    dispatcher["chemical_shifts"] = querymod.get_chemical_shifts
 
     # Database driven queries
     dispatcher["select"] = querymod.process_select

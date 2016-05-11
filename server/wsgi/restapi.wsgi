@@ -47,7 +47,7 @@ def list_entries(entry_type=None):
     return return_json(entries)
 
 @application.route('/debug')
-def debug():
+def debug(methods=['GET', 'POST']):
     """ This method prints some debugging information. """
     debug_str = "Secure: " + str(request.is_secure)
     debug_str += "<br>URL: " + str(request.url)
@@ -58,22 +58,11 @@ def debug():
 
 @application.route('/chemical_shifts/')
 @application.route('/chemical_shifts/<atom_type>')
-def chemical_shifts(atom_type=None):
+@application.route('/chemical_shifts/<atom_type>/<database>')
+def chemical_shifts(atom_type=None, database=None):
     """ Return a list of all chemical shifts for the given atom type."""
-
-    # Create the search dicationary
-    wd = {}
-    if atom_type != None:
-        wd["Atom_ID"] = atom_type.replace("*", "%")
-
-    chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID",
-                         "Atom_ID", "Atom_type", "Val", "Val_err",
-                         "Ambiguity_code", "Assigned_chem_shift_list_ID"]
-    query_result = querymod.get_fields_by_fields(chem_shift_fields,
-                                                 "Atom_chem_shift",
-                                                 as_hash=False,
-                                                 where_dict=wd)
-    return return_json(query_result)
+    return return_json(querymod.get_chemical_shifts(atom_type=atom_type,
+                                                    database=database))
 
 @application.route('/entry/<entry_id>/')
 def get_entry(entry_id):
