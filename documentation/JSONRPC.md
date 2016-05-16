@@ -109,23 +109,23 @@ Example response:
 
 ```json
 {
-    'jsonrpc': '2.0',
-    'result': {
-        'data': [
-            ['bmse000001', 1, 1, '1', 'C1', 'C', '39.309', None, 1, 1],
-            ['bmse000001', 1, 1, '1', 'C2', 'C', '27.664', None, 1, 1],
+    "jsonrpc": "2.0",
+    "result": {
+        "data": [
+            ["bmse000001", 1, 1, "1", "C1", "C", "39.309", null, 1, 1],
+            ["bmse000001", 1, 1, "1", "C2", "C", "27.664", null, 1, 1],
             ["..."]
         ],
-        'columns': [
-            'Atom_chem_shift.Entry_ID', 'Atom_chem_shift.Entity_ID',
-            'Atom_chem_shift.Comp_index_ID', 'Atom_chem_shift.Comp_ID',
-            'Atom_chem_shift.Atom_ID', 'Atom_chem_shift.Atom_type',
-            'Atom_chem_shift.Val', 'Atom_chem_shift.Val_err',
-            'Atom_chem_shift.Ambiguity_code',
-            'Atom_chem_shift.Assigned_chem_shift_list_ID'
+        "columns": [
+            "Atom_chem_shift.Entry_ID", "Atom_chem_shift.Entity_ID",
+            "Atom_chem_shift.Comp_index_ID", "Atom_chem_shift.Comp_ID",
+            "Atom_chem_shift.Atom_ID", "Atom_chem_shift.Atom_type",
+            "Atom_chem_shift.Val", "Atom_chem_shift.Val_err",
+            "Atom_chem_shift.Ambiguity_code",
+            "Atom_chem_shift.Assigned_chem_shift_list_ID"
         ]
     },
-    'id': 1
+    "id": 1
 }
 ```
 
