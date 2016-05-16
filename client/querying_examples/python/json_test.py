@@ -45,6 +45,16 @@ def postIt(method, params=None):
 
     print("\n\n")
 
+# Try SQL injection
+postIt("select",
+    {
+        "query": {
+            "select": "*",
+            "from": 'Chem_comp_descriptor"; drop table macromolecules."Chem_comp_descriptor";select * from macromolecules."Chem_comp_descriptor',
+        }
+    }
+)
+
 # Test the chemical_shifts function
 postIt("chemical_shifts",
     {

@@ -47,7 +47,8 @@ def get_REDIS_connection():
             logging.warning("Serviced request during update.")
 
     # Raise an exception if we cannot connect to the database server
-    except redis.exceptions.ConnectionError:
+    except (redis.exceptions.ConnectionError,
+            redis.sentinel.MasterNotFoundError):
         raise JSONException(-32603, 'Could not connect to database server.')
 
     return r
@@ -232,6 +233,11 @@ def get_fields_by_fields(fetch_list, table, where_dict=None,
     if modifiers is None:
         modifiers = []
 
+    # Make sure they aren't tring to inject (paramterized queries are safe while
+    # this is not, but there is no way to parameterize a table name...)
+    if '"' in table:
+        raise JSONException(-32701, "Invalid 'from' parameter.")
+
     # Errors connecting will be handled upstream
     conn = psycopg2.connect(user=configuration['postgres']['user'],
                             host=configuration['postgres']['host'],
@@ -280,8 +286,11 @@ def get_fields_by_fields(fetch_list, table, where_dict=None,
     query += ';'
 
     # Do the query
-    cur.execute(query, parameters)
-    rows = cur.fetchall()
+    try:
+        cur.execute(query, parameters)
+        rows = cur.fetchall()
+    except psycopg2.ProgrammingError:
+        raise JSONException(-32701, "Invalid 'from' parameter.")
 
     # Get the column names from the DB
     colnames = [desc[0] for desc in cur.description]
