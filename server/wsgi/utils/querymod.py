@@ -99,28 +99,43 @@ def get_valid_entries_from_REDIS(search_ids, raw=False):
 def get_raw_entry(entry_id):
     """ Get one serialized entry. """
 
-    entry = get_REDIS_connection().get(entry_id)
-
-    # See if the entry is in the database
-    if entry is None:
-        return json.dumps({"error": "No such entry: %s" % entry_id})
+    # See if it is a chem comp entry
+    if entry_id.startswith("chem_comp_") and entry_id in list_entries(database="chemcomps"):
+        url = "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_alltags=yes&print_entity=yes&print_chem_comp=yes&%s=Fetch" % entry_id[10:]
+        chem_frame = bmrb._interpretFile(url).read()
+        if chem_frame.strip() == "":
+            return json.dumps({"error": "Entry '%s' does not exist in the "
+                                        "public database." % entry_id})
+        else:
+            entry = bmrb.entry.fromString("data_%s\n\n" % entry_id + chem_frame)
+        return '{"%s": ' % entry_id + entry.getJSON() + "}"
     else:
-        return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
+        # Look for the entry in Redis
+        entry = get_REDIS_connection().get(entry_id)
+
+        # See if the entry is in the database
+        if entry is None:
+            return json.dumps({"error": "Entry '%s' does not exist in the "
+                                        "public database." % entry_id})
+        else:
+            return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
 
 def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
     only entries from that database are returned. """
 
-    entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
-
     db = kwargs.get("database", None)
     if db:
-        if db == "metabolomics":
-            entry_list = [x for x in entry_list if x.startswith("bm")]
-        if db == "macromolecules":
-            entry_list = [x for x in entry_list if not x.startswith("bm")]
-        if db == "chemcomps":
-            entry_list = [x for x in entry_list if not x.startswith("chem")]
+        if db in ["metabolomics", "macromolecules"]:
+            entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
+            if db == "metabolomics":
+                entry_list = [x for x in entry_list if x.startswith("bm")]
+            if db == "macromolecules":
+                entry_list = [x for x in entry_list if not x.startswith("bm")]
+        elif db == "chemcomps":
+            res = get_fields_by_fields(["BMRB_code"], "Entity",
+                                       schema="chemcomps")
+            return ["chem_comp_" + x for x in res["Entity.BMRB_code"]]
 
     return entry_list
 
