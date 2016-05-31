@@ -101,6 +101,10 @@ def get_raw_entry(entry_id):
 
     # See if it is a chem comp entry
     if entry_id.startswith("chem_comp_") and entry_id in list_entries(database="chemcomps"):
+
+        #select * from information_schema.tables where table_schema = 'chemcomps';
+        #select * from dict.validator_sfcats where internalflag = 'N' order by order_num;
+
         url = "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_alltags=yes&print_entity=yes&print_chem_comp=yes&%s=Fetch" % entry_id[10:]
         chem_frame = bmrb._interpretFile(url).read()
         if chem_frame.strip() == "":
@@ -434,3 +438,64 @@ def process_select(**params):
                     new_response[each_query['from'] + "." + field] = []
 
     return new_response
+
+def create_combined_view():
+
+    # Errors connecting will be handled upstream
+    conn = psycopg2.connect(user="bmrb",
+                            host=configuration['postgres']['host'],
+                            database=configuration['postgres']['database'])
+    cur = conn.cursor()
+
+    # Create the new schema if needed
+    cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'combined');")
+    if cur.fetchall()[0][0] is False:
+        cur.execute("CREATE SCHEMA combined;")
+        # TODO: Once we have postgres 9.3 replace the above 3 lines with
+        # cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
+
+    # Get the tables we need to combine
+    cur.execute('''SELECT table_name,table_schema FROM information_schema.tables WHERE table_catalog = 'bmrbeverything' AND (table_schema = 'metabolomics' OR table_schema = 'chemcomps' OR table_schema = 'macromolecules');''')
+    rows = cur.fetchall()
+
+    # Figure out how to combine them
+    combine_dict = {}
+    for row in rows:
+        if row[0] in combine_dict:
+            combine_dict[row[0]].append(row[1])
+        else:
+            combine_dict[row[0]] = [row[1]]
+
+    for table_name in combine_dict.keys():
+        query = ''
+        if len(combine_dict[table_name]) == 1:
+            print("Warning. Table from only one schema found.")
+        elif len(combine_dict[table_name]) == 2:
+            query = '''
+CREATE OR REPLACE VIEW combined."%s" AS
+select * from %s."%s" t
+ union all
+select * from %s."%s" tt;''' % (table_name,
+                    combine_dict[table_name][0], table_name,
+                    combine_dict[table_name][1], table_name)
+        elif len(combine_dict[table_name]) == 3:
+            query = '''
+CREATE OR REPLACE VIEW combined."%s" AS
+select * from %s."%s" t
+ union all
+select * from %s."%s" tt
+ union all
+select * from %s."%s" ttt;''' % (table_name,
+                    combine_dict[table_name][0], table_name,
+                    combine_dict[table_name][1], table_name,
+                    combine_dict[table_name][2], table_name)
+
+        cur.execute(query)
+        print query
+
+    cur.execute("GRANT USAGE ON SCHEMA combined to web;")
+    cur.execute("GRANT SELECT ON ALL TABLES IN SCHEMA combined TO web;")
+    cur.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA combined TO web;")
+
+    # Let web see it
+    conn.commit()
