@@ -15,9 +15,14 @@ or
 [/metabolomics/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/metabolomics)
 at the end will only return the entries of that type.
 
-#### /entry/$ENTRY_ID
+#### /entry/$ENTRY_ID/[$ENTRY_FORMAT]
 
-Returns the given BMRB entry in [JSON format](ENTRY.md#entry).
+Returns the given BMRB entry in [JSON format](ENTRY.md#entry) if no additional
+arguments are provided. If $ENTRY_FORMAT is specified then return the entry
+in the specified format.
+
+Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
+
 [Here](http://webapi.bmrb.wisc.edu/current/rest/entry/15000/) is an example.
 
 #### /saveframe/$ENTRY_ID/$SAVEFRAME_CATEGORY

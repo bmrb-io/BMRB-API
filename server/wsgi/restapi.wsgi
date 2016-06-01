@@ -72,9 +72,17 @@ def chemical_shifts(atom_type=None, database=None):
                                                     database=database))
 
 @application.route('/entry/<entry_id>/')
-def get_entry(entry_id):
-    """ Returns an entry in JSON format."""
-    return return_json(querymod.get_raw_entry(entry_id), encode=False)
+@application.route('/entry/<entry_id>/<entry_format>/')
+def get_entry(entry_id, entry_format="json"):
+    """ Returns an entry in the specified format."""
+
+    if entry_format == "json":
+        return return_json(querymod.get_raw_entry(entry_id), encode=False)
+    else:
+        generator = querymod.get_valid_entries_from_REDIS(entry_id,
+                                                      entry_format=entry_format)
+        entry = generator.next()
+        return Response(response=entry, mimetype="text/nmrstar")
 
 @application.route('/saveframe/<entry_id>/<saveframe_category>')
 def get_saveframe(entry_id, saveframe_category):

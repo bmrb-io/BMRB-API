@@ -99,7 +99,6 @@ if __name__ == "__main__":
     # Do a loop query that will fail because ids is not specified
     postIt("loop",
         {
-            "raw": False,
             "keys": ["_Vendor"]
         }
     )
@@ -107,17 +106,17 @@ if __name__ == "__main__":
     # Do a loop query
     postIt("loop",
         {
-            "raw": False,
+            "format": "nmrstar",
             "ids": [15000, 16000],
             "keys": ["_Vendor"]
         }
     )
 
-    # Do a raw loop query - get the loop as JSON directly rather than
-    #  in NMR-STAR format
+    # Do a loop query - get the loop as JSON directly rather than
+    #  in NMR-STAR format. This is the default.
     postIt("loop",
         {
-            "raw": True,
+            "format": "json",
             "ids": [15000, 16000],
             "keys": ["_Vendor"]
         }
@@ -131,8 +130,8 @@ if __name__ == "__main__":
         }
     )
 
-    # Do a saveframe query - note that you can also get a saveframe in JSON
-    #  by specifying "raw":True
+    # Do a saveframe query - note that you can also get a saveframe in nmrstar
+    #  by specifying "format": "nmrstar"
     postIt("saveframe",
         {
             "ids": [15000, 15010],
@@ -143,7 +142,7 @@ if __name__ == "__main__":
     # Entry query
     postIt("entry",
         {
-            "raw": False,
+            "format": "json",
             "ids": [15000]
         }
     )

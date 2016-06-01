@@ -53,10 +53,17 @@ def get_REDIS_connection():
 
     return r
 
-def get_valid_entries_from_REDIS(search_ids, raw=False):
+def get_valid_entries_from_REDIS(search_ids, entry_format="object"):
     """ Given a list of entries, yield the subset that exist in the database
-    as PyNMR-STAR objects. If raw is set to True then yield the entries in
-    unserialized JSON form."""
+    as the appropriate type as determined by the "entry_format" variable.
+
+    Valid entry formats:
+    nmrstar: Return the entry as NMR-STAR text
+    json: Return the entry in serialized JSON format
+    dict: Return the entry JSON data as a python dict
+    object: Return the PyNMR-STAR object for the entry
+    zlib: Return the entry straight from the DB as zlib compressed JSON
+    """
 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
@@ -82,19 +89,38 @@ def get_valid_entries_from_REDIS(search_ids, raw=False):
     # Go through the IDs
     for entry_id in valid_ids:
 
-        # See if it is in REDIS
-        entry_json = r.get(entry_id)
-        if entry_json:
-            entry_json = zlib.decompress(entry_json)
+        entry = r.get(entry_id)
 
-            # If they just want the JSON dictionary
-            if raw:
-                yield json.loads(entry_json)
+        # See if it is in REDIS
+        if entry:
+            # Return the compressed entry
+            if entry_format == "zlib":
+                yield entry
+
             else:
-                try:
-                    yield bmrb.entry.fromJSON(json.loads(entry_json))
-                except ValueError:
-                    pass
+                # Uncompress the zlib into serialized JSON
+                entry = zlib.decompress(entry)
+                if entry_format == "json":
+                    yield entry
+                else:
+                    # Parse the JSON into python dict
+                    entry = json.loads(entry)
+                    if entry_format == "dict":
+                        yield entry
+                    else:
+                        # Parse the dict into object
+                        entry = bmrb.entry.fromJSON(entry)
+                        if entry_format == "object":
+                            yield entry
+                        else:
+                            # Return NMR-STAR
+                            if entry_format == "nmrstar":
+                                yield str(entry)
+
+                            # Unknown format
+                            else:
+                                raise JSONException(-32702, "Invalid format: %s"
+                                                    "." % entry_format)
 
 def get_raw_entry(entry_id):
     """ Get one serialized entry. """
@@ -196,7 +222,8 @@ def get_loops(**kwargs):
         result[entry.bmrb_id] = {}
         for loop_category in loop_categories:
             matches = entry.getLoopsByCategory(loop_category)
-            if kwargs.get('raw', False):
+
+            if kwargs.get('format', "json") == "nmrstar":
                 matching_loops = [str(x) for x in matches]
             else:
                 matching_loops = [x.getJSON(serialize=False) for x in matches]
@@ -216,7 +243,7 @@ def get_saveframes(**kwargs):
         result[entry.bmrb_id] = {}
         for saveframe_category in saveframe_categories:
             matches = entry.getSaveframesByCategory(saveframe_category)
-            if kwargs.get('raw', False):
+            if kwargs.get('format', "json") == "nmrstar":
                 matching_frames = [str(x) for x in matches]
             else:
                 matching_frames = [x.getJSON(serialize=False) for x in matches]
@@ -231,9 +258,13 @@ def get_entries(**kwargs):
     result = {}
 
     # Go through the IDs
-    raw = kwargs.get('raw', False)
-    for entry in get_valid_entries_from_REDIS(kwargs['ids'], raw=raw):
-        result[entry.bmrb_id] = entry.getJSON(serialize=False)
+    entry_format = kwargs.get('format', "json")
+
+    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+        if entry_format == "nmrstar":
+            result[entry["bmrb_id"]] = str(entry)
+        else:
+            result[entry.bmrb_id] = entry.getJSON(serialize=False)
 
     return result
 
@@ -362,7 +393,7 @@ def process_select(**params):
     # Get the database name
     schema = params.get("database", "macromolecules")
 
-    if schema == "all":
+    if schema == "combined":
         raise JSONException(-32602, 'Merged database not yet available.')
     if schema not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
         raise JSONException(-32602, "Invalid database specified.")
