@@ -53,9 +53,9 @@ def get_REDIS_connection():
 
     return r
 
-def get_valid_entries_from_REDIS(search_ids, entry_format="object"):
+def get_valid_entries_from_REDIS(search_ids, format_="object"):
     """ Given a list of entries, yield the subset that exist in the database
-    as the appropriate type as determined by the "entry_format" variable.
+    as the appropriate type as determined by the "format_" variable.
 
     Valid entry formats:
     nmrstar: Return the entry as NMR-STAR text
@@ -94,33 +94,33 @@ def get_valid_entries_from_REDIS(search_ids, entry_format="object"):
         # See if it is in REDIS
         if entry:
             # Return the compressed entry
-            if entry_format == "zlib":
+            if format_ == "zlib":
                 yield entry
 
             else:
                 # Uncompress the zlib into serialized JSON
                 entry = zlib.decompress(entry)
-                if entry_format == "json":
+                if format_ == "json":
                     yield entry
                 else:
                     # Parse the JSON into python dict
                     entry = json.loads(entry)
-                    if entry_format == "dict":
+                    if format_ == "dict":
                         yield entry
                     else:
                         # Parse the dict into object
                         entry = bmrb.entry.fromJSON(entry)
-                        if entry_format == "object":
+                        if format_ == "object":
                             yield entry
                         else:
                             # Return NMR-STAR
-                            if entry_format == "nmrstar":
+                            if format_ == "nmrstar":
                                 yield str(entry)
 
                             # Unknown format
                             else:
                                 raise JSONException(-32702, "Invalid format: %s"
-                                                    "." % entry_format)
+                                                    "." % format_)
 
 def get_raw_entry(entry_id):
     """ Get one serialized entry. """
@@ -258,13 +258,14 @@ def get_entries(**kwargs):
     result = {}
 
     # Go through the IDs
-    entry_format = kwargs.get('format', "json")
+    format_ = kwargs.get('format', "json")
 
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
-        if entry_format == "nmrstar":
-            result[entry["bmrb_id"]] = str(entry)
-        else:
-            result[entry.bmrb_id] = entry.getJSON(serialize=False)
+    if format_ == "nmrstar":
+        for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+            result[entry.bmrb_id] = str(entry)
+    else:
+        for entry in get_valid_entries_from_REDIS(kwargs['ids'], format_="dict"):
+            result[entry.bmrb_id] = entry
 
     return result
 
