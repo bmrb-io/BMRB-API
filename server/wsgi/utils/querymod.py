@@ -53,10 +53,17 @@ def get_REDIS_connection():
 
     return r
 
-def get_valid_entries_from_REDIS(search_ids, raw=False):
+def get_valid_entries_from_REDIS(search_ids, format_="object"):
     """ Given a list of entries, yield the subset that exist in the database
-    as PyNMR-STAR objects. If raw is set to True then yield the entries in
-    unserialized JSON form."""
+    as the appropriate type as determined by the "format_" variable.
+
+    Valid entry formats:
+    nmrstar: Return the entry as NMR-STAR text
+    json: Return the entry in serialized JSON format
+    dict: Return the entry JSON data as a python dict
+    object: Return the PyNMR-STAR object for the entry
+    zlib: Return the entry straight from the DB as zlib compressed JSON
+    """
 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
@@ -82,25 +89,48 @@ def get_valid_entries_from_REDIS(search_ids, raw=False):
     # Go through the IDs
     for entry_id in valid_ids:
 
-        # See if it is in REDIS
-        entry_json = r.get(entry_id)
-        if entry_json:
-            entry_json = zlib.decompress(entry_json)
+        entry = r.get(entry_id)
 
-            # If they just want the JSON dictionary
-            if raw:
-                yield json.loads(entry_json)
+        # See if it is in REDIS
+        if entry:
+            # Return the compressed entry
+            if format_ == "zlib":
+                yield entry
+
             else:
-                try:
-                    yield bmrb.entry.fromJSON(json.loads(entry_json))
-                except ValueError:
-                    pass
+                # Uncompress the zlib into serialized JSON
+                entry = zlib.decompress(entry)
+                if format_ == "json":
+                    yield entry
+                else:
+                    # Parse the JSON into python dict
+                    entry = json.loads(entry)
+                    if format_ == "dict":
+                        yield entry
+                    else:
+                        # Parse the dict into object
+                        entry = bmrb.entry.fromJSON(entry)
+                        if format_ == "object":
+                            yield entry
+                        else:
+                            # Return NMR-STAR
+                            if format_ == "nmrstar":
+                                yield str(entry)
+
+                            # Unknown format
+                            else:
+                                raise JSONException(-32702, "Invalid format: %s"
+                                                    "." % format_)
 
 def get_raw_entry(entry_id):
     """ Get one serialized entry. """
 
     # See if it is a chem comp entry
     if entry_id.startswith("chem_comp_") and entry_id in list_entries(database="chemcomps"):
+
+        #select * from information_schema.tables where table_schema = 'chemcomps';
+        #select * from dict.validator_sfcats where internalflag = 'N' order by order_num;
+
         url = "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_alltags=yes&print_entity=yes&print_chem_comp=yes&%s=Fetch" % entry_id[10:]
         chem_frame = bmrb._interpretFile(url).read()
         if chem_frame.strip() == "":
@@ -192,7 +222,8 @@ def get_loops(**kwargs):
         result[entry.bmrb_id] = {}
         for loop_category in loop_categories:
             matches = entry.getLoopsByCategory(loop_category)
-            if kwargs.get('raw', False):
+
+            if kwargs.get('format', "json") == "nmrstar":
                 matching_loops = [str(x) for x in matches]
             else:
                 matching_loops = [x.getJSON(serialize=False) for x in matches]
@@ -212,7 +243,7 @@ def get_saveframes(**kwargs):
         result[entry.bmrb_id] = {}
         for saveframe_category in saveframe_categories:
             matches = entry.getSaveframesByCategory(saveframe_category)
-            if kwargs.get('raw', False):
+            if kwargs.get('format', "json") == "nmrstar":
                 matching_frames = [str(x) for x in matches]
             else:
                 matching_frames = [x.getJSON(serialize=False) for x in matches]
@@ -227,9 +258,14 @@ def get_entries(**kwargs):
     result = {}
 
     # Go through the IDs
-    raw = kwargs.get('raw', False)
-    for entry in get_valid_entries_from_REDIS(kwargs['ids'], raw=raw):
-        result[entry.bmrb_id] = entry.getJSON(serialize=False)
+    format_ = kwargs.get('format', "json")
+
+    if format_ == "nmrstar":
+        for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+            result[entry.bmrb_id] = str(entry)
+    else:
+        for entry in get_valid_entries_from_REDIS(kwargs['ids'], format_="dict"):
+            result[entry.bmrb_id] = entry
 
     return result
 
@@ -358,7 +394,7 @@ def process_select(**params):
     # Get the database name
     schema = params.get("database", "macromolecules")
 
-    if schema == "all":
+    if schema == "combined":
         raise JSONException(-32602, 'Merged database not yet available.')
     if schema not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
         raise JSONException(-32602, "Invalid database specified.")
@@ -434,3 +470,64 @@ def process_select(**params):
                     new_response[each_query['from'] + "." + field] = []
 
     return new_response
+
+def create_combined_view():
+
+    # Errors connecting will be handled upstream
+    conn = psycopg2.connect(user="bmrb",
+                            host=configuration['postgres']['host'],
+                            database=configuration['postgres']['database'])
+    cur = conn.cursor()
+
+    # Create the new schema if needed
+    cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'combined');")
+    if cur.fetchall()[0][0] is False:
+        cur.execute("CREATE SCHEMA combined;")
+        # TODO: Once we have postgres 9.3 replace the above 3 lines with
+        # cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
+
+    # Get the tables we need to combine
+    cur.execute('''SELECT table_name,table_schema FROM information_schema.tables WHERE table_catalog = 'bmrbeverything' AND (table_schema = 'metabolomics' OR table_schema = 'chemcomps' OR table_schema = 'macromolecules');''')
+    rows = cur.fetchall()
+
+    # Figure out how to combine them
+    combine_dict = {}
+    for row in rows:
+        if row[0] in combine_dict:
+            combine_dict[row[0]].append(row[1])
+        else:
+            combine_dict[row[0]] = [row[1]]
+
+    for table_name in combine_dict.keys():
+        query = ''
+        if len(combine_dict[table_name]) == 1:
+            print("Warning. Table from only one schema found.")
+        elif len(combine_dict[table_name]) == 2:
+            query = '''
+CREATE OR REPLACE VIEW combined."%s" AS
+select * from %s."%s" t
+ union all
+select * from %s."%s" tt;''' % (table_name,
+                    combine_dict[table_name][0], table_name,
+                    combine_dict[table_name][1], table_name)
+        elif len(combine_dict[table_name]) == 3:
+            query = '''
+CREATE OR REPLACE VIEW combined."%s" AS
+select * from %s."%s" t
+ union all
+select * from %s."%s" tt
+ union all
+select * from %s."%s" ttt;''' % (table_name,
+                    combine_dict[table_name][0], table_name,
+                    combine_dict[table_name][1], table_name,
+                    combine_dict[table_name][2], table_name)
+
+        cur.execute(query)
+        print query
+
+    cur.execute("GRANT USAGE ON SCHEMA combined to web;")
+    cur.execute("GRANT SELECT ON ALL TABLES IN SCHEMA combined TO web;")
+    cur.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA combined TO web;")
+
+    # Let web see it
+    conn.commit()

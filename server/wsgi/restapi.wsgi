@@ -72,20 +72,33 @@ def chemical_shifts(atom_type=None, database=None):
                                                     database=database))
 
 @application.route('/entry/<entry_id>/')
-def get_entry(entry_id):
-    """ Returns an entry in JSON format."""
-    return return_json(querymod.get_raw_entry(entry_id), encode=False)
+@application.route('/entry/<entry_id>/<format_>/')
+def get_entry(entry_id, format_="json"):
+    """ Returns an entry in the specified format."""
+
+    if format_ == "json":
+        # You could just use the portion in the "else" below, but this
+        #  is faster because the entry doesn't have to be JSON decoded and
+        #   then JSON encoded.
+        return return_json(querymod.get_raw_entry(entry_id), encode=False)
+    else:
+        result = querymod.get_entries(ids=entry_id, format=format_)
+        return return_json(result)
 
 @application.route('/saveframe/<entry_id>/<saveframe_category>')
-def get_saveframe(entry_id, saveframe_category):
-    """ Returns a saveframe in JSON format."""
-    result = querymod.get_saveframes(ids=entry_id, keys=saveframe_category)
+@application.route('/saveframe/<entry_id>/<saveframe_category>/<format_>/')
+def get_saveframe(entry_id, saveframe_category, format_="json"):
+    """ Returns a saveframe in the specified format."""
+    result = querymod.get_saveframes(ids=entry_id, keys=saveframe_category,
+                                     format=format_)
     return return_json(result)
 
 @application.route('/loop/<entry_id>/<loop_category>')
-def get_loop(entry_id, loop_category):
-    """ Returns a loop in JSON format."""
-    return return_json(querymod.get_loops(ids=entry_id, keys=loop_category))
+@application.route('/loop/<entry_id>/<loop_category>/<format_>/')
+def get_loop(entry_id, loop_category, format_="json"):
+    """ Returns a loop in in the specified format."""
+    return return_json(querymod.get_loops(ids=entry_id, keys=loop_category,
+                                          format=format_))
 
 @application.route('/tag/<entry_id>/<tag_name>')
 def get_tag(entry_id, tag_name):

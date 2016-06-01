@@ -138,8 +138,8 @@ Mandatory parameters:
 * `ids`: A list of BMRB IDs to return.
 
 Optional parameters:
-* `raw`: A boolean value that defaults to `false`. If set to `true` then the BMRB
-entries are returned in NMR-STAR format rather than JSON format.
+* `format`: Either `nmrstar` to return the entry in NMR-STAR format or `json` to
+return the entry in JSON format.
 
 Example query (returns the full BMRB entries 15000 and 16000):
 
@@ -148,7 +148,7 @@ Example query (returns the full BMRB entries 15000 and 16000):
     "method": "entry",
     "jsonrpc": "2.0",
     "params": {
-        "raw": false,
+        "format": "json",
         "ids": [15000, 16000]
     },
     "id": 1
@@ -185,8 +185,8 @@ Mandatory parameters:
 entries.
 
 Optional parameters:
-* `raw`: A boolean value that defaults to `false`. If set to `true` then the BMRB
-saveframes are returned in NMR-STAR format rather than JSON format.
+* `format`: Either `nmrstar` to return the saveframe in NMR-STAR format or `json`
+to return the saveframe in JSON format.
 
 Example query (returns all saveframes of category "sample_conditions" from the
 BMRB entries 15000 and 16000):
@@ -238,8 +238,8 @@ Mandatory parameters:
 entries.
 
 Optional parameters:
-* `raw`: A boolean value that defaults to `false`. If set to `true` then the BMRB
-loops are returned in NMR-STAR format rather than JSON format.
+* `format`: Either `nmrstar` to return the loops in NMR-STAR format or
+`json` to return the loops in JSON format.
 
 Example query (returns all loops of category "Vendor" from the BMRB entries
 15000 and 16000):

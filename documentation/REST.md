@@ -15,23 +15,33 @@ or
 [/metabolomics/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/metabolomics)
 at the end will only return the entries of that type.
 
-#### /entry/$ENTRY_ID
+#### /entry/$ENTRY_ID/[$ENTRY_FORMAT]
 
-Returns the given BMRB entry in [JSON format](ENTRY.md#entry).
+Returns the given BMRB entry in [JSON format](ENTRY.md#entry)by default. If
+$ENTRY_FORMAT is specified then return in that format instead.
+
+Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
+
 [Here](http://webapi.bmrb.wisc.edu/current/rest/entry/15000/) is an example.
 
-#### /saveframe/$ENTRY_ID/$SAVEFRAME_CATEGORY
+#### /saveframe/$ENTRY_ID/$SAVEFRAME_CATEGORY/[$ENTRY_FORMAT]
 
 Returns all saveframes of the given category for an entry in
-[JSON format](ENTRY.md#saveframe).
+[JSON format](ENTRY.md#saveframe) by default. If $ENTRY_FORMAT is specified then
+return in that format instead.
+
+Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
 
 [Here](http://webapi.bmrb.wisc.edu/current/rest/saveframe/15000/assigned_chemical_shifts)
 is an example query.
 
-#### /loop/$ENTRY_ID/$LOOP_CATEGORY
+#### /loop/$ENTRY_ID/$LOOP_CATEGORY/[$ENTRY_FORMAT]
 
 Returns all loops of a given category for a given entry in
-[JSON format](ENTRY.md#loop).
+[JSON format](ENTRY.md#loop) by default. If $ENTRY_FORMAT is specified then
+return in that format instead.
+
+Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
 
 [Here](http://webapi.bmrb.wisc.edu/current/rest/loop/15000/_Sample_condition_variable)
 is an example query.
