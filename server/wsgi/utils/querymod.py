@@ -34,7 +34,7 @@ def get_postgres_connection(user=configuration['postgres']['user'],
 
     return conn, cur
 
-def get_REDIS_connection():
+def get_redis_connection():
     """ Figures out where the master redis instance is (and other paramaters
     needed to connect like which database to use), and opens a connection
     to it. It passes back that connection object."""
@@ -64,7 +64,7 @@ def get_REDIS_connection():
 
     return r
 
-def get_valid_entries_from_REDIS(search_ids, format_="object"):
+def get_valid_entries_from_redis(search_ids, format_="object"):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
 
@@ -86,8 +86,8 @@ def get_valid_entries_from_REDIS(search_ids, format_="object"):
                                     'fewer entries at a time. You attempted to '
                                     'query %d IDs.' % len(search_ids))
 
-    # Get the connection to REDIS
-    r = get_REDIS_connection()
+    # Get the connection to redis
+    r = get_redis_connection()
     all_ids = r.lrange("loaded", 0, -1)
 
     valid_ids = []
@@ -102,7 +102,7 @@ def get_valid_entries_from_REDIS(search_ids, format_="object"):
 
         entry = r.get(entry_id)
 
-        # See if it is in REDIS
+        # See if it is in redis
         if entry:
             # Return the compressed entry
             if format_ == "zlib":
@@ -152,7 +152,7 @@ def get_raw_entry(entry_id):
         return '{"%s": ' % entry_id + entry.getJSON() + "}"
     else:
         # Look for the entry in Redis
-        entry = get_REDIS_connection().get(entry_id)
+        entry = get_redis_connection().get(entry_id)
 
         # See if the entry is in the database
         if entry is None:
@@ -165,7 +165,7 @@ def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
     only entries from that database are returned. """
 
-    entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
+    entry_list = get_redis_connection().lrange("loaded", 0, -1)
 
     db = kwargs.get("database", None)
     if db:
@@ -212,12 +212,12 @@ def get_chemical_shifts(**kwargs):
 def get_tags(**kwargs):
     """ Returns results for the queried tags."""
 
-    # Get the valid IDs and REDIS connection
+    # Get the valid IDs and redis connection
     search_tags = process_STAR_query(kwargs)
     result = {}
 
     # Go through the IDs
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+    for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry.bmrb_id] = entry.getTags(search_tags)
 
     return result
@@ -225,12 +225,12 @@ def get_tags(**kwargs):
 def get_loops(**kwargs):
     """ Returns the matching loops."""
 
-    # Get the valid IDs and REDIS connection
+    # Get the valid IDs and redis connection
     loop_categories = process_STAR_query(kwargs)
     result = {}
 
     # Go through the IDs
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+    for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry.bmrb_id] = {}
         for loop_category in loop_categories:
             matches = entry.getLoopsByCategory(loop_category)
@@ -246,12 +246,12 @@ def get_loops(**kwargs):
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""
 
-    # Get the valid IDs and REDIS connection
+    # Get the valid IDs and redis connection
     saveframe_categories = process_STAR_query(kwargs)
     result = {}
 
     # Go through the IDs
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+    for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry.bmrb_id] = {}
         for saveframe_category in saveframe_categories:
             matches = entry.getSaveframesByCategory(saveframe_category)
@@ -273,10 +273,10 @@ def get_entries(**kwargs):
     format_ = kwargs.get('format', "json")
 
     if format_ == "nmrstar":
-        for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+        for entry in get_valid_entries_from_redis(kwargs['ids']):
             result[entry.bmrb_id] = str(entry)
     else:
-        for entry in get_valid_entries_from_REDIS(kwargs['ids'], format_="dict"):
+        for entry in get_valid_entries_from_redis(kwargs['ids'], format_="dict"):
             result[entry.bmrb_id] = entry
 
     return result
