@@ -154,10 +154,11 @@ def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
     only entries from that database are returned. """
 
+    entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
+
     db = kwargs.get("database", None)
     if db:
         if db in ["metabolomics", "macromolecules"]:
-            entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
             if db == "metabolomics":
                 entry_list = [x for x in entry_list if x.startswith("bm")]
             if db == "macromolecules":
