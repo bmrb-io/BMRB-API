@@ -23,6 +23,17 @@ configuration = json.loads(open("../../../api_config.json", "r").read())
 # Set up logging
 logging.basicConfig()
 
+def get_postgres_connection(user=configuration['postgres']['user'],
+                            host=configuration['postgres']['host'],
+                            database=configuration['postgres']['database']):
+    """ Returns a connection to postgres and a cursor."""
+
+    # Errors connecting will be handled upstream
+    conn = psycopg2.connect(user=user, host=host, database=database)
+    cur = conn.cursor()
+
+    return conn, cur
+
 def get_REDIS_connection():
     """ Figures out where the master redis instance is (and other paramaters
     needed to connect like which database to use), and opens a connection
@@ -291,11 +302,7 @@ def get_fields_by_fields(fetch_list, table, where_dict=None,
         raise JSONException(-32701, "Invalid 'from' parameter.")
 
     # Errors connecting will be handled upstream
-    conn = psycopg2.connect(user=configuration['postgres']['user'],
-                            host=configuration['postgres']['host'],
-                            database=configuration['postgres']['database'])
-
-    cur = conn.cursor()
+    conn, cur = get_postgres_connection()
 
     # Prepare the query
     if len(fetch_list) == 1 and fetch_list[0] == "*":
@@ -474,11 +481,8 @@ def process_select(**params):
 
 def create_combined_view():
 
-    # Errors connecting will be handled upstream
-    conn = psycopg2.connect(user="bmrb",
-                            host=configuration['postgres']['host'],
-                            database=configuration['postgres']['database'])
-    cur = conn.cursor()
+    # Connect as the user that has write privileges
+    conn, cur = get_postgres_connection(user="bmrb")
 
     # Create the new schema if needed
     cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'combined');")
