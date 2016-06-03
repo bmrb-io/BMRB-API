@@ -166,15 +166,12 @@ def list_entries(**kwargs):
 
     db = kwargs.get("database", None)
     if db:
-        if db in ["metabolomics", "macromolecules"]:
-            if db == "metabolomics":
-                entry_list = [x for x in entry_list if x.startswith("bm")]
-            if db == "macromolecules":
-                entry_list = [x for x in entry_list if not x.startswith("bm")]
+        if db == "metabolomics":
+            entry_list = [x for x in entry_list if x.startswith("bm")]
+        elif db == "macromolecules":
+            entry_list = [x for x in entry_list if not x.startswith("bm") and not x.startswith("chemcom")]
         elif db == "chemcomps":
-            res = get_fields_by_fields(["BMRB_code"], "Entity",
-                                       schema="chemcomps")
-            return ["chemcomp_" + x for x in res["Entity.BMRB_code"]]
+            entry_list = [x for x in entry_list if x.startswith("chemcomp")]
 
     return entry_list
 
@@ -514,7 +511,7 @@ def create_chemcomp_from_db(chemcomp, check_exists=True):
     # TODO: This can be avoided by improving the JSON serialization
     # in PyNMR-STAR. The issue is that the JSON serialization method cannot
     # currently handle datetimes
-    return ent
+    return bmrb.entry.fromString(str(ent))
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
