@@ -5,10 +5,10 @@ provided through the REST and JSON-RPC interfaces. This is where the real work
 is done; jsonapi.wsgi and restapi.wsgi mainly just call the methods here and
 return the results."""
 
+import os
 import json
 import zlib
 import logging
-
 import psycopg2
 from psycopg2.extensions import AsIs
 import redis
@@ -19,11 +19,24 @@ import bmrb
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 
 # Load the configuration file
-configuration = json.loads(open("../../../api_config.json", "r").read())
+config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "..", "..", "..", "..", "api_config.json")
+configuration = json.loads(open(config_loc, "r").read())
 # Set up logging
 logging.basicConfig()
 
-def get_REDIS_connection():
+def get_postgres_connection(user=configuration['postgres']['user'],
+                            host=configuration['postgres']['host'],
+                            database=configuration['postgres']['database']):
+    """ Returns a connection to postgres and a cursor."""
+
+    # Errors connecting will be handled upstream
+    conn = psycopg2.connect(user=user, host=host, database=database)
+    cur = conn.cursor()
+
+    return conn, cur
+
+def get_redis_connection(db=None):
     """ Figures out where the master redis instance is (and other paramaters
     needed to connect like which database to use), and opens a connection
     to it. It passes back that connection object."""
@@ -33,13 +46,17 @@ def get_REDIS_connection():
         # Figure out where we should connect
         sentinel = Sentinel(configuration['redis']['sentinels'],
                             socket_timeout=0.5)
-        redis_host, redis_port = sentinel.discover_master('tarpon_master')
+        redis_host, redis_port = sentinel.discover_master(configuration['redis']['master_name'])
+
+        # If they didn't specify a DB then use the configuration default
+        if db is None:
+            db = configuration['redis']['db']
 
         # Get the redis instance
         r = redis.StrictRedis(host=redis_host,
                               port=redis_port,
                               password=configuration['redis']['password'],
-                              db=configuration['redis']['db'])
+                              db=db)
 
         # If the redis instance is being updated during the request then
         #  write a warning to the log
@@ -53,7 +70,7 @@ def get_REDIS_connection():
 
     return r
 
-def get_valid_entries_from_REDIS(search_ids, format_="object"):
+def get_valid_entries_from_redis(search_ids, format_="object"):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
 
@@ -75,8 +92,8 @@ def get_valid_entries_from_REDIS(search_ids, format_="object"):
                                     'fewer entries at a time. You attempted to '
                                     'query %d IDs.' % len(search_ids))
 
-    # Get the connection to REDIS
-    r = get_REDIS_connection()
+    # Get the connection to redis
+    r = get_redis_connection()
     all_ids = r.lrange("loaded", 0, -1)
 
     valid_ids = []
@@ -91,7 +108,7 @@ def get_valid_entries_from_REDIS(search_ids, format_="object"):
 
         entry = r.get(entry_id)
 
-        # See if it is in REDIS
+        # See if it is in redis
         if entry:
             # Return the compressed entry
             if format_ == "zlib":
@@ -126,22 +143,13 @@ def get_raw_entry(entry_id):
     """ Get one serialized entry. """
 
     # See if it is a chem comp entry
-    if entry_id.startswith("chem_comp_") and entry_id in list_entries(database="chemcomps"):
+    if entry_id.startswith("chemcomp_") and entry_id in list_entries(database="chemcomps"):
 
-        #select * from information_schema.tables where table_schema = 'chemcomps';
-        #select * from dict.validator_sfcats where internalflag = 'N' order by order_num;
-
-        url = "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_alltags=yes&print_entity=yes&print_chem_comp=yes&%s=Fetch" % entry_id[10:]
-        chem_frame = bmrb._interpretFile(url).read()
-        if chem_frame.strip() == "":
-            return json.dumps({"error": "Entry '%s' does not exist in the "
-                                        "public database." % entry_id})
-        else:
-            entry = bmrb.entry.fromString("data_%s\n\n" % entry_id + chem_frame)
+        entry = create_chemcomp_from_db(entry_id)
         return '{"%s": ' % entry_id + entry.getJSON() + "}"
     else:
         # Look for the entry in Redis
-        entry = get_REDIS_connection().get(entry_id)
+        entry = get_redis_connection().get(entry_id)
 
         # See if the entry is in the database
         if entry is None:
@@ -154,7 +162,7 @@ def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
     only entries from that database are returned. """
 
-    entry_list = get_REDIS_connection().lrange("loaded", 0, -1)
+    entry_list = get_redis_connection().lrange("loaded", 0, -1)
 
     db = kwargs.get("database", None)
     if db:
@@ -166,7 +174,7 @@ def list_entries(**kwargs):
         elif db == "chemcomps":
             res = get_fields_by_fields(["BMRB_code"], "Entity",
                                        schema="chemcomps")
-            return ["chem_comp_" + x for x in res["Entity.BMRB_code"]]
+            return ["chemcomp_" + x for x in res["Entity.BMRB_code"]]
 
     return entry_list
 
@@ -201,12 +209,12 @@ def get_chemical_shifts(**kwargs):
 def get_tags(**kwargs):
     """ Returns results for the queried tags."""
 
-    # Get the valid IDs and REDIS connection
+    # Get the valid IDs and redis connection
     search_tags = process_STAR_query(kwargs)
     result = {}
 
     # Go through the IDs
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+    for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry.bmrb_id] = entry.getTags(search_tags)
 
     return result
@@ -214,12 +222,12 @@ def get_tags(**kwargs):
 def get_loops(**kwargs):
     """ Returns the matching loops."""
 
-    # Get the valid IDs and REDIS connection
+    # Get the valid IDs and redis connection
     loop_categories = process_STAR_query(kwargs)
     result = {}
 
     # Go through the IDs
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+    for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry.bmrb_id] = {}
         for loop_category in loop_categories:
             matches = entry.getLoopsByCategory(loop_category)
@@ -235,12 +243,12 @@ def get_loops(**kwargs):
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""
 
-    # Get the valid IDs and REDIS connection
+    # Get the valid IDs and redis connection
     saveframe_categories = process_STAR_query(kwargs)
     result = {}
 
     # Go through the IDs
-    for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+    for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry.bmrb_id] = {}
         for saveframe_category in saveframe_categories:
             matches = entry.getSaveframesByCategory(saveframe_category)
@@ -262,10 +270,10 @@ def get_entries(**kwargs):
     format_ = kwargs.get('format', "json")
 
     if format_ == "nmrstar":
-        for entry in get_valid_entries_from_REDIS(kwargs['ids']):
+        for entry in get_valid_entries_from_redis(kwargs['ids']):
             result[entry.bmrb_id] = str(entry)
     else:
-        for entry in get_valid_entries_from_REDIS(kwargs['ids'], format_="dict"):
+        for entry in get_valid_entries_from_redis(kwargs['ids'], format_="dict"):
             result[entry.bmrb_id] = entry
 
     return result
@@ -291,11 +299,7 @@ def get_fields_by_fields(fetch_list, table, where_dict=None,
         raise JSONException(-32701, "Invalid 'from' parameter.")
 
     # Errors connecting will be handled upstream
-    conn = psycopg2.connect(user=configuration['postgres']['user'],
-                            host=configuration['postgres']['host'],
-                            database=configuration['postgres']['database'])
-
-    cur = conn.cursor()
+    cur = get_postgres_connection()[1]
 
     # Prepare the query
     if len(fetch_list) == 1 and fetch_list[0] == "*":
@@ -472,23 +476,198 @@ def process_select(**params):
 
     return new_response
 
-def create_combined_view():
+def create_chemcomp_from_db(chemcomp, check_exists=True):
+    """ Create a chem comp entry from the database."""
 
-    # Errors connecting will be handled upstream
-    conn = psycopg2.connect(user="bmrb",
-                            host=configuration['postgres']['host'],
-                            database=configuration['postgres']['database'])
-    cur = conn.cursor()
+    # Rebuild the chemcomp and generate the cc_id. This way we can work
+    # with the three letter string or the full chemcomp. Also make sure
+    # to capitalize it.
+    if len(chemcomp) == 3:
+        cc_id = chemcomp.upper()
+    else:
+        cc_id = chemcomp[9:].upper()
+    chemcomp = "chemcomp_" + cc_id
+
+    # See if the chemcomp exists in the DB
+    if check_exists and chemcomp not in list_entries(database="chemcomps"):
+        raise JSONException(-32600, "Entry '%s' does not exist in the "
+                                    "public database." % chemcomp)
+
+    # Connect to DB
+    cur = get_postgres_connection()[1]
+
+    # Create entry
+    ent = bmrb.entry.fromScratch(chemcomp)
+    # Chop off the chem_comp_
+
+    chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
+                                              cc_id, "ID", cur)
+    entity_frame = create_saveframe_from_db("chemcomps", "entity",
+                                            cc_id,
+                                            "Nonpolymer_comp_ID", cur)
+    # This is specifically omitted... long story
+    del entity_frame['_Entity_atom_list']
+
+    ent.addSaveframe(chemcomp_frame)
+    ent.addSaveframe(entity_frame)
+
+    # TODO: This can be avoided by improving the JSON serialization
+    # in PyNMR-STAR. The issue is that the JSON serialization method cannot
+    # currently handle datetimes
+    return ent
+
+def create_saveframe_from_db(schema, category, entry_id, id_search_field,
+                             cur=None):
+    """ Builds a saveframe from the database. You specify the schema:
+    (metabolomics, macromolecule, chemcomps, combined), the category of the
+    saveframe, the identifier of the saveframe, and the name of the column that
+    we should search for the identifier (within the saveframe's table).
+
+    You can optionally pass a cursor to reuse an existing postgresql
+    connection."""
+
+    # Connect to the database unless passed a handle
+    # Why? If building a whole entry we don't want to have to
+    # reconnect a bunch of times. This allows the calling method to
+    # provide a connection and cursor.
+    if cur is None:
+        cur = get_postgres_connection()[1]
+
+    # Set the search path
+    cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':schema})
+
+    # Check if we are allowed to print it
+    cur.execute('''SELECT internalflag,printflag FROM dict.cat_grp
+                WHERE sfcategory=%(sf_cat)s ORDER BY groupid''',
+                {'sf_cat': category})
+    internalflag, printflag = cur.fetchone()
+
+    # Sorry, we won't print internal saveframes
+    if internalflag == "Y":
+        logging.warning("Something tried to format an internal saveframe: "
+                        "%s.%s", schema, category)
+        return None
+    # Nor frames that don't get printed
+    if printflag == "N":
+        logging.warning("Something tried to format an no-print saveframe: "
+                        "%s.%s", schema, category)
+        return None
+
+    # Get table name from category name
+    cur.execute("""SELECT DISTINCT tagcategory FROM dict.val_item_tbl
+                WHERE originalcategory=%(category)s AND loopflag<>'Y'""",
+                {"category":category})
+    table_name = cur.fetchone()[0]
+
+    if configuration['debug']:
+        print "Will look in table: %s" % table_name
+
+    # Get the sf_id for later
+    cur.execute('''SELECT "Sf_ID","Sf_framecode" FROM %(table_name)s
+                WHERE %(search_field)s=%(id)s ORDER BY "Sf_ID"''',
+                {"id":entry_id, 'table_name': wrap_it_up(table_name),
+                 "search_field": wrap_it_up(id_search_field)})
+
+    # There is no matching saveframe found for their search term
+    # and search field
+    if cur.rowcount == 0:
+        raise JSONException(-32600, "No matching saveframe found.")
+    sf_id, sf_framecode = cur.fetchone()
+
+    # Create the NMR-STAR saveframe
+    built_frame = bmrb.saveframe.fromScratch(sf_framecode)
+    built_frame.tag_prefix = "_" + table_name
+
+    # Insert the tags
+    cur.execute('''SELECT * FROM %(table_name)s where "Sf_ID"=%(sf_id)s''',
+                {'sf_id': sf_id, 'table_name': wrap_it_up(table_name)})
+    tag_vals = cur.fetchone()
+    for pos, tag in enumerate(cur.description):
+        built_frame.addTag(tag.name, tag_vals[pos])
+
+    # Figure out which loops we might need to insert
+    cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.val_item_tbl
+                WHERE originalcategory=%(category)s GROUP BY tagcategory ORDER BY seq''',
+                {'category': category})
+
+    # The first result is the saveframe, so drop it
+    cur.fetchone()
+
+    # Figure out which loops we might need to add
+    loops = [x[0] for x in cur.fetchall()]
+
+    # Add the loops
+    for each_loop in loops:
+
+        if configuration['debug']:
+            print "Doing loop: %s" % each_loop
+
+        # Figure out the loop tags
+        cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq FROM dict.val_item_tbl
+                    WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
+                    {"loop_name": each_loop})
+        tags_to_use = []
+        for row in cur:
+            if configuration['debug']:
+                print row
+            # Make sure it isn't internal and it should be printed
+            if row[1] != "Y":
+                # Make sure it should be printed
+                if row[2] == "Y" or row[2] == "O":
+                    tags_to_use.append(row[0])
+                else:
+                    if configuration['debug']:
+                        print "Skipping noprint tag: %s" % row[0]
+            else:
+                if configuration['debug']:
+                    print "Skipping private tag: %s" % row[0]
+
+        # If there are any tags in the loop to use
+        if len(tags_to_use) > 0:
+            # Create the loop
+            bmrb_loop = bmrb.loop.fromScratch(category=each_loop)
+            bmrb_loop.addColumn(tags_to_use)
+
+            # Get the loop data
+            to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
+            query = 'SELECT ' + to_fetch
+            query += ' FROM %(table_name)s WHERE "Sf_ID" = %(id)s'
+            for tag in tags_to_use:
+                if "ordinal" in tag or "Ordinal" in tag:
+                    query += ' ORDER BY "%s"' % tag
+            cur.execute(query, {"id": sf_id,
+                                "table_name":wrap_it_up(each_loop)})
+            if configuration['debug']:
+                print cur.query
+
+            # Add the data
+            for row in cur:
+                bmrb_loop.addData(row)
+
+            if bmrb_loop.data != []:
+                built_frame.addLoop(bmrb_loop)
+
+    return built_frame
+
+def create_combined_view():
+    """ Create the combined schema from the other three schemas."""
+
+    # Connect as the user that has write privileges
+    conn, cur = get_postgres_connection(user="bmrb")
 
     # Create the new schema if needed
-    cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'combined');")
+    cur.execute("""SELECT EXISTS(SELECT 1 FROM pg_namespace
+                WHERE nspname = 'combined');""")
     if cur.fetchall()[0][0] is False:
         cur.execute("CREATE SCHEMA combined;")
         # TODO: Once we have postgres 9.3 replace the above 3 lines with
         # cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
 
     # Get the tables we need to combine
-    cur.execute('''SELECT table_name,table_schema FROM information_schema.tables WHERE table_catalog = 'bmrbeverything' AND (table_schema = 'metabolomics' OR table_schema = 'chemcomps' OR table_schema = 'macromolecules');''')
+    cur.execute('''SELECT table_name,table_schema FROM information_schema.tables
+                WHERE table_catalog = 'bmrbeverything' AND
+                (table_schema = 'metabolomics' OR table_schema = 'chemcomps'
+                 OR table_schema = 'macromolecules');''')
     rows = cur.fetchall()
 
     # Figure out how to combine them
@@ -502,15 +681,15 @@ def create_combined_view():
     for table_name in combine_dict.keys():
         query = ''
         if len(combine_dict[table_name]) == 1:
-            print("Warning. Table from only one schema found.")
+            print "Warning. Table from only one schema found."
         elif len(combine_dict[table_name]) == 2:
             query = '''
 CREATE OR REPLACE VIEW combined."%s" AS
 select * from %s."%s" t
  union all
 select * from %s."%s" tt;''' % (table_name,
-                    combine_dict[table_name][0], table_name,
-                    combine_dict[table_name][1], table_name)
+                                combine_dict[table_name][0], table_name,
+                                combine_dict[table_name][1], table_name)
         elif len(combine_dict[table_name]) == 3:
             query = '''
 CREATE OR REPLACE VIEW combined."%s" AS
@@ -519,9 +698,9 @@ select * from %s."%s" t
 select * from %s."%s" tt
  union all
 select * from %s."%s" ttt;''' % (table_name,
-                    combine_dict[table_name][0], table_name,
-                    combine_dict[table_name][1], table_name,
-                    combine_dict[table_name][2], table_name)
+                                 combine_dict[table_name][0], table_name,
+                                 combine_dict[table_name][1], table_name,
+                                 combine_dict[table_name][2], table_name)
 
         cur.execute(query)
         print query
