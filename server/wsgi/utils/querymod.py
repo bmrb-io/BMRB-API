@@ -479,18 +479,27 @@ def process_select(**params):
 def create_chemcomp_from_db(chemcomp, check_exists=True):
     """ Create a chem comp entry from the database."""
 
+    # Rebuild the chemcomp and generate the cc_id. This way we can work
+    # with the three letter string or the full chemcomp. Also make sure
+    # to capitalize it.
+    if len(chemcomp) == 3:
+        cc_id = chemcomp.upper()
+    else:
+        cc_id = chemcomp[9:].upper()
+    chemcomp = "chemcomp_" + cc_id
+
     # See if the chemcomp exists in the DB
     if check_exists and chemcomp not in list_entries(database="chemcomps"):
         raise JSONException(-32600, "Entry '%s' does not exist in the "
                                     "public database." % chemcomp)
 
     # Connect to DB
-    conn, cur = get_postgres_connection()
+    cur = get_postgres_connection()[1]
 
     # Create entry
     ent = bmrb.entry.fromScratch(chemcomp)
     # Chop off the chem_comp_
-    cc_id = chemcomp[9:]
+
     chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
                                               cc_id, "ID", cur)
     entity_frame = create_saveframe_from_db("chemcomps", "entity",
