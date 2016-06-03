@@ -137,7 +137,7 @@ def get_raw_entry(entry_id):
     """ Get one serialized entry. """
 
     # See if it is a chem comp entry
-    if entry_id.startswith("chem_comp_") and entry_id in list_entries(database="chemcomps"):
+    if entry_id.startswith("chemcomp_") and entry_id in list_entries(database="chemcomps"):
 
         #select * from information_schema.tables where table_schema = 'chemcomps';
         #select * from dict.validator_sfcats where internalflag = 'N' order by order_num;
@@ -177,7 +177,7 @@ def list_entries(**kwargs):
         elif db == "chemcomps":
             res = get_fields_by_fields(["BMRB_code"], "Entity",
                                        schema="chemcomps")
-            return ["chem_comp_" + x for x in res["Entity.BMRB_code"]]
+            return ["chemcomp_" + x for x in res["Entity.BMRB_code"]]
 
     return entry_list
 
@@ -479,20 +479,159 @@ def process_select(**params):
 
     return new_response
 
+
+
+def create_saveframe_from_db(schema, category, entry_id, id_search_field,
+                             cur=None):
+    """ Builds a saveframe from the database. You specify the schema:
+    (metabolomics, macromolecule, chemcomps, combined), the category of the
+    saveframe, the identifier of the saveframe, and the name of the column that
+    we should search for the identifier (within the saveframe's table).
+
+    You can optionally pass a cursor to reuse an existing postgresql
+    connection."""
+
+    # Connect to the database unless passed a handle
+    # Why? If building a whole entry we don't want to have to
+    # reconnect a bunch of times. This allows the calling method to
+    # provide a connection and cursor.
+    if cur is None:
+        conn, cur = get_postgres_connection()
+
+    # Set the search path
+    cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':schema})
+
+    # Check if we are allowed to print it
+    cur.execute('''SELECT internalflag,printflag FROM dict.cat_grp
+                WHERE sfcategory=%(sf_cat)s ORDER BY groupid''',
+                {'sf_cat': category})
+    internalflag, printflag = cur.fetchone()
+
+    # Sorry, we won't print internal saveframes
+    if internalflag == "Y":
+        logging.warning("Something tried to format an internal saveframe: "
+                        "%s.%s" % (schema, category))
+        return None
+    # Nor frames that don't get printed
+    if printflag == "N":
+        logging.warning("Something tried to format an no-print saveframe: "
+                        "%s.%s" % (schema, category))
+        return None
+
+    # Get table name from category name
+    cur.execute("""SELECT DISTINCT tagcategory FROM dict.val_item_tbl
+                WHERE originalcategory=%(category)s AND loopflag<>'Y'""",
+                {"category":category})
+    table_name = cur.fetchone()[0]
+
+    if configuration['debug']:
+        print "Will look in table: %s" % table_name
+
+    # Get the sf_id for later
+    cur.execute('''SELECT "Sf_ID","Sf_framecode" FROM %(table_name)s
+                WHERE %(search_field)s=%(id)s ORDER BY "Sf_ID"''',
+                {"id":entry_id, 'table_name': wrap_it_up(table_name),
+                 "search_field": wrap_it_up(id_search_field)})
+
+    # There is no matching saveframe found for their search term
+    # and search field
+    if cur.rowcount == 0:
+        raise JSONException(-32600, "No matching saveframe found.")
+    sf_id, sf_framecode = cur.fetchone()
+
+    # Create the NMR-STAR saveframe
+    built_frame = bmrb.saveframe.fromScratch(sf_framecode)
+    built_frame.tag_prefix = table_name
+
+    # Insert the tags
+    cur.execute('''SELECT * FROM %(table_name)s where "Sf_ID"=%(sf_id)s''',
+                {'sf_id': sf_id, 'table_name': wrap_it_up(table_name)})
+    tag_vals = cur.fetchone()
+    for pos, tag in enumerate(cur.description):
+        built_frame.addTag(tag.name, tag_vals[pos])
+
+    # Figure out which loops we might need to insert
+    cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.val_item_tbl
+                WHERE originalcategory=%(category)s GROUP BY tagcategory ORDER BY seq''',
+                {'category': category})
+
+    # The first result is the saveframe, so drop it
+    cur.fetchone()
+
+    # Figure out which loops we might need to add
+    loops = [x[0] for x in cur.fetchall()]
+
+    # Add the loops
+    for each_loop in loops:
+
+        if configuration['debug']:
+            print "Doing loop: %s" % each_loop
+
+        # Figure out the loop tags
+        cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq FROM dict.val_item_tbl
+                    WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
+                    {"loop_name": each_loop})
+        tags_to_use = []
+        for row in cur:
+            if configuration['debug']:
+                print row
+            # Make sure it isn't internal and it should be printed
+            if row[1] != "Y":
+                # Make sure it should be printed
+                if row[2] == "Y" or row[2] == "O":
+                    tags_to_use.append(row[0])
+                else:
+                    if configuration['debug']:
+                        print "Skipping noprint tag: %s" % row[0]
+            else:
+                if configuration['debug']:
+                    print "Skipping private tag: %s" % row[0]
+
+        # If there are any tags in the loop to use
+        if len(tags_to_use) > 0:
+            # Create the loop
+            bmrb_loop = bmrb.loop.fromScratch(category=each_loop)
+            bmrb_loop.addColumn(tags_to_use)
+
+            # Get the loop data
+            to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
+            query = 'SELECT ' + to_fetch
+            query += ' FROM %(table_name)s WHERE "Sf_ID" = %(id)s'
+            for tag in tags_to_use:
+                if "ordinal" in tag or "Ordinal" in tag:
+                    query += ' ORDER BY "%s"' % tag
+            cur.execute(query, {"id": sf_id,
+                                "table_name":wrap_it_up(each_loop)})
+            if configuration['debug']:
+                print cur.query
+
+            # Add the data
+            for row in cur:
+                bmrb_loop.addData(row)
+
+            if bmrb_loop.data != []:
+                built_frame.addLoop(bmrb_loop)
+
+    return built_frame
+
 def create_combined_view():
 
     # Connect as the user that has write privileges
     conn, cur = get_postgres_connection(user="bmrb")
 
     # Create the new schema if needed
-    cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'combined');")
+    cur.execute("""SELECT EXISTS(SELECT 1 FROM pg_namespace
+                WHERE nspname = 'combined');""")
     if cur.fetchall()[0][0] is False:
         cur.execute("CREATE SCHEMA combined;")
         # TODO: Once we have postgres 9.3 replace the above 3 lines with
         # cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
 
     # Get the tables we need to combine
-    cur.execute('''SELECT table_name,table_schema FROM information_schema.tables WHERE table_catalog = 'bmrbeverything' AND (table_schema = 'metabolomics' OR table_schema = 'chemcomps' OR table_schema = 'macromolecules');''')
+    cur.execute('''SELECT table_name,table_schema FROM information_schema.tables
+                WHERE table_catalog = 'bmrbeverything' AND
+                (table_schema = 'metabolomics' OR table_schema = 'chemcomps'
+                 OR table_schema = 'macromolecules');''')
     rows = cur.fetchall()
 
     # Figure out how to combine them
