@@ -479,7 +479,30 @@ def process_select(**params):
 
     return new_response
 
+def create_chemcomp_from_db(chemcomp):
+    """ Create a chem comp entry from the database."""
 
+    # See if the chemcomp exists in the DB
+    if chemcomp not in list_entries(database="chemcomps"):
+        raise JSONException(-32600, "Entry '%s' does not exist in the "
+                                    "public database." % chemcomp)
+
+    # Connect to DB
+    conn, cur = get_postgres_connection()
+
+    # Create entry
+    ent = bmrb.entry.fromScratch(chemcomp)
+    # Chop off the chem_comp_
+    cc_id = chemcomp[9:]
+    chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
+                                              cc_id, "ID", cur)
+    entity_frame = create_saveframe_from_db("chemcomps", "entity",
+                                            cc_id,
+                                            "Nonpolymer_comp_ID", cur)
+    ent.addSaveframe(chemcomp_frame)
+    ent.addSaveframe(entity_frame)
+
+    return ent
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
