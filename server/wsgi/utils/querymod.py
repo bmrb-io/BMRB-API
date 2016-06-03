@@ -139,16 +139,7 @@ def get_raw_entry(entry_id):
     # See if it is a chem comp entry
     if entry_id.startswith("chemcomp_") and entry_id in list_entries(database="chemcomps"):
 
-        #select * from information_schema.tables where table_schema = 'chemcomps';
-        #select * from dict.validator_sfcats where internalflag = 'N' order by order_num;
-
-        url = "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_alltags=yes&print_entity=yes&print_chem_comp=yes&%s=Fetch" % entry_id[10:]
-        chem_frame = bmrb._interpretFile(url).read()
-        if chem_frame.strip() == "":
-            return json.dumps({"error": "Entry '%s' does not exist in the "
-                                        "public database." % entry_id})
-        else:
-            entry = bmrb.entry.fromString("data_%s\n\n" % entry_id + chem_frame)
+        entry = create_chemcomp_from_db(entry_id)
         return '{"%s": ' % entry_id + entry.getJSON() + "}"
     else:
         # Look for the entry in Redis
@@ -502,7 +493,10 @@ def create_chemcomp_from_db(chemcomp):
     ent.addSaveframe(chemcomp_frame)
     ent.addSaveframe(entity_frame)
 
-    return ent
+    # TODO: This can be avoided by improving the JSON serialization
+    # in PyNMR-STAR. The issue is that the JSON serialization method cannot
+    # currently handle datetimes
+    return bmrb.entry.fromString(str(ent))
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
@@ -564,7 +558,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
 
     # Create the NMR-STAR saveframe
     built_frame = bmrb.saveframe.fromScratch(sf_framecode)
-    built_frame.tag_prefix = table_name
+    built_frame.tag_prefix = "_" + table_name
 
     # Insert the tags
     cur.execute('''SELECT * FROM %(table_name)s where "Sf_ID"=%(sf_id)s''',
