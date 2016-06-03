@@ -34,7 +34,7 @@ def get_postgres_connection(user=configuration['postgres']['user'],
 
     return conn, cur
 
-def get_redis_connection():
+def get_redis_connection(db=None):
     """ Figures out where the master redis instance is (and other paramaters
     needed to connect like which database to use), and opens a connection
     to it. It passes back that connection object."""
@@ -46,11 +46,15 @@ def get_redis_connection():
                             socket_timeout=0.5)
         redis_host, redis_port = sentinel.discover_master(configuration['redis']['master_name'])
 
+        # If they didn't specify a DB then use the configuration default
+        if db == None:
+            db = configuration['redis']['db']
+
         # Get the redis instance
         r = redis.StrictRedis(host=redis_host,
                               port=redis_port,
                               password=configuration['redis']['password'],
-                              db=configuration['redis']['db'])
+                              db=db)
 
         # If the redis instance is being updated during the request then
         #  write a warning to the log

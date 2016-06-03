@@ -5,24 +5,18 @@ import sys
 import json
 import time
 import zlib
-import redis
-import psycopg2
-from utils import bmrb
-from redis.sentinel import Sentinel
+
+import querymod
 from multiprocessing import Pipe, cpu_count
 
 loaded = []
 to_process = []
 
 # Load the configuration file
-cpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "api_config.json")
-configuration = json.loads(open(cpath, "r").read())
+configuration = querymod.configuration
 
 # Figure out which REDIS to connect to
-sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
-redis_host, redis_port = sentinel.discover_master('tarpon_master')
 redis_db = 1
-print("Found REDIS host: %s" % redis_host)
 
 # By default put data into a "staging" db. Only put it in master if they
 #  specify the first argument as "master"
@@ -37,13 +31,13 @@ for one_dir in os.listdir("/share/subedit/metabolomics/"):
     to_process.append([str(one_dir), os.path.join("/share/subedit/metabolomics/", one_dir, one_dir + ".str")])
 
 # Get the released entries from ETS
-conn = psycopg2.connect(user=configuration['ets']['user'], host=configuration['ets']['host'], database=configuration['ets']['database'])
-cur = conn.cursor()
-cur.execute("select bmrbnum from entrylog;")
+conn, cur = querymod.get_postgres_connection(user=configuration['ets']['user'],
+                                             host=configuration['ets']['host'],
+                                             database=configuration['ets']['database'])
+cur.execute("SELECT bmrbnum FROM entrylog;")
 all_ids = [x[0] for x in cur.fetchall()]
-cur.execute("select bmrbnum from entrylog where status like 'rel%';")
+cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
 valid_ids = [x[0] for x in cur.fetchall()]
-
 
 # Load the normal data
 for entry_id in valid_ids:
@@ -51,24 +45,29 @@ for entry_id in valid_ids:
 
 def one_entry(entry_name, entry_location, r):
     """ Load an entry and add it to REDIS """
-    try:
-        ent = bmrb.entry.fromFile(entry_location)
 
-        print("On %s: loaded." % entry_name)
-    except IOError as e:
-        ent = None
-        print("On %s: no file." % entry_name)
-    except Exception as e:
-        ent = None
-        print("On %s: error: %s" % (entry_name, str(e)))
-
-    if ent != None:
+    if "chemcomp" in entry_name:
+        ent = querymod.create_chemcomp_from_db(entry_name)
         r.set(entry_name, zlib.compress(ent.getJSON()))
         return entry_name
+    else:
+        try:
+            ent = querymod.bmrb.entry.fromFile(entry_location)
+
+            print("On %s: loaded." % entry_name)
+        except IOError as e:
+            ent = None
+            print("On %s: no file." % entry_name)
+        except Exception as e:
+            ent = None
+            print("On %s: error: %s" % (entry_name, str(e)))
+
+        if ent != None:
+            r.set(entry_name, zlib.compress(ent.getJSON()))
+            return entry_name
 
 # Since we are about to start, tell REDIS it is being updated
-r = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'], db=redis_db)
-r.set("ready", 0)
+r = querymod.get_redis_connection(db=redis_db)
 
 processes = []
 num_threads = cpu_count()
@@ -86,7 +85,7 @@ for thread in xrange(0,num_threads):
     if newpid == 0:
 
         # Each child gets a REDIS
-        red = redis.StrictRedis(host=redis_host, port=redis_port, password=configuration['redis']['password'], db=redis_db)
+        red = querymod.get_redis_connection(db=redis_db)
         child_conn.send("ready")
         while True:
             parent_message = child_conn.recv()
@@ -105,6 +104,22 @@ for thread in xrange(0,num_threads):
     # We are the parent, don't need the child connection
     else:
         child_conn.close()
+
+# We are starting to update
+r.set("ready", 0)
+
+# Check if entries have completed by listening on the sockets
+while len(to_process) > 0:
+
+    time.sleep(.001)
+    # Poll for processes ready to listen
+    for proc in processes:
+        if proc[0].poll():
+            data = proc[0].recv()
+            if data and data != "ready":
+                loaded.append(data)
+            proc[0].send(to_process.pop())
+            break
 
 # Check if entries have completed by listening on the sockets
 while len(to_process) > 0:
