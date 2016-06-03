@@ -39,6 +39,9 @@ all_ids = [x[0] for x in cur.fetchall()]
 cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
 valid_ids = [x[0] for x in cur.fetchall()]
 
+# Load the chemcomps
+to_process.extend([[x, None] for x in querymod.list_entries(database="chemcomps")])
+
 # Load the normal data
 for entry_id in valid_ids:
     to_process.append([str(entry_id), "/share/subedit/entries/bmr%d/clean/bmr%d_3.str" % (entry_id, entry_id)])
@@ -47,9 +50,17 @@ def one_entry(entry_name, entry_location, r):
     """ Load an entry and add it to REDIS """
 
     if "chemcomp" in entry_name:
-        ent = querymod.create_chemcomp_from_db(entry_name)
-        r.set(entry_name, zlib.compress(ent.getJSON()))
-        return entry_name
+        try:
+            ent = querymod.create_chemcomp_from_db(entry_name,
+                                                   check_exists=False)
+        except Exception as e:
+            ent = None
+            print("On %s: error: %s" % (entry_name, str(e)))
+
+        if ent is not None:
+            r.set(entry_name, zlib.compress(ent.getJSON()))
+            print("On %s: loaded" % entry_name)
+            return entry_name
     else:
         try:
             ent = querymod.bmrb.entry.fromFile(entry_location)
@@ -62,7 +73,7 @@ def one_entry(entry_name, entry_location, r):
             ent = None
             print("On %s: error: %s" % (entry_name, str(e)))
 
-        if ent != None:
+        if ent is not None:
             r.set(entry_name, zlib.compress(ent.getJSON()))
             return entry_name
 
@@ -107,19 +118,6 @@ for thread in xrange(0,num_threads):
 
 # We are starting to update
 r.set("ready", 0)
-
-# Check if entries have completed by listening on the sockets
-while len(to_process) > 0:
-
-    time.sleep(.001)
-    # Poll for processes ready to listen
-    for proc in processes:
-        if proc[0].poll():
-            data = proc[0].recv()
-            if data and data != "ready":
-                loaded.append(data)
-            proc[0].send(to_process.pop())
-            break
 
 # Check if entries have completed by listening on the sockets
 while len(to_process) > 0:
