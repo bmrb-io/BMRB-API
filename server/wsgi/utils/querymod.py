@@ -5,10 +5,10 @@ provided through the REST and JSON-RPC interfaces. This is where the real work
 is done; jsonapi.wsgi and restapi.wsgi mainly just call the methods here and
 return the results."""
 
+import os
 import json
 import zlib
 import logging
-
 import psycopg2
 from psycopg2.extensions import AsIs
 import redis
@@ -19,7 +19,9 @@ import bmrb
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 
 # Load the configuration file
-configuration = json.loads(open("../../../api_config.json", "r").read())
+config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "..", "..", "..", "..", "api_config.json")
+configuration = json.loads(open(config_loc, "r").read())
 # Set up logging
 logging.basicConfig()
 
@@ -47,7 +49,7 @@ def get_redis_connection(db=None):
         redis_host, redis_port = sentinel.discover_master(configuration['redis']['master_name'])
 
         # If they didn't specify a DB then use the configuration default
-        if db == None:
+        if db is None:
             db = configuration['redis']['db']
 
         # Get the redis instance
@@ -297,7 +299,7 @@ def get_fields_by_fields(fetch_list, table, where_dict=None,
         raise JSONException(-32701, "Invalid 'from' parameter.")
 
     # Errors connecting will be handled upstream
-    conn, cur = get_postgres_connection()
+    cur = get_postgres_connection()[1]
 
     # Prepare the query
     if len(fetch_list) == 1 and fetch_list[0] == "*":
@@ -474,11 +476,11 @@ def process_select(**params):
 
     return new_response
 
-def create_chemcomp_from_db(chemcomp):
+def create_chemcomp_from_db(chemcomp, check_exists=True):
     """ Create a chem comp entry from the database."""
 
     # See if the chemcomp exists in the DB
-    if chemcomp not in list_entries(database="chemcomps"):
+    if check_exists and chemcomp not in list_entries(database="chemcomps"):
         raise JSONException(-32600, "Entry '%s' does not exist in the "
                                     "public database." % chemcomp)
 
@@ -494,13 +496,16 @@ def create_chemcomp_from_db(chemcomp):
     entity_frame = create_saveframe_from_db("chemcomps", "entity",
                                             cc_id,
                                             "Nonpolymer_comp_ID", cur)
+    # This is specifically omitted... long story
+    del entity_frame['_Entity_atom_list']
+
     ent.addSaveframe(chemcomp_frame)
     ent.addSaveframe(entity_frame)
 
     # TODO: This can be avoided by improving the JSON serialization
     # in PyNMR-STAR. The issue is that the JSON serialization method cannot
     # currently handle datetimes
-    return bmrb.entry.fromString(str(ent))
+    return ent
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
@@ -517,7 +522,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     # reconnect a bunch of times. This allows the calling method to
     # provide a connection and cursor.
     if cur is None:
-        conn, cur = get_postgres_connection()
+        cur = get_postgres_connection()[1]
 
     # Set the search path
     cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':schema})
@@ -531,12 +536,12 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     # Sorry, we won't print internal saveframes
     if internalflag == "Y":
         logging.warning("Something tried to format an internal saveframe: "
-                        "%s.%s" % (schema, category))
+                        "%s.%s", schema, category)
         return None
     # Nor frames that don't get printed
     if printflag == "N":
         logging.warning("Something tried to format an no-print saveframe: "
-                        "%s.%s" % (schema, category))
+                        "%s.%s", schema, category)
         return None
 
     # Get table name from category name
@@ -636,6 +641,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     return built_frame
 
 def create_combined_view():
+    """ Create the combined schema from the other three schemas."""
 
     # Connect as the user that has write privileges
     conn, cur = get_postgres_connection(user="bmrb")
@@ -666,15 +672,15 @@ def create_combined_view():
     for table_name in combine_dict.keys():
         query = ''
         if len(combine_dict[table_name]) == 1:
-            print("Warning. Table from only one schema found.")
+            print "Warning. Table from only one schema found."
         elif len(combine_dict[table_name]) == 2:
             query = '''
 CREATE OR REPLACE VIEW combined."%s" AS
 select * from %s."%s" t
  union all
 select * from %s."%s" tt;''' % (table_name,
-                    combine_dict[table_name][0], table_name,
-                    combine_dict[table_name][1], table_name)
+                                combine_dict[table_name][0], table_name,
+                                combine_dict[table_name][1], table_name)
         elif len(combine_dict[table_name]) == 3:
             query = '''
 CREATE OR REPLACE VIEW combined."%s" AS
@@ -683,9 +689,9 @@ select * from %s."%s" t
 select * from %s."%s" tt
  union all
 select * from %s."%s" ttt;''' % (table_name,
-                    combine_dict[table_name][0], table_name,
-                    combine_dict[table_name][1], table_name,
-                    combine_dict[table_name][2], table_name)
+                                 combine_dict[table_name][0], table_name,
+                                 combine_dict[table_name][1], table_name,
+                                 combine_dict[table_name][2], table_name)
 
         cur.execute(query)
         print query
