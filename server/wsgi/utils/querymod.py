@@ -44,7 +44,7 @@ def get_redis_connection():
         # Figure out where we should connect
         sentinel = Sentinel(configuration['redis']['sentinels'],
                             socket_timeout=0.5)
-        redis_host, redis_port = sentinel.discover_master('tarpon_master')
+        redis_host, redis_port = sentinel.discover_master(configuration['redis']['master_name'])
 
         # Get the redis instance
         r = redis.StrictRedis(host=redis_host,
