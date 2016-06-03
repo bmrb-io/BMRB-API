@@ -23,7 +23,7 @@ from utils.jsonrpc import JSONRPCResponseManager, dispatcher
 def application(request):
     """ Services one request. Called by wsgi module in apache."""
 
-    # REDIS driven queries
+    # redis driven queries
     dispatcher["tag"] = querymod.get_tags
     dispatcher["loop"] = querymod.get_loops
     dispatcher["saveframe"] = querymod.get_saveframes
