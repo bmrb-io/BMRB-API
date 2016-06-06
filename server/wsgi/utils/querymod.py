@@ -142,21 +142,15 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 def get_raw_entry(entry_id):
     """ Get one serialized entry. """
 
-    # See if it is a chem comp entry
-    if entry_id.startswith("chemcomp_") and entry_id in list_entries(database="chemcomps"):
+    # Look for the entry in Redis
+    entry = get_redis_connection().get(entry_id)
 
-        entry = create_chemcomp_from_db(entry_id)
-        return '{"%s": ' % entry_id + entry.getJSON() + "}"
+    # See if the entry is in the database
+    if entry is None:
+        return json.dumps({"error": "Entry '%s' does not exist in the "
+                                    "public database." % entry_id})
     else:
-        # Look for the entry in Redis
-        entry = get_redis_connection().get(entry_id)
-
-        # See if the entry is in the database
-        if entry is None:
-            return json.dumps({"error": "Entry '%s' does not exist in the "
-                                        "public database." % entry_id})
-        else:
-            return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
+        return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
 
 def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
@@ -169,7 +163,7 @@ def list_entries(**kwargs):
         if db == "metabolomics":
             entry_list = [x for x in entry_list if x.startswith("bm")]
         elif db == "macromolecules":
-            entry_list = [x for x in entry_list if not x.startswith("bm") and not x.startswith("chemcom")]
+            entry_list = [x for x in entry_list if (not x.startswith("bm") and not x.startswith("chemcomp"))]
         elif db == "chemcomps":
             entry_list = [x for x in entry_list if x.startswith("chemcomp")]
 
