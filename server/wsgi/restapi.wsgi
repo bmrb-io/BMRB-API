@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import logging
+from datetime import datetime
 logging.basicConfig()
 
 # Set up paths for imports and such
@@ -47,7 +48,7 @@ def no_params():
 
 @application.route('/list_entries/')
 @application.route('/list_entries/<entry_type>')
-def list_entries(entry_type=None):
+def list_entries(entry_type="combined"):
     """ Return a list of all valid BMRB entries."""
 
     entries = querymod.list_entries(database=entry_type)
@@ -61,6 +62,13 @@ def debug(methods=['GET', 'POST']):
     debug_str += "<br>Method: " + str(request.method)
     debug_str += "<br>Viewing from: " + str(request.remote_addr)
     debug_str += "<br>Avail: %s" % dir(request)
+
+    red = querymod.get_redis_connection()
+    update_in_progress = not bool(int(red.get("ready")))
+    update_time = datetime.fromtimestamp(float(red.get("update_time")))
+    update_string = update_time.strftime('%Y-%m-%d %H:%M:%S')
+    debug_str += "<br>Last DB update: %s" % update_string
+    debug_str += "<br>DB update active: %s" % update_in_progress
     return debug_str
 
 @application.route('/chemical_shifts/')

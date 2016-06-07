@@ -60,8 +60,11 @@ def get_redis_connection(db=None):
 
         # If the redis instance is being updated during the request then
         #  write a warning to the log
-        if not int(r.get("ready")):
-            logging.warning("Serviced request during update.")
+        try:
+            if not int(r.get("ready")):
+                logging.warning("Serviced request during update.")
+        except TypeError:
+            logging.critical("Database is empty or 'ready' key is missing!")
 
     # Raise an exception if we cannot connect to the database server
     except (redis.exceptions.ConnectionError,
@@ -94,7 +97,7 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 
     # Get the connection to redis
     r = get_redis_connection()
-    all_ids = r.lrange("loaded", 0, -1)
+    all_ids = r.lrange("combined", 0, -1)
 
     valid_ids = []
 
@@ -156,16 +159,8 @@ def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
     only entries from that database are returned. """
 
-    entry_list = get_redis_connection().lrange("loaded", 0, -1)
-
-    db = kwargs.get("database", None)
-    if db:
-        if db == "metabolomics":
-            entry_list = [x for x in entry_list if x.startswith("bm")]
-        elif db == "macromolecules":
-            entry_list = [x for x in entry_list if (not x.startswith("bm") and not x.startswith("chemcomp"))]
-        elif db == "chemcomps":
-            entry_list = [x for x in entry_list if x.startswith("chemcomp")]
+    db = kwargs.get("database", "combined")
+    entry_list = get_redis_connection().lrange(db, 0, -1)
 
     return entry_list
 
@@ -467,7 +462,7 @@ def process_select(**params):
 
     return new_response
 
-def create_chemcomp_from_db(chemcomp, check_exists=True):
+def create_chemcomp_from_db(chemcomp):
     """ Create a chem comp entry from the database."""
 
     # Rebuild the chemcomp and generate the cc_id. This way we can work
@@ -479,18 +474,11 @@ def create_chemcomp_from_db(chemcomp, check_exists=True):
         cc_id = chemcomp[9:].upper()
     chemcomp = "chemcomp_" + cc_id
 
-    # See if the chemcomp exists in the DB
-    if check_exists and chemcomp not in list_entries(database="chemcomps"):
-        raise JSONException(-32600, "Entry '%s' does not exist in the "
-                                    "public database." % chemcomp)
-
     # Connect to DB
     cur = get_postgres_connection()[1]
 
     # Create entry
     ent = bmrb.entry.fromScratch(chemcomp)
-    # Chop off the chem_comp_
-
     chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
                                               cc_id, "ID", cur)
     entity_frame = create_saveframe_from_db("chemcomps", "entity",
