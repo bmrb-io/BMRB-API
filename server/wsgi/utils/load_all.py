@@ -59,7 +59,7 @@ if options.macromolecules:
     cur.execute("SELECT bmrbnum FROM entrylog;")
     all_ids = [x[0] for x in cur.fetchall()]
     cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
-    valid_ids = [x[0] for x in cur.fetchall()]
+    valid_ids = sorted([int(x[0]) for x in cur.fetchall()])
 
     # Load the normal data
     for entry_id in valid_ids:
@@ -87,6 +87,7 @@ def one_entry(entry_name, entry_location, r):
 
         if ent is not None:
             r.set(entry_name, zlib.compress(ent.getJSON()))
+            r.expire(entry_name, 2678400)
             print("On %s: loaded" % entry_name)
             return entry_name
     else:
@@ -103,6 +104,7 @@ def one_entry(entry_name, entry_location, r):
 
         if ent is not None:
             r.set(entry_name, zlib.compress(ent.getJSON()))
+            r.expire(entry_name, 2678400)
             return entry_name
 
 # Since we are about to start, tell REDIS it is being updated
@@ -134,7 +136,6 @@ for thread in xrange(0,num_threads):
         while True:
             parent_message = child_conn.recv()
             if parent_message == "die":
-                print "I am child %d and have finished my work" % thread
                 child_conn.close()
                 parent_conn.close()
                 os._exit(0)
@@ -192,10 +193,9 @@ for thread in xrange(0, num_threads):
 def make_entry_list(name, values):
     loading = name + "_loading"
     r.delete(loading)
-
-    for x in sorted(values):
-        r.rpush(loading, x)
+    r.rpush(loading, *sorted(values))
     r.rename(loading, name)
+    r.expire(name, 2678400)
 
 def print_dropped(db):
     dropped = [x[0] for x in to_process[db] if x[0] not in set(loaded[db])]
@@ -217,13 +217,6 @@ loaded['combined'] = (r.lrange('metabolomics', 0, -1) +
                       r.lrange('macromolecules', 0, -1) +
                       r.lrange('chemcomps', 0, -1))
 make_entry_list('combined', loaded['combined'])
-
-# Delete all entries that might have been withdrawn
-if options.macromolecules:
-    for x in all_ids:
-        if x not in valid_ids:
-            if r.delete(x) == 1:
-                print("Deleting entry that is no longer valid: %d" % x)
 
 # Set the time
 r.set("update_time", time.time())
