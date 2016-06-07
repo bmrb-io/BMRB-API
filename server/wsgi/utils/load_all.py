@@ -9,7 +9,7 @@ import optparse
 import querymod
 from multiprocessing import Pipe, cpu_count
 
-loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': [], 'combined': []}
+loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 to_process = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 
 # Load the configuration file
@@ -70,9 +70,9 @@ if options.chemcomps:
     to_process['chemcomps'].extend([[x, None] for x in chemcomps])
 
 # Generate the flat list of entries to process
-to_process['combined'] = (to_process['metabolomics'] +
+to_process['combined'] = (to_process['chemcomps'] +
                           to_process['macromolecules'] +
-                          to_process['chemcomps'])
+                          to_process['metabolomics'])
 
 def one_entry(entry_name, entry_location, r):
     """ Load an entry and add it to REDIS """
@@ -155,7 +155,6 @@ def add_to_loaded(entry):
         loaded['metabolomics'].append(data)
     else:
         loaded['macromolecules'].append(data)
-    loaded['combined'].append(data)
 
 # Check if entries have completed by listening on the sockets
 while len(to_process['combined']) > 0:
