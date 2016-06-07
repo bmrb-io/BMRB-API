@@ -22,6 +22,7 @@ opt.add_option("--macromolecules", action="store_true", dest="macromolecules", d
 opt.add_option("--chemcomps", action="store_true", dest="chemcomps", default=False, help="Update the chemcomp entries.")
 opt.add_option("--all", action="store_true", dest="all", default=False, help="Update all the entries.")
 opt.add_option("--redis-db", action="store", dest="db", default=1, help="The Redis DB to use. 0 is master.")
+opt.add_option("--flush", action="store_true", dest="flush", default=False, help="Flush all keys in the DB prior to reloading. This will interrupt service until the DB is rebuilt! (So only use it on the staging DB.")
 # Parse the command line input
 (options, cmd_input) = opt.parse_args()
 
@@ -79,8 +80,7 @@ def one_entry(entry_name, entry_location, r):
 
     if "chemcomp" in entry_name:
         try:
-            ent = querymod.create_chemcomp_from_db(entry_name,
-                                                   check_exists=False)
+            ent = querymod.create_chemcomp_from_db(entry_name)
         except Exception as e:
             ent = None
             print("On %s: error: %s" % (entry_name, str(e)))
@@ -107,6 +107,11 @@ def one_entry(entry_name, entry_location, r):
 
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
+
+# Flush the DB
+if options.flush:
+    print("Flushing the DB.")
+    r.flushdb()
 
 processes = []
 num_threads = cpu_count()
@@ -194,8 +199,7 @@ def make_entry_list(name, values):
 
 def print_dropped(db):
     dropped = [x[0] for x in to_process[db] if x[0] not in set(loaded[db])]
-    if len(dropped) > 0:
-        print("Entries not loaded in DB %s: %s" % (db, dropped))
+    print("Entries not loaded in DB %s: %s" % (db, dropped))
 
 # Use a Redis list so other applications can read the list of entries
 if options.metabolomics:
