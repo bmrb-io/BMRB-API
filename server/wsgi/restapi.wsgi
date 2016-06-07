@@ -48,7 +48,7 @@ def no_params():
 
 @application.route('/list_entries/')
 @application.route('/list_entries/<entry_type>')
-def list_entries(entry_type=None):
+def list_entries(entry_type="combined"):
     """ Return a list of all valid BMRB entries."""
 
     entries = querymod.list_entries(database=entry_type)
