@@ -61,6 +61,13 @@ def debug(methods=['GET', 'POST']):
     debug_str += "<br>Method: " + str(request.method)
     debug_str += "<br>Viewing from: " + str(request.remote_addr)
     debug_str += "<br>Avail: %s" % dir(request)
+    from datetime import datetime
+    red = querymod.get_redis_connection()
+    update_in_progress = not bool(int(red.get("ready")))
+    update_time = datetime.fromtimestamp(float(red.get("update_time")))
+    update_string = update_time.strftime('%Y-%m-%d %H:%M:%S')
+    debug_str += "<br>Last DB update: %s" % update_string
+    debug_str += "<br>DB update active: %s" % update_in_progress
     return debug_str
 
 @application.route('/chemical_shifts/')
