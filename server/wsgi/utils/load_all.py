@@ -78,7 +78,7 @@ to_process['combined'] = (to_process['chemcomps'] +
 def one_entry(entry_name, entry_location, r):
     """ Load an entry and add it to REDIS """
 
-    if "chemcomp" in entry_name:
+    if "chemcomp" in str(entry_name):
         try:
             ent = querymod.create_chemcomp_from_db(entry_name)
         except Exception as e:
@@ -154,7 +154,8 @@ for thread in xrange(0,num_threads):
 time.sleep(1)
 r.set("ready", 0)
 
-def add_to_loaded(entry):
+def add_to_loaded(data):
+    data = str(data)
     if data.startswith("chemcomp"):
         loaded['chemcomps'].append(data)
     elif data.startswith("bm"):
