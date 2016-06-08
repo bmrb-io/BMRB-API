@@ -86,8 +86,9 @@ def one_entry(entry_name, entry_location, r):
             print("On %s: error: %s" % (entry_name, str(e)))
 
         if ent is not None:
-            r.set(entry_name, zlib.compress(ent.getJSON()))
-            r.expire(entry_name, 2678400)
+            key = querymod.locate_entry(entry_name)
+            r.set(key, zlib.compress(ent.getJSON()))
+            r.expire(key, 2678400)
             print("On %s: loaded" % entry_name)
             return entry_name
     else:
@@ -103,8 +104,9 @@ def one_entry(entry_name, entry_location, r):
             print("On %s: error: %s" % (entry_name, str(e)))
 
         if ent is not None:
-            r.set(entry_name, zlib.compress(ent.getJSON()))
-            r.expire(entry_name, 2678400)
+            key = querymod.locate_entry(entry_name)
+            r.set(key, zlib.compress(ent.getJSON()))
+            r.expire(key, 2678400)
             return entry_name
 
 # Since we are about to start, tell REDIS it is being updated
@@ -190,36 +192,36 @@ for thread in xrange(0, num_threads):
         add_to_loaded(data)
 
 # Put a few more things in REDIS
-def make_entry_list(name, values):
-    loading = name + "_loading"
-    r.delete(loading)
-    r.rpush(loading, *sorted(values))
-    r.rename(loading, name)
-    r.expire(name, 2678400)
+def make_entry_list(name):
 
-def print_dropped(db):
-    dropped = [x[0] for x in to_process[db] if x[0] not in set(loaded[db])]
-    print("Entries not loaded in DB %s: %s" % (db, dropped))
+    # Get the old entry list and delete ones that aren't there anymore
+    old_entries = r.lrange("%s:entry_list" % name, 0, -1)
+    for entry in old_entries:
+        if entry not in loaded[name]:
+            to_delete = "%s:entry:%s" % (name, entry)
+            if r.delete(to_delete):
+                print("Deleting stale entry: %s" % to_delete)
+
+    # Set the update time, ready status, and entry list
+    r.hmset("%s:meta" % name, {"update_time": time.time()})
+    loading = "%s:entry_list" % name + "_loading"
+    r.delete(loading)
+    r.rpush(loading, *sorted(loaded[name]))
+    r.rename(loading, "%s:entry_list" % name)
+
+    dropped = [x[0] for x in to_process[name] if x[0] not in set(loaded[name])]
+    print("Entries not loaded in DB %s: %s" % (name, dropped))
 
 # Use a Redis list so other applications can read the list of entries
 if options.metabolomics:
-    make_entry_list('metabolomics', loaded['metabolomics'])
-    print_dropped('metabolomics')
+    make_entry_list('metabolomics')
 if options.macromolecules:
-    make_entry_list('macromolecules', loaded['macromolecules'])
-    print_dropped('macromolecules')
+    make_entry_list('macromolecules')
 if options.chemcomps:
-    make_entry_list('chemcomps', loaded['chemcomps'])
-    print_dropped('chemcomps')
+    make_entry_list('chemcomps')
 
 # Make the full list from the existing lists regardless of update type
-loaded['combined'] = (r.lrange('metabolomics', 0, -1) +
-                      r.lrange('macromolecules', 0, -1) +
-                      r.lrange('chemcomps', 0, -1))
-make_entry_list('combined', loaded['combined'])
-
-# Set the time
-r.set("update_time", time.time())
-
-# Set the ready state
-r.set("ready", 1)
+loaded['combined'] = (r.lrange('metabolomics:entry_list', 0, -1) +
+                      r.lrange('macromolecules:entry_list', 0, -1) +
+                      r.lrange('chemcomps:entry_list', 0, -1))
+make_entry_list('combined')
