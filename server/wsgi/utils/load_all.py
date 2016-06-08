@@ -151,6 +151,14 @@ for thread in xrange(0,num_threads):
     else:
         child_conn.close()
 
+def add_to_loaded(entry):
+    if data.startswith("chemcomp"):
+        loaded['chemcomps'].append(data)
+    elif data.startswith("bm"):
+        loaded['metabolomics'].append(data)
+    else:
+        loaded['macromolecules'].append(data)
+
 # Check if entries have completed by listening on the sockets
 while len(to_process['combined']) > 0:
 
@@ -177,14 +185,6 @@ for thread in xrange(0, num_threads):
     res = os.wait()
     if data:
         add_to_loaded(data)
-
-def add_to_loaded(entry):
-    if data.startswith("chemcomp"):
-        loaded['chemcomps'].append(data)
-    elif data.startswith("bm"):
-        loaded['metabolomics'].append(data)
-    else:
-        loaded['macromolecules'].append(data)
 
 def natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
     return [int(text) if text.isdigit() else text.lower()
