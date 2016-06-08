@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import re
 import os
 import sys
 import json
@@ -150,18 +151,6 @@ for thread in xrange(0,num_threads):
     else:
         child_conn.close()
 
-# We are starting to update
-time.sleep(1)
-r.set("ready", 0)
-
-def add_to_loaded(entry):
-    if data.startswith("chemcomp"):
-        loaded['chemcomps'].append(data)
-    elif data.startswith("bm"):
-        loaded['metabolomics'].append(data)
-    else:
-        loaded['macromolecules'].append(data)
-
 # Check if entries have completed by listening on the sockets
 while len(to_process['combined']) > 0:
 
@@ -189,11 +178,23 @@ for thread in xrange(0, num_threads):
     if data:
         add_to_loaded(data)
 
+def add_to_loaded(entry):
+    if data.startswith("chemcomp"):
+        loaded['chemcomps'].append(data)
+    elif data.startswith("bm"):
+        loaded['metabolomics'].append(data)
+    else:
+        loaded['macromolecules'].append(data)
+
+def natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
+    return [int(text) if text.isdigit() else text.lower()
+            for text in re.split(_nsre, s)]
+
 # Put a few more things in REDIS
 def make_entry_list(name):
 
-    # Sort the entries and make them strings
-    ent_list = [str(x) for x in sorted(loaded[name])]
+    # Sort the entries
+    ent_list = natural_sort_key(loaded[name])
 
     # Get the old entry list and delete ones that aren't there anymore
     old_entries = r.lrange("%s:entry_list" % name, 0, -1)
@@ -201,7 +202,7 @@ def make_entry_list(name):
         if entry not in ent_list:
             to_delete = "%s:entry:%s" % (name, entry)
             if r.delete(to_delete):
-                print("Deleting stale entry: %s" % to_delete)
+                print("Deleted stale entry: %s" % to_delete)
 
     # Set the update time, ready status, and entry list
     r.hmset("%s:meta" % name, {"update_time": time.time(),
