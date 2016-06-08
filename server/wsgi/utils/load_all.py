@@ -63,7 +63,7 @@ if options.macromolecules:
 
     # Load the normal data
     for entry_id in valid_ids:
-        to_process['macromolecules'].append([str(entry_id), "/share/subedit/entries/bmr%d/clean/bmr%d_3.str" % (entry_id, entry_id)])
+        to_process['macromolecules'].append([entry_id, "/share/subedit/entries/bmr%d/clean/bmr%d_3.str" % (entry_id, entry_id)])
 
 # Load the chemcomps
 if options.chemcomps:
