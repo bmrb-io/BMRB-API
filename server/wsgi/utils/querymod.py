@@ -35,7 +35,6 @@ def check_local_ip(ip):
     return False
 
 def locate_entry(entry_id):
-    entry_id = str(entry_id)
     if entry_id.startswith("bm"):
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):

@@ -63,7 +63,7 @@ if options.macromolecules:
 
     # Load the normal data
     for entry_id in valid_ids:
-        to_process['macromolecules'].append([entry_id, "/share/subedit/entries/bmr%d/clean/bmr%d_3.str" % (entry_id, entry_id)])
+        to_process['macromolecules'].append([str(entry_id), "/share/subedit/entries/bmr%d/clean/bmr%d_3.str" % (entry_id, entry_id)])
 
 # Load the chemcomps
 if options.chemcomps:
@@ -78,7 +78,7 @@ to_process['combined'] = (to_process['chemcomps'] +
 def one_entry(entry_name, entry_location, r):
     """ Load an entry and add it to REDIS """
 
-    if "chemcomp" in str(entry_name):
+    if "chemcomp" in entry_name:
         try:
             ent = querymod.create_chemcomp_from_db(entry_name)
         except Exception as e:
@@ -154,8 +154,7 @@ for thread in xrange(0,num_threads):
 time.sleep(1)
 r.set("ready", 0)
 
-def add_to_loaded(data):
-    data = str(data)
+def add_to_loaded(entry):
     if data.startswith("chemcomp"):
         loaded['chemcomps'].append(data)
     elif data.startswith("bm"):
