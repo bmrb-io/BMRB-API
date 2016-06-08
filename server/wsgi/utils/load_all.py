@@ -194,7 +194,7 @@ def natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
 def make_entry_list(name):
 
     # Sort the entries
-    ent_list = natural_sort_key(loaded[name])
+    ent_list = sorted(loaded[name], key=natural_sort_key)
 
     # Get the old entry list and delete ones that aren't there anymore
     old_entries = r.lrange("%s:entry_list" % name, 0, -1)
