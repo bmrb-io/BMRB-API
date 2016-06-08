@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import logging
+import traceback
 from datetime import datetime
 logging.basicConfig()
 
@@ -30,6 +31,14 @@ application = Flask(__name__)
 @application.errorhandler(JSONException)
 def handle_invalid_usage(error):
     return return_json({"error":error.error.message})
+
+@application.errorhandler(Exception)
+def handle_invalid_usage(error):
+    if querymod.check_local_ip(request.remote_addr):
+        return Response(traceback.format_exc(), mimetype="text/plain")
+    else:
+        msg = "Server error. Contact webmaster@bmrb.wisc.edu."
+        return return_json({"error": msg})
 
 def return_json(obj, encode=True):
     """ Returns a flask Response object containing the JSON-encoded version of
