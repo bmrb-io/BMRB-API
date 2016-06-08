@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import logging
+import traceback
 from datetime import datetime
 logging.basicConfig()
 
@@ -30,6 +31,14 @@ application = Flask(__name__)
 @application.errorhandler(JSONException)
 def handle_invalid_usage(error):
     return return_json({"error":error.error.message})
+
+@application.errorhandler(Exception)
+def handle_invalid_usage(error):
+    if querymod.check_local_ip(request.remote_addr):
+        return Response(traceback.format_exc(), mimetype="text/plain")
+    else:
+        msg = "Server error. Contact webmaster@bmrb.wisc.edu."
+        return return_json({"error": msg})
 
 def return_json(obj, encode=True):
     """ Returns a flask Response object containing the JSON-encoded version of
@@ -64,11 +73,14 @@ def debug(methods=['GET', 'POST']):
     debug_str += "<br>Avail: %s" % dir(request)
 
     red = querymod.get_redis_connection()
-    update_in_progress = not bool(int(red.get("ready")))
-    update_time = datetime.fromtimestamp(float(red.get("update_time")))
-    update_string = update_time.strftime('%Y-%m-%d %H:%M:%S')
-    debug_str += "<br>Last DB update: %s" % update_string
-    debug_str += "<br>DB update active: %s" % update_in_progress
+
+    for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
+        update_string = red.hget("%s:meta" % key, 'update_time')
+        if update_string:
+            update_time = datetime.fromtimestamp(float(update_string))
+            update_string = update_time.strftime('%Y-%m-%d %H:%M:%S')
+        debug_str += "<br>Last %s DB update: %s" % (key, update_string)
+
     return debug_str
 
 @application.route('/chemical_shifts/')

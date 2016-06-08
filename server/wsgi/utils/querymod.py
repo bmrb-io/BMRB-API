@@ -25,6 +25,23 @@ configuration = json.loads(open(config_loc, "r").read())
 # Set up logging
 logging.basicConfig()
 
+def check_local_ip(ip):
+    """ Checks if the given IP is a local user."""
+
+    for local_address in configuration['local-ips']:
+        if local_address.startswith(ip):
+            return True
+
+    return False
+
+def locate_entry(entry_id):
+    if entry_id.startswith("bm"):
+        return "metabolomics:entry:%s" % entry_id
+    elif entry_id.startswith("chemcomp"):
+        return "chemcomps:entry:%s" % entry_id
+    else:
+        return "macromolecules:entry:%s" % entry_id
+
 def get_postgres_connection(user=configuration['postgres']['user'],
                             host=configuration['postgres']['host'],
                             database=configuration['postgres']['database']):
@@ -58,14 +75,6 @@ def get_redis_connection(db=None):
                               password=configuration['redis']['password'],
                               db=db)
 
-        # If the redis instance is being updated during the request then
-        #  write a warning to the log
-        try:
-            if not int(r.get("ready")):
-                logging.warning("Serviced request during update.")
-        except TypeError:
-            logging.critical("Database is empty or 'ready' key is missing!")
-
     # Raise an exception if we cannot connect to the database server
     except (redis.exceptions.ConnectionError,
             redis.sentinel.MasterNotFoundError):
@@ -97,7 +106,7 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 
     # Get the connection to redis
     r = get_redis_connection()
-    all_ids = r.lrange("combined", 0, -1)
+    all_ids = r.lrange("combined:entry_list", 0, -1)
 
     valid_ids = []
 
@@ -109,7 +118,7 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
     # Go through the IDs
     for entry_id in valid_ids:
 
-        entry = r.get(entry_id)
+        entry = r.get(locate_entry(entry_id))
 
         # See if it is in redis
         if entry:
@@ -146,7 +155,7 @@ def get_raw_entry(entry_id):
     """ Get one serialized entry. """
 
     # Look for the entry in Redis
-    entry = get_redis_connection().get(entry_id)
+    entry = get_redis_connection().get(locate_entry(entry_id))
 
     # See if the entry is in the database
     if entry is None:
@@ -160,7 +169,7 @@ def list_entries(**kwargs):
     only entries from that database are returned. """
 
     db = kwargs.get("database", "combined")
-    entry_list = get_redis_connection().lrange(db, 0, -1)
+    entry_list = get_redis_connection().lrange("%s:entry_list" % db, 0, -1)
 
     return entry_list
 

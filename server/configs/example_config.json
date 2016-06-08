@@ -6,6 +6,7 @@
             ["sentinel3_ip", 26379]
         ],
         "db": 0,
+        "master_name": "redis_sentinel_master_name",
         "password": "redis_password"
     },
     "postgres": {
@@ -18,5 +19,6 @@
         "database": "ets_db",
         "host": "ets_host"
     },
-    "debug": false
+    "debug": false,
+    "local-ips": ["127.0.0.1", "your.sub.net"]
 }
