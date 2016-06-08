@@ -192,19 +192,23 @@ for thread in xrange(0, num_threads):
 # Put a few more things in REDIS
 def make_entry_list(name):
 
+    # Sort the entries and make them strings
+    ent_list = [str(x) for x in sorted(loaded[name])]
+
     # Get the old entry list and delete ones that aren't there anymore
     old_entries = r.lrange("%s:entry_list" % name, 0, -1)
     for entry in old_entries:
-        if entry not in loaded[name]:
+        if entry not in ent_list:
             to_delete = "%s:entry:%s" % (name, entry)
             if r.delete(to_delete):
                 print("Deleting stale entry: %s" % to_delete)
 
     # Set the update time, ready status, and entry list
-    r.hmset("%s:meta" % name, {"update_time": time.time()})
+    r.hmset("%s:meta" % name, {"update_time": time.time(),
+                               "num_entries": len(ent_list)})
     loading = "%s:entry_list" % name + "_loading"
     r.delete(loading)
-    r.rpush(loading, *sorted(loaded[name]))
+    r.rpush(loading, *ent_list)
     r.rename(loading, "%s:entry_list" % name)
 
     dropped = [x[0] for x in to_process[name] if x[0] not in set(loaded[name])]
