@@ -88,7 +88,6 @@ def one_entry(entry_name, entry_location, r):
         if ent is not None:
             key = querymod.locate_entry(entry_name)
             r.set(key, zlib.compress(ent.getJSON()))
-            r.expire(key, 2678400)
             print("On %s: loaded" % entry_name)
             return entry_name
     else:
@@ -106,7 +105,6 @@ def one_entry(entry_name, entry_location, r):
         if ent is not None:
             key = querymod.locate_entry(entry_name)
             r.set(key, zlib.compress(ent.getJSON()))
-            r.expire(key, 2678400)
             return entry_name
 
 # Since we are about to start, tell REDIS it is being updated
