@@ -22,7 +22,7 @@ from redis.sentinel import Sentinel
 
 # Local imports
 import bmrb
-from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
+from jsonrpc.exceptions import JSONRPCDispatchException as JSONRPCException
 
 # Load the configuration file
 config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -93,7 +93,7 @@ def get_redis_connection(db=None):
     # Raise an exception if we cannot connect to the database server
     except (redis.exceptions.ConnectionError,
             redis.sentinel.MasterNotFoundError):
-        raise JSONException(-32603, 'Could not connect to database server.')
+        raise JSONRPCException(-32603, 'Could not connect to database server.')
 
     return r
 
@@ -115,7 +115,7 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 
     # Make sure there are not too many entries
     if len(search_ids) > 500:
-        raise JSONException(-32602, 'Too many IDs queried. Please query 500 or '
+        raise JSONRPCException(-32602, 'Too many IDs queried. Please query 500 or '
                                     'fewer entries at a time. You attempted to '
                                     'query %d IDs.' % len(search_ids))
 
@@ -164,7 +164,7 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 
                             # Unknown format
                             else:
-                                raise JSONException(-32702, "Invalid format: %s"
+                                raise JSONRPCException(-32702, "Invalid format: %s"
                                                     "." % format_)
 
 def get_raw_entry(entry_id):
@@ -230,13 +230,15 @@ def get_tags(**kwargs):
 
     return result
 
-def get_status():
+def get_status(**kwargs):
     """ Return some statistics about the server."""
 
     r = get_redis_connection()
     stats = {}
     for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
         stats[key] = r.hgetall("%s:meta" % key)
+        for skey in stats[key]:
+            stats[key][skey] = float(stats[key][skey])
 
     pg = get_postgres_connection()[1]
     for key in ['metabolomics', 'macromolecules']:
@@ -327,7 +329,7 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
     # Make sure they aren't tring to inject (paramterized queries are safe while
     # this is not, but there is no way to parameterize a table name...)
     if '"' in table:
-        raise JSONException(-32701, "Invalid 'from' parameter.")
+        raise JSONRPCException(-32701, "Invalid 'from' parameter.")
 
     # Errors connecting will be handled upstream
     cur = get_postgres_connection()[1]
@@ -373,15 +375,13 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
 
     query += ';'
 
-    querymod.select(["reltuples"], "pg_class", schema="pg_catalog", where_dict={"relname": "Atom_chem_shift"})
-
     # Do the query
     try:
         cur.execute(query, parameters)
         rows = cur.fetchall()
     except psycopg2.ProgrammingError:
         print cur.query
-        raise JSONException(-32701, "Invalid 'from' parameter.")
+        raise JSONRPCException(-32701, "Invalid 'from' parameter.")
 
     # Get the column names from the DB
     colnames = [desc[0] for desc in cur.description]
@@ -414,7 +414,7 @@ def process_STAR_query(params):
 
     # Make sure they have IDS
     if "ids" not in params:
-        raise JSONException(-32602, 'You must specify one or more entry IDs '
+        raise JSONRPCException(-32602, 'You must specify one or more entry IDs '
                                     'with the "ids" parameter.')
 
     # Set the keys to the empty list if not specified
@@ -435,9 +435,9 @@ def process_select(**params):
     schema = params.get("database", "macromolecules")
 
     if schema == "combined":
-        raise JSONException(-32602, 'Merged database not yet available.')
+        raise JSONRPCException(-32602, 'Merged database not yet available.')
     if schema not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
-        raise JSONException(-32602, "Invalid database specified.")
+        raise JSONRPCException(-32602, "Invalid database specified.")
 
     # Okay, now we need to go through each query and get the results
     if not isinstance(params['query'], list):
@@ -461,7 +461,7 @@ def process_select(**params):
         if len(params['query']) > 1:
             each_query['select'].append("Entry_ID")
         if "from" not in each_query:
-            raise JSONException(-32602, 'You must specify which table to query '
+            raise JSONRPCException(-32602, 'You must specify which table to query '
                                         'with the "from" parameter.')
         if "hash" not in each_query:
             each_query['hash'] = True
@@ -599,7 +599,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     # There is no matching saveframe found for their search term
     # and search field
     if cur.rowcount == 0:
-        raise JSONException(-32600, "No matching saveframe found.")
+        raise JSONRPCException(-32600, "No matching saveframe found.")
     sf_id, sf_framecode = cur.fetchone()
 
     # Create the NMR-STAR saveframe
