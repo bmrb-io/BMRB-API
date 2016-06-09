@@ -124,3 +124,8 @@ def get_loop(entry_id, loop_category, format_="json"):
 def get_tag(entry_id, tag_name):
     """ Returns all values for the tag for the given entry."""
     return return_json(querymod.get_tags(ids=entry_id, keys=tag_name))
+
+@application.route('/status/')
+def get_status():
+    """ Returns the server status."""
+    return return_json(querymod.get_status())

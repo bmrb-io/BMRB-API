@@ -204,7 +204,7 @@ def get_chemical_shifts(**kwargs):
                          "Ambiguity_code", "Assigned_chem_shift_list_ID"]
 
     # Perform the query
-    query_result = get_fields_by_fields(chem_shift_fields, "Atom_chem_shift",
+    query_result = select(chem_shift_fields, "Atom_chem_shift",
                                         as_hash=False, where_dict=wd,
                                         schema=schema)
 
@@ -222,6 +222,16 @@ def get_tags(**kwargs):
         result[entry.bmrb_id] = entry.getTags(search_tags)
 
     return result
+
+def get_status():
+    """ Return some statistics about the server."""
+
+    r = get_redis_connection()
+    stats = {}
+    for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
+        stats[key] = r.hgetall("%s:meta" % key)
+
+    return stats
 
 def get_loops(**kwargs):
     """ Returns the matching loops."""
@@ -266,7 +276,7 @@ def get_saveframes(**kwargs):
 def get_entries(**kwargs):
     """ Returns the full entries."""
 
-    # Check their paramters before proceeding
+    # Check their parameters before proceeding
     process_STAR_query(kwargs)
     result = {}
 
@@ -287,8 +297,8 @@ def wrap_it_up(item):
     SQL injection."""
     return AsIs('"' + item + '"')
 
-def get_fields_by_fields(fetch_list, table, where_dict=None,
-                         schema="macromolecules", modifiers=None, as_hash=True):
+def select(fetch_list, table, where_dict=None, schema="macromolecules",
+           modifiers=None, as_hash=True):
     """ Performs a SELECT query constructed from the supplied arguments."""
 
     # Turn None parameters into the proper empty type
@@ -337,19 +347,23 @@ def get_fields_by_fields(fetch_list, table, where_dict=None,
             parameters.extend([wrap_it_up(key), where_dict[key]])
             need_and = True
 
-    if "count" not in modifiers:
-        query += ' ORDER BY "Entry_ID"'
-        # Order the parameters as ints if they are normal BMRB IDS
-        if schema == "macromolecule":
-            query += "::int "
+# TODO: build ordering in based on dictionary
+#    if "count" not in modifiers:
+#        query += ' ORDER BY "Entry_ID"'
+#        # Order the parameters as ints if they are normal BMRB IDS
+#        if schema == "macromolecules":
+#            query += "::int "
 
     query += ';'
+
+    querymod.select(["reltuples"], "pg_class", schema="pg_catalog", where_dict={"relname": "Atom_chem_shift"})
 
     # Do the query
     try:
         cur.execute(query, parameters)
         rows = cur.fetchall()
     except psycopg2.ProgrammingError:
+        print cur.query
         raise JSONException(-32701, "Invalid 'from' parameter.")
 
     # Get the column names from the DB
@@ -444,7 +458,7 @@ def process_select(**params):
 
         if len(params['query']) > 1:
             # If there are multiple queries then add their results to the list
-            cur_res = get_fields_by_fields(each_query['select'],
+            cur_res = select(each_query['select'],
                                            each_query['from'],
                                            where_dict=each_query['where'],
                                            schema=schema,
@@ -453,7 +467,7 @@ def process_select(**params):
             result_list.append(cur_res)
         else:
             # If there is only one query just return it
-            return get_fields_by_fields(each_query['select'],
+            return select(each_query['select'],
                                         each_query['from'],
                                         where_dict=each_query['where'],
                                         schema=schema,
