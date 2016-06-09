@@ -22,6 +22,15 @@ from jsonrpc.exceptions import JSONRPCDispatchException as JSONException
 config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "..", "..", "..", "..", "api_config.json")
 configuration = json.loads(open(config_loc, "r").read())
+
+# Load local configuration overrides
+config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "..", "..", "..", "api_config.json")
+if os.path.isfile(config_loc):
+    config_overrides = json.loads(open(config_loc, "r").read())
+    for key in config_overrides:
+        configuration[key] = config_overrides[key]
+
 # Set up logging
 logging.basicConfig()
 
