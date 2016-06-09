@@ -3,16 +3,13 @@
 # Standard imports
 import os
 import sys
+import time
 import unittest
 import requests
 import querymod
-import time
 
-url = 'http://localhost'
-
-def block_me():
-    for x in range(0,50):
-        requests.get(url + "/rest/")
+#url = 'http://localhost'
+url = 'http://webapi.bmrb.wisc.edu/devel'
 
 # We will use this for our tests
 class TestSequenceFunctions(unittest.TestCase):
@@ -61,9 +58,15 @@ class TestSequenceFunctions(unittest.TestCase):
         shifts = requests.get(url + "/rest/chemical_shifts/C8/metabolomics").json()['data']
         self.assertGreater(len(shifts), 850)
 
-    def test_block(self):
+    def test_zzz_block(self):
         """ See if we get banned for making too many queries."""
-        self.assertRaises(ValueError, block_me)
+
+        r = requests.get(url + "/rest/").status_code
+        self.assertEquals(r, 200)
+
+        for x in range(0,50):
+            r = requests.get(url + "/rest/").status_code
+        self.assertEquals(r, 403)
 
 # Allow unit testing from other modules
 def start_tests():
