@@ -22,18 +22,18 @@ from flask import Flask, request, Response
 # Import the functions needed to service requests
 from utils import querymod
 # For catching exception
-from utils.jsonrpc.exceptions import JSONRPCDispatchException as JSONException
+from utils.jsonrpc.exceptions import JSONRPCDispatchException as JSONRPCException
 
 # Set up the flask application
 application = Flask(__name__)
 
 # Set up error handling
-@application.errorhandler(JSONException)
-def handle_invalid_usage(error):
+@application.errorhandler(JSONRPCException)
+def handle_jsonrpc_error(error):
     return return_json({"error":error.error.message})
 
 @application.errorhandler(Exception)
-def handle_invalid_usage(error):
+def handle_other_errors(error):
     if querymod.check_local_ip(request.remote_addr):
         return Response(traceback.format_exc(), mimetype="text/plain")
     else:

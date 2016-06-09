@@ -5,6 +5,12 @@ provided through the REST and JSON-RPC interfaces. This is where the real work
 is done; jsonapi.wsgi and restapi.wsgi mainly just call the methods here and
 return the results."""
 
+# Module level defines
+__all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
+           'get_loops', 'get_saveframes', 'get_entries', 'get_raw_entry',
+           'get_redis_connection', 'get_postgres_connection', 'get_status',
+           'list_entries', 'select', 'configuration']
+
 import os
 import json
 import zlib
@@ -238,6 +244,13 @@ def get_status():
                  WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
         pg.execute(sql)
         stats[key]['num_chemical_shifts'] = pg.fetchone()[0]
+
+    # Add the available methods
+    stats['rest_methods'] = ['list_entries', 'chemical_shifts', 'entry',
+                             'saveframe', 'loop', 'tag', 'status']
+    stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
+                                "list_entries", "chemical_shifts", "select",
+                                "status"]
 
     return stats
 
