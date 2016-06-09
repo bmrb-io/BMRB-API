@@ -115,7 +115,8 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 
     # Get the connection to redis
     r = get_redis_connection()
-    all_ids = r.lrange("combined:entry_list", 0, -1)
+    # Making it a set makes the lookups faster
+    all_ids = set(r.lrange("combined:entry_list", 0, -1))
 
     valid_ids = []
 
@@ -133,27 +134,27 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
         if entry:
             # Return the compressed entry
             if format_ == "zlib":
-                yield entry
+                yield (entry_id, entry)
 
             else:
                 # Uncompress the zlib into serialized JSON
                 entry = zlib.decompress(entry)
                 if format_ == "json":
-                    yield entry
+                    yield (entry_id, entry)
                 else:
                     # Parse the JSON into python dict
                     entry = json.loads(entry)
                     if format_ == "dict":
-                        yield entry
+                        yield (entry_id, entry)
                     else:
                         # Parse the dict into object
                         entry = bmrb.entry.fromJSON(entry)
                         if format_ == "object":
-                            yield entry
+                            yield (entry_id, entry)
                         else:
                             # Return NMR-STAR
                             if format_ == "nmrstar":
-                                yield str(entry)
+                                yield (entry_id, str(entry))
 
                             # Unknown format
                             else:
@@ -219,7 +220,7 @@ def get_tags(**kwargs):
 
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry.bmrb_id] = entry.getTags(search_tags)
+        result[entry[0]] = entry[1].getTags(search_tags)
 
     return result
 
@@ -242,15 +243,15 @@ def get_loops(**kwargs):
 
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry.bmrb_id] = {}
+        result[entry[0]] = {}
         for loop_category in loop_categories:
-            matches = entry.getLoopsByCategory(loop_category)
+            matches = entry[1].getLoopsByCategory(loop_category)
 
             if kwargs.get('format', "json") == "nmrstar":
                 matching_loops = [str(x) for x in matches]
             else:
                 matching_loops = [x.getJSON(serialize=False) for x in matches]
-            result[entry.bmrb_id][loop_category] = matching_loops
+            result[entry[0]][loop_category] = matching_loops
 
     return result
 
@@ -263,14 +264,14 @@ def get_saveframes(**kwargs):
 
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry.bmrb_id] = {}
+        result[entry[0]] = {}
         for saveframe_category in saveframe_categories:
-            matches = entry.getSaveframesByCategory(saveframe_category)
+            matches = entry[1].getSaveframesByCategory(saveframe_category)
             if kwargs.get('format', "json") == "nmrstar":
                 matching_frames = [str(x) for x in matches]
             else:
                 matching_frames = [x.getJSON(serialize=False) for x in matches]
-            result[entry.bmrb_id][saveframe_category] = matching_frames
+            result[entry[0]][saveframe_category] = matching_frames
     return result
 
 def get_entries(**kwargs):
@@ -283,12 +284,8 @@ def get_entries(**kwargs):
     # Go through the IDs
     format_ = kwargs.get('format', "json")
 
-    if format_ == "nmrstar":
-        for entry in get_valid_entries_from_redis(kwargs['ids']):
-            result[entry.bmrb_id] = str(entry)
-    else:
-        for entry in get_valid_entries_from_redis(kwargs['ids'], format_="dict"):
-            result[entry.bmrb_id] = entry
+    for entry in get_valid_entries_from_redis(kwargs['ids'], format_=format_):
+        result[entry[0]] = entry[1]
 
     return result
 
