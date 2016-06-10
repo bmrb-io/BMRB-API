@@ -739,36 +739,3 @@ select * from %s."%s" ttt;''' % (table_name,
 
     # Let web see it
     conn.commit()
-
-def run_test():
-    """ Run the unit tests and make sure the server is online."""
-
-    if 'url' not in configuration:
-        raise ValueError("Please create a local api_config.json file in the "
-                         "root directory of the repository with 'url' defined "
-                         "with the root URL of the server. (No /rest or "
-                         "/jsonrpc should be present.)")
-    import sys
-    import test
-    import StringIO
-
-    # Tell the test framework where to query
-    test.url = configuration['url']
-    results = StringIO.StringIO()
-
-    # Run the test
-    demo_test = test.unittest.TestLoader().loadTestsFromTestCase(test.TestAPI)
-    test.unittest.TextTestRunner(stream=results).run(demo_test)
-
-    # See if the end of the results says it passed
-    results.seek(results.tell()-3)
-    if results.read() == "OK\n":
-        sys.exit(0)
-    else:
-        results.seek(0)
-        print(results.read())
-        sys.exit(1)
-
-# If called on the command line run a test
-if __name__ == '__main__':
-    run_test()

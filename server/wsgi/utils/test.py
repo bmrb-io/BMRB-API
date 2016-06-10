@@ -7,6 +7,7 @@ import time
 import unittest
 import requests
 import querymod
+from StringIO import StringIO
 
 url = 'http://localhost'
 
@@ -71,10 +72,39 @@ class TestAPI(unittest.TestCase):
         # Make sure we are unbanned before the next test
         time.sleep(11)
 
-# Allow unit testing from other modules
-def start_tests():
-    unittest.main(module=__name__, exit=False)
+# Set up the tests
+def run_test(conf_url=querymod.configuration.get('url', None)):
+    """ Run the unit tests and make sure the server is online."""
 
-# Run unit tests if we are called directly
+    if conf_url is None:
+        raise ValueError("Please create a local api_config.json file in the "
+                         "root directory of the repository with 'url' defined "
+                         "with the root URL of the server. (No /rest or "
+                         "/jsonrpc should be present.) Or provide URL on "
+                         "command line.")
+
+    # Tell the test framework where to query
+    global url
+    url = conf_url
+    results = StringIO()
+
+    # Run the test
+    demo_test = unittest.TestLoader().loadTestsFromTestCase(TestAPI)
+    unittest.TextTestRunner(stream=results).run(demo_test)
+
+    # See if the end of the results says it passed
+    results.seek(results.tell()-3)
+    if results.read() == "OK\n":
+        sys.exit(0)
+    else:
+        results.seek(0)
+        print(results.read())
+        sys.exit(1)
+
+# If called on the command line run a test
 if __name__ == '__main__':
-    print("Use querymod to run the tests.")
+
+    if len(sys.argv) > 1:
+        run_test(conf_url=sys.argv[1])
+    else:
+        run_test()
