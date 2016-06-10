@@ -65,7 +65,7 @@ class TestAPI(unittest.TestCase):
         r = requests.get(url + "/rest/").status_code
         self.assertEquals(r, 200)
 
-        for x in range(0,50):
+        for x in range(0,30):
             r = requests.get(url + "/rest/").status_code
         self.assertEquals(r, 403)
 
