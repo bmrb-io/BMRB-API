@@ -8,11 +8,10 @@ import unittest
 import requests
 import querymod
 
-#url = 'http://localhost'
-url = 'http://webapi.bmrb.wisc.edu/devel'
+url = 'http://localhost'
 
 # We will use this for our tests
-class TestSequenceFunctions(unittest.TestCase):
+class TestAPI(unittest.TestCase):
 
     def setUp(self):
         pass
@@ -55,7 +54,8 @@ class TestSequenceFunctions(unittest.TestCase):
 
         shifts = requests.get(url + "/rest/chemical_shifts/HB3").json()['data']
         self.assertGreater(len(shifts), 440000)
-        shifts = requests.get(url + "/rest/chemical_shifts/C8/metabolomics").json()['data']
+        shifts = requests.get(url + "/rest/chemical_shifts/C8/metabolomics")
+        shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
 
     def test_zzz_block(self):
@@ -68,10 +68,13 @@ class TestSequenceFunctions(unittest.TestCase):
             r = requests.get(url + "/rest/").status_code
         self.assertEquals(r, 403)
 
+        # Make sure we are unbanned before the next test
+        time.sleep(11)
+
 # Allow unit testing from other modules
 def start_tests():
-    unittest.main(module=__name__)
+    unittest.main(module=__name__, exit=False)
 
 # Run unit tests if we are called directly
 if __name__ == '__main__':
-    unittest.main()
+    print("Use querymod to run the tests.")
