@@ -534,7 +534,10 @@ def create_chemcomp_from_db(chemcomp):
                                             cc_id,
                                             "Nonpolymer_comp_ID", cur)
     # This is specifically omitted... long story
-    del entity_frame['_Entity_atom_list']
+    try:
+        del entity_frame['_Entity_atom_list']
+    except KeyError:
+        pass
 
     ent.addSaveframe(chemcomp_frame)
     ent.addSaveframe(entity_frame)
