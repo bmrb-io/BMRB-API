@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """ This module provides methods to service the different query types that are
 provided through the REST and JSON-RPC interfaces. This is where the real work
@@ -747,7 +747,7 @@ def run_test():
         raise ValueError("Please create a local api_config.json file in the "
                          "root directory of the repository with 'url' defined "
                          "with the root URL of the server. (No /rest or "
-                         "/jsonrpc should be present.")
+                         "/jsonrpc should be present.)")
     import sys
     import test
     import StringIO
