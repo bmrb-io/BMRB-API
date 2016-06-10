@@ -55,6 +55,9 @@ def postIt(method, params=None):
 #  postIt method if imported.
 if __name__ == "__main__":
 
+    # Test the status
+    postIt("status", {})
+
     # Try SQL injection
     postIt("select",
         {

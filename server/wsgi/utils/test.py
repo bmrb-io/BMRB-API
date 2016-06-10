@@ -3,19 +3,16 @@
 # Standard imports
 import os
 import sys
+import time
 import unittest
 import requests
 import querymod
-import time
+from StringIO import StringIO
 
 url = 'http://localhost'
 
-def block_me():
-    for x in range(0,50):
-        requests.get(url + "/rest/")
-
 # We will use this for our tests
-class TestSequenceFunctions(unittest.TestCase):
+class TestAPI(unittest.TestCase):
 
     def setUp(self):
         pass
@@ -58,17 +55,56 @@ class TestSequenceFunctions(unittest.TestCase):
 
         shifts = requests.get(url + "/rest/chemical_shifts/HB3").json()['data']
         self.assertGreater(len(shifts), 440000)
-        shifts = requests.get(url + "/rest/chemical_shifts/C8/metabolomics").json()['data']
+        shifts = requests.get(url + "/rest/chemical_shifts/C8/metabolomics")
+        shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
 
-    def test_block(self):
+    def test_zzz_block(self):
         """ See if we get banned for making too many queries."""
-        self.assertRaises(ValueError, block_me)
 
-# Allow unit testing from other modules
-def start_tests():
-    unittest.main(module=__name__)
+        r = requests.get(url + "/rest/").status_code
+        self.assertEquals(r, 200)
 
-# Run unit tests if we are called directly
+        for x in range(0,30):
+            r = requests.get(url + "/rest/").status_code
+        self.assertEquals(r, 403)
+
+        # Make sure we are unbanned before the next test
+        time.sleep(11)
+
+# Set up the tests
+def run_test(conf_url=querymod.configuration.get('url', None)):
+    """ Run the unit tests and make sure the server is online."""
+
+    if conf_url is None:
+        raise ValueError("Please create a local api_config.json file in the "
+                         "root directory of the repository with 'url' defined "
+                         "with the root URL of the server. (No /rest or "
+                         "/jsonrpc should be present.) Or provide URL on "
+                         "command line.")
+
+    # Tell the test framework where to query
+    global url
+    url = conf_url
+    results = StringIO()
+
+    # Run the test
+    demo_test = unittest.TestLoader().loadTestsFromTestCase(TestAPI)
+    unittest.TextTestRunner(stream=results).run(demo_test)
+
+    # See if the end of the results says it passed
+    results.seek(results.tell()-3)
+    if results.read() == "OK\n":
+        sys.exit(0)
+    else:
+        results.seek(0)
+        print(results.read())
+        sys.exit(1)
+
+# If called on the command line run a test
 if __name__ == '__main__':
-    unittest.main()
+
+    if len(sys.argv) > 1:
+        run_test(conf_url=sys.argv[1])
+    else:
+        run_test()
