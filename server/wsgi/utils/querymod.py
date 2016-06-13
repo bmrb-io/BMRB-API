@@ -542,7 +542,7 @@ def create_chemcomp_from_db(chemcomp):
     ent.addSaveframe(chemcomp_frame)
     ent.addSaveframe(entity_frame)
 
-    return str(ent)
+    return ent
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
