@@ -542,10 +542,7 @@ def create_chemcomp_from_db(chemcomp):
     ent.addSaveframe(chemcomp_frame)
     ent.addSaveframe(entity_frame)
 
-    # TODO: This can be avoided by improving the JSON serialization
-    # in PyNMR-STAR. The issue is that the JSON serialization method cannot
-    # currently handle datetimes
-    return bmrb.entry.fromString(str(ent))
+    return str(ent)
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
