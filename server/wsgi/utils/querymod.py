@@ -5,6 +5,9 @@ provided through the REST and JSON-RPC interfaces. This is where the real work
 is done; jsonapi.wsgi and restapi.wsgi mainly just call the methods here and
 return the results."""
 
+# Make sure print functions work in python2 and python3
+from __future__ import print_function
+
 # Module level defines
 __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'get_loops', 'get_saveframes', 'get_entries', 'get_raw_entry',
@@ -561,6 +564,10 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     if cur is None:
         cur = get_postgres_connection()[1]
 
+    # Get the list of which tags should be used to order data
+    cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
+    tag_order = {x[0]:x[1] for x in cur.fetchall()}
+
     # Set the search path
     cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':schema})
 
@@ -635,6 +642,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                     WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
                     {"loop_name": each_loop})
         tags_to_use = []
+        all_tags_in_loop = []
         for row in cur:
             if configuration['debug']:
                 print row
@@ -649,6 +657,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
             else:
                 if configuration['debug']:
                     print "Skipping private tag: %s" % row[0]
+            all_tags_in_loop.append(row[0])
 
         # If there are any tags in the loop to use
         if len(tags_to_use) > 0:
@@ -660,13 +669,25 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
             to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
             query = 'SELECT ' + to_fetch
             query += ' FROM %(table_name)s WHERE "Sf_ID" = %(id)s'
-            for tag in tags_to_use:
-                if "ordinal" in tag or "Ordinal" in tag:
-                    query += ' ORDER BY "%s"' % tag
+
+            # Determine how to order the data in the loops
+            order_tags = []
+            for tag in all_tags_in_loop:
+                if tag_order["_"+ each_loop + "." + tag] == "Y":
+                    order_tags.append(tag)
+                    if configuration['debug']:
+                        print("Ordering loop %s by %s." % (each_loop, tag))
+            if len(order_tags) > 0:
+                query += ' ORDER BY %s' % '"' + '","'.join(order_tags) + '"'
+            else:
+                if configuration['debug']:
+                    print("No order in loop: %s" % each_loop)
+
+            # Perform the query
             cur.execute(query, {"id": sf_id,
                                 "table_name":wrap_it_up(each_loop)})
             if configuration['debug']:
-                print cur.query
+                print(cur.query)
 
             # Add the data
             for row in cur:
