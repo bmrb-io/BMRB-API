@@ -682,6 +682,13 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
             else:
                 if configuration['debug']:
                     print("No order in loop: %s" % each_loop)
+                # If no explicit order, look for an "ordinal" tag
+                for tag in tags_to_use:
+                    if "ordinal" in tag or "Ordinal" in tag:
+                        if configuration['debug']:
+                            print("Found tag to order by (ordinal): %s" % tag)
+                        query += ' ORDER BY "%s"' % tag
+                        break
 
             # Perform the query
             cur.execute(query, {"id": sf_id,
