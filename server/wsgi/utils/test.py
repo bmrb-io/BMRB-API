@@ -59,18 +59,38 @@ class TestAPI(unittest.TestCase):
         shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
 
-    def test_zzz_block(self):
+    def test_autoblock(self):
         """ See if we get banned for making too many queries."""
 
         r = requests.get(url + "/rest/").status_code
         self.assertEquals(r, 200)
 
-        for x in range(0,30):
+        for x in range(0,50):
             r = requests.get(url + "/rest/").status_code
         self.assertEquals(r, 403)
 
         # Make sure we are unbanned before the next test
         time.sleep(11)
+
+    def test_create_chemcomp_from_db(self):
+        """ See if our code to generate a chemcomp from the DB is working."""
+
+        # Test a few chemcomps for good measure
+        # TODO: DUD triggers suboptimal behavior in PyNMRSTAR due to newline
+        #  on the end of some tags
+        for key in ["SES"]:
+            # The entry generated locally
+            local = querymod.create_chemcomp_from_db(key)
+
+            # The local entry has converted datatypes straight from postgres
+            #  so make sure to convert datatypes for the loaded entry
+            ligand_expo_ent = requests.get("http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_entity=yes&print_chem_comp=yes&%s=Fetch" % key).text
+            ligand_expo_ent = "data_chemcomp_%s\n" % key + ligand_expo_ent
+            ligand_expo_ent = querymod.bmrb.entry.fromString(ligand_expo_ent)
+
+            print(local.compare(ligand_expo_ent))
+
+            self.assertEquals(local, ligand_expo_ent)
 
 # Set up the tests
 def run_test(conf_url=querymod.configuration.get('url', None)):

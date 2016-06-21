@@ -5,6 +5,9 @@ provided through the REST and JSON-RPC interfaces. This is where the real work
 is done; jsonapi.wsgi and restapi.wsgi mainly just call the methods here and
 return the results."""
 
+# Make sure print functions work in python2 and python3
+from __future__ import print_function
+
 # Module level defines
 __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'get_loops', 'get_saveframes', 'get_entries', 'get_raw_entry',
@@ -380,7 +383,7 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
         cur.execute(query, parameters)
         rows = cur.fetchall()
     except psycopg2.ProgrammingError:
-        print cur.query
+        print(cur.query)
         raise JSONRPCException(-32701, "Invalid 'from' parameter.")
 
     # Get the column names from the DB
@@ -539,13 +542,41 @@ def create_chemcomp_from_db(chemcomp):
     except KeyError:
         pass
 
-    ent.addSaveframe(chemcomp_frame)
     ent.addSaveframe(entity_frame)
+    ent.addSaveframe(chemcomp_frame)
 
-    # TODO: This can be avoided by improving the JSON serialization
-    # in PyNMR-STAR. The issue is that the JSON serialization method cannot
-    # currently handle datetimes
-    return bmrb.entry.fromString(str(ent))
+    return ent
+
+def get_printable_tags(category, cur):
+
+    # Figure out the loop tags
+    cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq,sfpointerflag
+                FROM dict.val_item_tbl
+                WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
+                {"loop_name": category})
+
+    tags_to_use = []
+    pointer_tags = []
+
+    # Figure out which tags to print
+    for row in cur:
+        # See if the tag is a pointer
+        if row[4] == "Y":
+            pointer_tags.append(row[0])
+
+        # Make sure it isn't internal and it should be printed
+        if row[1] != "Y":
+            # Make sure it should be printed
+            if row[2] == "Y" or row[2] == "O":
+                tags_to_use.append(row[0])
+            else:
+                if configuration['debug']:
+                    print("Skipping no print tag: %s" % row[0])
+        else:
+            if configuration['debug']:
+                print("Skipping private tag: %s" % row[0])
+
+    return tags_to_use, pointer_tags
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
@@ -563,6 +594,14 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     # provide a connection and cursor.
     if cur is None:
         cur = get_postgres_connection()[1]
+
+    # Look up information about the tags to use later
+    #cur.execute('''SELECT val_item_tbl.originaltag,val_item_tbl.internalflag,printflag,val_item_tbl.dictionaryseq,rowindexflg
+   #                FROM dict.val_item_tbl,dict.adit_item_tbl WHERE val_item_tbl.originaltag=adit_item_tbl.originaltag''')
+
+    # Get the list of which tags should be used to order data
+    cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
+    tag_order = {x[0]:x[1] for x in cur.fetchall()}
 
     # Set the search path
     cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':schema})
@@ -591,7 +630,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     table_name = cur.fetchone()[0]
 
     if configuration['debug']:
-        print "Will look in table: %s" % table_name
+        print("Will look in table: %s" % table_name)
 
     # Get the sf_id for later
     cur.execute('''SELECT "Sf_ID","Sf_framecode" FROM %(table_name)s
@@ -609,12 +648,21 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     built_frame = bmrb.saveframe.fromScratch(sf_framecode)
     built_frame.tag_prefix = "_" + table_name
 
-    # Insert the tags
+    # Figure out which tags to display
+    tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
+
+    # Get the tag values
     cur.execute('''SELECT * FROM %(table_name)s where "Sf_ID"=%(sf_id)s''',
                 {'sf_id': sf_id, 'table_name': wrap_it_up(table_name)})
     tag_vals = cur.fetchone()
+
+    # Add the tags, and optionally add $ if the tag is a pointer
     for pos, tag in enumerate(cur.description):
-        built_frame.addTag(tag.name, tag_vals[pos])
+        if tag.name in tags_to_use:
+            if tag.name in pointer_tags:
+                built_frame.addTag(tag.name, "$" + tag_vals[pos])
+            else:
+                built_frame.addTag(tag.name, tag_vals[pos])
 
     # Figure out which loops we might need to insert
     cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.val_item_tbl
@@ -631,27 +679,9 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     for each_loop in loops:
 
         if configuration['debug']:
-            print "Doing loop: %s" % each_loop
+            print("Doing loop: %s" % each_loop)
 
-        # Figure out the loop tags
-        cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq FROM dict.val_item_tbl
-                    WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
-                    {"loop_name": each_loop})
-        tags_to_use = []
-        for row in cur:
-            if configuration['debug']:
-                print row
-            # Make sure it isn't internal and it should be printed
-            if row[1] != "Y":
-                # Make sure it should be printed
-                if row[2] == "Y" or row[2] == "O":
-                    tags_to_use.append(row[0])
-                else:
-                    if configuration['debug']:
-                        print "Skipping noprint tag: %s" % row[0]
-            else:
-                if configuration['debug']:
-                    print "Skipping private tag: %s" % row[0]
+        tags_to_use, pointer_tags = get_printable_tags(each_loop, cur)
 
         # If there are any tags in the loop to use
         if len(tags_to_use) > 0:
@@ -663,16 +693,43 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
             to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
             query = 'SELECT ' + to_fetch
             query += ' FROM %(table_name)s WHERE "Sf_ID" = %(id)s'
+
+            # Determine how to order the data in the loops
+            order_tags = []
             for tag in tags_to_use:
-                if "ordinal" in tag or "Ordinal" in tag:
-                    query += ' ORDER BY "%s"' % tag
+                if tag_order["_"+ each_loop + "." + tag] == "Y":
+                    order_tags.append(tag)
+                    if configuration['debug']:
+                        print("Ordering loop %s by %s." % (each_loop, tag))
+            if len(order_tags) > 0:
+                query += ' ORDER BY %s' % '"' + '","'.join(order_tags) + '"'
+            else:
+                if configuration['debug']:
+                    print("No order in loop: %s" % each_loop)
+                # If no explicit order, look for an "ordinal" tag
+                for tag in tags_to_use:
+                    if "ordinal" in tag or "Ordinal" in tag:
+                        if configuration['debug']:
+                            print("Found tag to order by (ordinal): %s" % tag)
+                        query += ' ORDER BY "%s"' % tag
+                        break
+
+            # Perform the query
             cur.execute(query, {"id": sf_id,
                                 "table_name":wrap_it_up(each_loop)})
             if configuration['debug']:
-                print cur.query
+                print(cur.query)
 
             # Add the data
             for row in cur:
+
+                # Make sure to add the "$" if this is a sf_pointer
+                row = list(row)
+                for pos, tag in enumerate(tags_to_use):
+                    if tag in pointer_tags:
+                        row[pos] = "$" + row[pos]
+
+                # Add the data
                 bmrb_loop.addData(row)
 
             if bmrb_loop.data != []:
@@ -712,7 +769,7 @@ def create_combined_view():
     for table_name in combine_dict.keys():
         query = ''
         if len(combine_dict[table_name]) == 1:
-            print "Warning. Table from only one schema found."
+            print("Warning. Table from only one schema found.")
         elif len(combine_dict[table_name]) == 2:
             query = '''
 CREATE OR REPLACE VIEW combined."%s" AS
@@ -734,7 +791,7 @@ select * from %s."%s" ttt;''' % (table_name,
                                  combine_dict[table_name][2], table_name)
 
         cur.execute(query)
-        print query
+        print(query)
 
     cur.execute("GRANT USAGE ON SCHEMA combined to web;")
     cur.execute("GRANT SELECT ON ALL TABLES IN SCHEMA combined TO web;")
