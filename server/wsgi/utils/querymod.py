@@ -542,10 +542,41 @@ def create_chemcomp_from_db(chemcomp):
     except KeyError:
         pass
 
-    ent.addSaveframe(chemcomp_frame)
     ent.addSaveframe(entity_frame)
+    ent.addSaveframe(chemcomp_frame)
 
     return ent
+
+def get_printable_tags(category, cur):
+
+    # Figure out the loop tags
+    cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq,sfpointerflag
+                FROM dict.val_item_tbl
+                WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
+                {"loop_name": category})
+
+    tags_to_use = []
+    pointer_tags = []
+
+    # Figure out which tags to print
+    for row in cur:
+        # See if the tag is a pointer
+        if row[4] == "Y":
+            pointer_tags.append(row[0])
+
+        # Make sure it isn't internal and it should be printed
+        if row[1] != "Y":
+            # Make sure it should be printed
+            if row[2] == "Y" or row[2] == "O":
+                tags_to_use.append(row[0])
+            else:
+                if configuration['debug']:
+                    print("Skipping no print tag: %s" % row[0])
+        else:
+            if configuration['debug']:
+                print("Skipping private tag: %s" % row[0])
+
+    return tags_to_use, pointer_tags
 
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
@@ -563,6 +594,10 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     # provide a connection and cursor.
     if cur is None:
         cur = get_postgres_connection()[1]
+
+    # Look up information about the tags to use later
+    #cur.execute('''SELECT val_item_tbl.originaltag,val_item_tbl.internalflag,printflag,val_item_tbl.dictionaryseq,rowindexflg
+   #                FROM dict.val_item_tbl,dict.adit_item_tbl WHERE val_item_tbl.originaltag=adit_item_tbl.originaltag''')
 
     # Get the list of which tags should be used to order data
     cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
@@ -613,12 +648,21 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     built_frame = bmrb.saveframe.fromScratch(sf_framecode)
     built_frame.tag_prefix = "_" + table_name
 
-    # Insert the tags
+    # Figure out which tags to display
+    tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
+
+    # Get the tag values
     cur.execute('''SELECT * FROM %(table_name)s where "Sf_ID"=%(sf_id)s''',
                 {'sf_id': sf_id, 'table_name': wrap_it_up(table_name)})
     tag_vals = cur.fetchone()
+
+    # Add the tags, and optionally add $ if the tag is a pointer
     for pos, tag in enumerate(cur.description):
-        built_frame.addTag(tag.name, tag_vals[pos])
+        if tag.name in tags_to_use:
+            if tag.name in pointer_tags:
+                built_frame.addTag(tag.name, "$" + tag_vals[pos])
+            else:
+                built_frame.addTag(tag.name, tag_vals[pos])
 
     # Figure out which loops we might need to insert
     cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.val_item_tbl
@@ -637,27 +681,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
         if configuration['debug']:
             print("Doing loop: %s" % each_loop)
 
-        # Figure out the loop tags
-        cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq FROM dict.val_item_tbl
-                    WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
-                    {"loop_name": each_loop})
-        tags_to_use = []
-        all_tags_in_loop = []
-        for row in cur:
-            if configuration['debug']:
-                print(row)
-            # Make sure it isn't internal and it should be printed
-            if row[1] != "Y":
-                # Make sure it should be printed
-                if row[2] == "Y" or row[2] == "O":
-                    tags_to_use.append(row[0])
-                else:
-                    if configuration['debug']:
-                        print("Skipping noprint tag: %s" % row[0])
-            else:
-                if configuration['debug']:
-                    print("Skipping private tag: %s" % row[0])
-            all_tags_in_loop.append(row[0])
+        tags_to_use, pointer_tags = get_printable_tags(each_loop, cur)
 
         # If there are any tags in the loop to use
         if len(tags_to_use) > 0:
@@ -672,7 +696,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
 
             # Determine how to order the data in the loops
             order_tags = []
-            for tag in all_tags_in_loop:
+            for tag in tags_to_use:
                 if tag_order["_"+ each_loop + "." + tag] == "Y":
                     order_tags.append(tag)
                     if configuration['debug']:
@@ -698,6 +722,14 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
 
             # Add the data
             for row in cur:
+
+                # Make sure to add the "$" if this is a sf_pointer
+                row = list(row)
+                for pos, tag in enumerate(tags_to_use):
+                    if tag in pointer_tags:
+                        row[pos] = "$" + row[pos]
+
+                # Add the data
                 bmrb_loop.addData(row)
 
             if bmrb_loop.data != []:
