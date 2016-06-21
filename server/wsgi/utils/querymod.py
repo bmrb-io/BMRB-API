@@ -383,7 +383,7 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
         cur.execute(query, parameters)
         rows = cur.fetchall()
     except psycopg2.ProgrammingError:
-        print cur.query
+        print(cur.query)
         raise JSONRPCException(-32701, "Invalid 'from' parameter.")
 
     # Get the column names from the DB
@@ -595,7 +595,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     table_name = cur.fetchone()[0]
 
     if configuration['debug']:
-        print "Will look in table: %s" % table_name
+        print("Will look in table: %s" % table_name)
 
     # Get the sf_id for later
     cur.execute('''SELECT "Sf_ID","Sf_framecode" FROM %(table_name)s
@@ -635,7 +635,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     for each_loop in loops:
 
         if configuration['debug']:
-            print "Doing loop: %s" % each_loop
+            print("Doing loop: %s" % each_loop)
 
         # Figure out the loop tags
         cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq FROM dict.val_item_tbl
@@ -645,7 +645,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
         all_tags_in_loop = []
         for row in cur:
             if configuration['debug']:
-                print row
+                print(row)
             # Make sure it isn't internal and it should be printed
             if row[1] != "Y":
                 # Make sure it should be printed
@@ -653,10 +653,10 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                     tags_to_use.append(row[0])
                 else:
                     if configuration['debug']:
-                        print "Skipping noprint tag: %s" % row[0]
+                        print("Skipping noprint tag: %s" % row[0])
             else:
                 if configuration['debug']:
-                    print "Skipping private tag: %s" % row[0]
+                    print("Skipping private tag: %s" % row[0])
             all_tags_in_loop.append(row[0])
 
         # If there are any tags in the loop to use
@@ -730,7 +730,7 @@ def create_combined_view():
     for table_name in combine_dict.keys():
         query = ''
         if len(combine_dict[table_name]) == 1:
-            print "Warning. Table from only one schema found."
+            print("Warning. Table from only one schema found.")
         elif len(combine_dict[table_name]) == 2:
             query = '''
 CREATE OR REPLACE VIEW combined."%s" AS
@@ -752,7 +752,7 @@ select * from %s."%s" ttt;''' % (table_name,
                                  combine_dict[table_name][2], table_name)
 
         cur.execute(query)
-        print query
+        print(query)
 
     cur.execute("GRANT USAGE ON SCHEMA combined to web;")
     cur.execute("GRANT SELECT ON ALL TABLES IN SCHEMA combined TO web;")
