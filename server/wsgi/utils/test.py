@@ -88,8 +88,6 @@ class TestAPI(unittest.TestCase):
             ligand_expo_ent = "data_chemcomp_%s\n" % key + ligand_expo_ent
             ligand_expo_ent = querymod.bmrb.entry.fromString(ligand_expo_ent)
 
-            print(local.compare(ligand_expo_ent))
-
             self.assertEquals(local, ligand_expo_ent)
 
 # Set up the tests
