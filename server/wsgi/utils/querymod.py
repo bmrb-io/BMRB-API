@@ -20,6 +20,7 @@ import zlib
 import logging
 import psycopg2
 from psycopg2.extensions import AsIs
+import subprocess
 import redis
 from redis.sentinel import Sentinel
 
@@ -256,6 +257,7 @@ def get_status(**kwargs):
     stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
                                 "list_entries", "chemical_shifts", "select",
                                 "status"]
+    stats['version'] = subprocess.check_output(["git", "describe"]).strip()
 
     return stats
 
