@@ -93,7 +93,7 @@ Example query:
 Example response:
 
 ```json
-{   "jsonrpc": u"2.0",
+{   "jsonrpc": "2.0",
     "result": {
         "macromolecules": {
             "update_time": 1466603754.191061,
@@ -113,13 +113,13 @@ Example response:
             "update_time": 1466603807.872188,
             "num_entries": 33366.0
         },
-        "version": u"v0.4.3",
+        "version": "v0.4.3",
         "jsonrpc_methods": ["tag", "loop", "saveframe", "entry", "list_entries", "chemical_shifts", "select", "status"],
         "rest_methods": ["list_entries", "chemical_shifts", "entry", "saveframe", "loop", "tag", "status"]
     },
     "id": 1
 }
-``
+```
 
 #### list_entries
 
