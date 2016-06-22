@@ -4,7 +4,14 @@ All queries return results in JSON format.
 
 ### REST API queries
 
-#### /list_entries/[metabolomics|macromolecule]
+#### /status/
+
+Returns the current status of the databases. This includes the number of entries
+in each database, the number of chemical shifts in each database, and the last
+time each database was updated. The available REST and JSON-RPC methods are also
+returned, as well as the version number of the API.
+
+#### /list_entries/[metabolomics|macromolecule|chemcomps]
 
 Returns a list of all entries.
 [Here](http://webapi.bmrb.wisc.edu/current/rest/list_entries/)
@@ -13,6 +20,8 @@ Adding
 [/macromolecule/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/macromolecule)
 or
 [/metabolomics/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/metabolomics)
+or
+[/chemcomps/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/chemcomps)
 at the end will only return the entries of that type.
 
 #### /entry/$ENTRY_ID/[$ENTRY_FORMAT]

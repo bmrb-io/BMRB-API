@@ -46,16 +46,87 @@ if no error occured.
 The contents of the `params` and `response` keys will be detailed for the
 individual methods below.
 
+#### Databases
+
+The BMRB API has 4 databases. They are:
+
+* `macromolecules` - The standard BMRB database. Contains macromolecules.
+* `metabolomics` - The metabolomics database.
+* `chemcomps` - The chemical compounds used by the PDB in NMR-STAR format. Note
+that these entries only have no chemical shifts.
+* `combined` - A meta database that searches the three databases above.
+
+Note that not all databases contain the same tables. A search in a table that
+a given database doesn't contain will not produce an error; instead it will
+return that no results were found. At this point the `select` query cannot
+operate on the `combined` database, but all other queries can.
+
+If a query does not provide a database the combined database is used except for
+the `select` query which uses the `macromolecules` database. We are working on
+supporting the combined database for `select` queries.
+
+Query types that work on an entry-basis do not need to specify a database as all
+databases are searched for those query types.
+
 ### JSON-RPC methods
+
+#### status
+
+Returns the current status of the databases. This includes the number of entries
+in each database, the number of chemical shifts in each database, and the last
+time each database was updated. The available REST and JSON-RPC methods are also
+returned, as well as the version number of the API.
+
+Paramters: None
+
+Example query:
+
+```json
+{
+    "method": "status",
+    "jsonrpc": "2.0",
+    "params": {},
+    "id": 1
+}
+```
+
+Example response:
+
+```json
+{   "jsonrpc": u"2.0",
+    "result": {
+        "macromolecules": {
+            "update_time": 1466603754.191061,
+            "num_entries": 10847.0,
+            "num_chemical_shifts": 8100700.0
+        },
+        "chemcomps": {
+            "update_time": 1466603768.02896,
+            "num_entries": 21221.0
+        },
+        "metabolomics": {
+            "update_time": 1466603752.659468,
+            "num_entries": 1298.0,
+            "num_chemical_shifts": 27598.0
+        },
+        "combined": {
+            "update_time": 1466603807.872188,
+            "num_entries": 33366.0
+        },
+        "version": u"v0.4.3",
+        "jsonrpc_methods": ["tag", "loop", "saveframe", "entry", "list_entries", "chemical_shifts", "select", "status"],
+        "rest_methods": ["list_entries", "chemical_shifts", "entry", "saveframe", "loop", "tag", "status"]
+    },
+    "id": 1
+}
+``
 
 #### list_entries
 
 This query returns a list of all of the valid BMRB entry IDs.
 
 Optional parameters:
-* `database` - A string whose value should either be `metabolomics` or
-`macromolecules`. If the `database` paramater is supplied than
-only entries of the given type will be returned.
+* `database` - Which database to search. See [databases](#databases).
 
 Example query (returns a list with all valid macromolecule BMRB IDs):
 
@@ -84,9 +155,7 @@ This query returns all chemical shifts. Allows filtering by atom type and
 database.
 
 Optional parameters:
-* `database` - A string whose value should either be `metabolomics` or
-`macromolecules`. If the `database` paramater is supplied than
-only entries of the given type will be returned.
+* `database` - Which database to search. See [databases](#databases).
 * `atom_type` - A string specifying which atom type to query for. `*` is
 interpreted as a wildcharacter. Specifying `HB*` would search for all `HB`
 shifts.
@@ -335,8 +404,7 @@ Mandatory parameters:
   `Chem_comp_descriptor`.
 
 Optional parameters:
-* `database` - A string whose value should either be `metabolomics`,
-`macromolecules`, or `chemcomps`. Defaults to `macromolecules`.
+* `database` - Which database to search. See [databases](#databases).
 * `query`: Not optional, but the following children are:
   * `modifiers`: A list of modifiers to use. The currently allowed values
   (specified by adding their name as a string to the `modifiers` list) are:
