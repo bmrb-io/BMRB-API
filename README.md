@@ -76,8 +76,7 @@ If you are blacklisted simply wait at least 10 seconds before sending ANY
 queries and you will be removed from the blacklist.
 
 Limits:
-* Up to 4 queries of the same resource (URI) per second.
-* Up to 50 queries per second of different URIs.
+* Up to 50 queries per second.
 
 We reserve the right to increase or decrease these limits in the future without
 warning.
