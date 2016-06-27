@@ -89,11 +89,14 @@ class TestAPI(unittest.TestCase):
         r = requests.get(url).status_code
         self.assertEquals(r, 200)
 
+        # Get the root URL
+        rurl = urlparse(url).netloc
+
         # We have to reuse a socket in order to make requests fast enough to
         #  get banned
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((urlparse(url).netloc, 80))
-        request = "GET / HTTP/1.1\nHost: %s\n\n" % urlparse(url).netloc
+        s.connect((rurl, 80))
+        request = "GET / HTTP/1.1\nHost: %s\n\n" % rurl
 
         for x in range(0, 75):
             s.send(request)
@@ -101,7 +104,7 @@ class TestAPI(unittest.TestCase):
         s.close()
 
         # This request should now fail
-        r = requests.get(urlparse(url).netloc, headers={"User-Agent": None})
+        r = requests.get("http://" + rurl, headers={"User-Agent": None})
         self.assertEquals(r.status_code, 403)
 
         # Make sure we are unbanned before the next test
