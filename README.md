@@ -46,8 +46,8 @@ your application is up to date with any changes.
 ### API URLs
 
 From the root of the API server, first add the version you want to query. For
-example, [webapi.bmrb.wisc.edu/v0.2/](http://webapi.bmrb.wisc.edu/v0.2/) for the
-alpha release version v0.2, or
+example, [webapi.bmrb.wisc.edu/v0.4/](http://webapi.bmrb.wisc.edu/v0.4/) for the
+beta release version v0.4, or
 [webapi.bmrb.wisc.edu/current/](http://webapi.bmrb.wisc.edu/current/)
 to ensure your query goes to the current API version, whatever that is at the
 time.
@@ -76,11 +76,13 @@ If you are blacklisted simply wait at least 10 seconds before sending ANY
 queries and you will be removed from the blacklist.
 
 Limits:
-* Up to 4 queries of the same resource (URI) per second.
-* Up to 50 queries per second of different URIs.
+* Up to 50 queries per second.
 
 We reserve the right to increase or decrease these limits in the future without
 warning.
+
+If you need to perform a lot of queries and the rate limit is a problem for you,
+please contact us at <bmrbhelp@bmrb.wisc.edu> to get an exception.
 
 ## REST
 

@@ -58,16 +58,6 @@ if __name__ == "__main__":
     # Test the status
     postIt("status", {})
 
-    # Try SQL injection
-    postIt("select",
-        {
-            "query": {
-                "select": "*",
-                "from": 'Chem_comp_descriptor"; drop table macromolecules."Chem_comp_descriptor";select * from macromolecules."Chem_comp_descriptor',
-            }
-        }
-    )
-
     # Test the chemical_shifts function
     postIt("chemical_shifts",
         {
@@ -80,22 +70,6 @@ if __name__ == "__main__":
     postIt("list_entries",
         {
             "database": "metabolomics",
-        }
-    )
-
-    # Get all the metabolomics entries that have at least one datum in the
-    #  Chem_comp_descriptor field
-    postIt("select",
-        {
-            "database": "metabolomics",
-            "query": {
-                "hash": False,
-                "select": "*",
-                "from": "Chem_comp_descriptor",
-                "where": {
-                    "Descriptor": "%1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,%"
-                }
-            }
         }
     )
 
@@ -253,4 +227,28 @@ if __name__ == "__main__":
         }
     )
 
+    # Get all the metabolomics entries that have at least one datum in the
+    #  Chem_comp_descriptor field
+    postIt("select",
+        {
+            "database": "metabolomics",
+            "query": {
+                "hash": False,
+                "select": "*",
+                "from": "Chem_comp_descriptor",
+                "where": {
+                    "Descriptor": "%1S/C6H10N2O2/c1-4-7-3-2-5(8-4)6(9)10/h5H,%"
+                }
+            }
+        }
+    )
 
+    # Try SQL injection
+    postIt("select",
+        {
+            "query": {
+                "select": "*",
+                "from": 'Chem_comp_descriptor"; drop table macromolecules."Chem_comp_descriptor";select * from macromolecules."Chem_comp_descriptor',
+            }
+        }
+    )

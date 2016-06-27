@@ -102,6 +102,12 @@ def get_entry(entry_id, format_="json"):
         #   then JSON encoded.
         return return_json(querymod.get_raw_entry(entry_id), encode=False)
     else:
+        # Special case to return raw nmrstar
+        if format_ == "rawnmrstar":
+            ent = querymod.get_entries(ids=entry_id, format="nmrstar")[entry_id]
+            return Response(str(ent), mimetype="text/nmrstar")
+
+        # Return the entry in any other format
         result = querymod.get_entries(ids=entry_id, format=format_)
         return return_json(result)
 

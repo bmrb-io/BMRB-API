@@ -119,9 +119,9 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 
     # Make sure there are not too many entries
     if len(search_ids) > 500:
-        raise JSONRPCException(-32602, 'Too many IDs queried. Please query 500 or '
-                                    'fewer entries at a time. You attempted to '
-                                    'query %d IDs.' % len(search_ids))
+        raise JSONRPCException(-32602, 'Too many IDs queried. Please query 500 '
+                               'or fewer entries at a time. You attempted to '
+                               'query %d IDs.' % len(search_ids))
 
     # Get the connection to redis
     r = get_redis_connection()
@@ -168,8 +168,8 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
 
                             # Unknown format
                             else:
-                                raise JSONRPCException(-32702, "Invalid format: %s"
-                                                    "." % format_)
+                                raise JSONRPCException(-32702, "Invalid format:"
+                                                               " %s." % format_)
 
 def get_raw_entry(entry_id):
     """ Get one serialized entry. """
@@ -257,7 +257,7 @@ def get_status(**kwargs):
     stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
                                 "list_entries", "chemical_shifts", "select",
                                 "status"]
-    stats['version'] = subprocess.check_output(["git", "describe"]).strip()
+    stats['version'] = subprocess.check_output(["git", "describe","--abbrev=0"]).strip()
 
     return stats
 
@@ -466,8 +466,8 @@ def process_select(**params):
         if len(params['query']) > 1:
             each_query['select'].append("Entry_ID")
         if "from" not in each_query:
-            raise JSONRPCException(-32602, 'You must specify which table to query '
-                                        'with the "from" parameter.')
+            raise JSONRPCException(-32602, 'You must specify which table to '
+                                           'query with the "from" parameter.')
         if "hash" not in each_query:
             each_query['hash'] = True
 

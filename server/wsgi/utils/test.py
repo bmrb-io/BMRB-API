@@ -4,12 +4,36 @@
 import os
 import sys
 import time
+import socket
 import unittest
 import requests
 import querymod
 from StringIO import StringIO
+from urlparse import urlparse
+import test_reference
 
 url = 'http://localhost'
+
+# A helper function used for the tests
+def send_jsonrpc_request(method, params=None):
+
+    if params is None:
+        params = {}
+
+    request = {
+        "method": method,
+        "jsonrpc": "2.0",
+        "params": params,
+        "id": "test"
+    }
+
+    r = requests.post(url + "/jsonrpc", json=request)
+
+    try:
+        return r.json()
+    except ValueError as e:
+        print("You triggered an enhandled server error: " + repr(e))
+        print("Response:\n" + r.text)
 
 # We will use this for our tests
 class TestAPI(unittest.TestCase):
@@ -62,12 +86,20 @@ class TestAPI(unittest.TestCase):
     def test_autoblock(self):
         """ See if we get banned for making too many queries."""
 
-        r = requests.get(url + "/rest/").status_code
-        self.assertEquals(r, 200)
+        # We have to reuse a socket in order to make requests fast enough to
+        #  get banned
+        with requests.Session() as s:
 
-        for x in range(0,50):
-            r = requests.get(url + "/rest/").status_code
-        self.assertEquals(r, 403)
+            # Check we are not banned
+            r = s.get(url + "/rest/").status_code
+            self.assertEquals(r, 200)
+
+            # DOS the server
+            for x in range(0, 75):
+                r = s.get(url + "/rest/").status_code
+
+            # Should be banned now
+            self.assertEquals(r, 403)
 
         # Make sure we are unbanned before the next test
         time.sleep(11)
@@ -89,6 +121,39 @@ class TestAPI(unittest.TestCase):
             ligand_expo_ent = querymod.bmrb.entry.fromString(ligand_expo_ent)
 
             self.assertEquals(local, ligand_expo_ent)
+
+
+    # Tests for the JSON-RPC queries
+    def test_jsonrpc_tag(self):
+        for test in test_reference.tag_test:
+            response = send_jsonrpc_request(test[0], test[1])
+            self.assertEquals(response, test[2])
+
+    def test_jsonrpc_loop(self):
+        for test in test_reference.loop_test:
+            response = send_jsonrpc_request(test[0], test[1])
+            self.assertEquals(response, test[2])
+
+    def test_jsonrpc_saveframe(self):
+        for test in test_reference.saveframe_test:
+            response = send_jsonrpc_request(test[0], test[1])
+            self.assertEquals(response, test[2])
+
+    def test_jsonrpc_entry(self):
+        for test in test_reference.entry_test:
+            response = send_jsonrpc_request(test[0], test[1])
+            self.assertEquals(response, test[2])
+
+    def test_jsonrpc_status(self):
+        for test in test_reference.status_test:
+            response = send_jsonrpc_request(test[0], test[1])
+            self.assertEquals(response['result'].keys(), test[2])
+
+    def test_jsonrpc_select(self):
+        for test in test_reference.select_test:
+            response = send_jsonrpc_request(test[0], test[1])
+            self.assertEquals(response, test[2])
+
 
 # Set up the tests
 def run_test(conf_url=querymod.configuration.get('url', None)):
