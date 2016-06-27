@@ -86,26 +86,20 @@ class TestAPI(unittest.TestCase):
     def test_autoblock(self):
         """ See if we get banned for making too many queries."""
 
-        r = requests.get(url).status_code
-        self.assertEquals(r, 200)
-
-        # Get the root URL
-        rurl = urlparse(url).netloc
-
         # We have to reuse a socket in order to make requests fast enough to
         #  get banned
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((rurl, 80))
-        request = "GET / HTTP/1.1\nHost: %s\n\n" % rurl
+        with requests.Session() as s:
 
-        for x in range(0, 75):
-            s.send(request)
-            no_need = s.recv(2500)
-        s.close()
+            # Check we are not banned
+            r = s.get(url + "/rest/").status_code
+            self.assertEquals(r, 200)
 
-        # This request should now fail
-        r = requests.get("http://" + rurl, headers={"User-Agent": None})
-        self.assertEquals(r.status_code, 403)
+            # DOS the server
+            for x in range(0, 75):
+                r = s.get(url + "/rest/").status_code
+
+            # Should be banned now
+            self.assertEquals(r, 403)
 
         # Make sure we are unbanned before the next test
         time.sleep(11)
