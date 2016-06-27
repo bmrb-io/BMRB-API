@@ -101,8 +101,8 @@ class TestAPI(unittest.TestCase):
         s.close()
 
         # This request should now fail
-        r = requests.get(url, headers={"User-Agent": None}).status_code
-        self.assertEquals(r, 403)
+        r = requests.get(urlparse(url).netloc, headers={"User-Agent": None})
+        self.assertEquals(r.status_code, 403)
 
         # Make sure we are unbanned before the next test
         time.sleep(11)
