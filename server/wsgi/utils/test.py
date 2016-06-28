@@ -4,12 +4,10 @@
 import os
 import sys
 import time
-import socket
 import unittest
 import requests
 import querymod
 from StringIO import StringIO
-from urlparse import urlparse
 import test_reference
 
 url = 'http://localhost'
