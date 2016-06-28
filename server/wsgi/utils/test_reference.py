@@ -169,6 +169,6 @@ select_test = [
             }
         }
     },
-    {u'jsonrpc': u'2.0', u'result': {u'Chem_comp_descriptor.Entry_ID': 6}, u'id': u'test'}
+    {u'jsonrpc': u'2.0', u'result': {u'Chem_comp_descriptor.Entry_ID': 8}, u'id': u'test'}
 )
 ]
