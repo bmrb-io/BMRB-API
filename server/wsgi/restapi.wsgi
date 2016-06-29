@@ -30,10 +30,17 @@ application = Flask(__name__)
 # Set up error handling
 @application.errorhandler(JSONRPCException)
 def handle_jsonrpc_error(error):
+    """ Catches JSON-RPC exceptions (ones we raise) and formats
+    them for the REST interface."""
+
     return return_json({"error":error.error.message})
 
 @application.errorhandler(Exception)
 def handle_other_errors(error):
+    """ Catches any other exceptions and formats them for REST. Only
+    displays the actual error to local clients (to prevent disclosing
+    issues that could be security vulnerabilities)."""
+
     if querymod.check_local_ip(request.remote_addr):
         return Response(traceback.format_exc(), mimetype="text/plain")
     else:
@@ -64,8 +71,8 @@ def list_entries(entry_type="combined"):
     return return_json(entries)
 
 @application.route('/debug')
-def debug(methods=['GET', 'POST']):
-    """ This method prints some debugging information. """
+def debug(methods=('GET', 'POST')):
+    """ This method prints some debugging information."""
     debug_str = "Secure: " + str(request.is_secure)
     debug_str += "<br>URL: " + str(request.url)
     debug_str += "<br>Method: " + str(request.method)
