@@ -106,12 +106,12 @@ def one_entry(entry_name, entry_location, r_conn):
 
         if ent is not None:
             key = querymod.locate_entry(entry_name)
-            r_conn.set(key, zlib.compress(ent.getJSON()))
+            r_conn.set(key, zlib.compress(ent.get_json()))
             print("On %s: loaded" % entry_name)
             return entry_name
     else:
         try:
-            ent = querymod.bmrb.entry.fromFile(entry_location)
+            ent = querymod.bmrb.Entry.from_file(entry_location)
 
             print("On %s: loaded." % entry_name)
         except IOError as e:
@@ -123,7 +123,7 @@ def one_entry(entry_name, entry_location, r_conn):
 
         if ent is not None:
             key = querymod.locate_entry(entry_name)
-            r_conn.set(key, zlib.compress(ent.getJSON()))
+            r_conn.set(key, zlib.compress(ent.get_json()))
             return entry_name
 
 # Since we are about to start, tell REDIS it is being updated

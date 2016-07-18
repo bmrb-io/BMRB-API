@@ -174,7 +174,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
                         yield (entry_id, entry)
                     else:
                         # Parse the dict into object
-                        entry = bmrb.entry.fromJSON(entry)
+                        entry = bmrb.Entry.from_json(entry)
                         if format_ == "object":
                             yield (entry_id, entry)
                         else:
@@ -245,7 +245,7 @@ def get_tags(**kwargs):
 
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry[0]] = entry[1].getTags(search_tags)
+        result[entry[0]] = entry[1].get_tags(search_tags)
 
     return result
 
@@ -289,12 +289,12 @@ def get_loops(**kwargs):
     for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry[0]] = {}
         for loop_category in loop_categories:
-            matches = entry[1].getLoopsByCategory(loop_category)
+            matches = entry[1].get_loops_by_category(loop_category)
 
             if kwargs.get('format', "json") == "nmrstar":
                 matching_loops = [str(x) for x in matches]
             else:
-                matching_loops = [x.getJSON(serialize=False) for x in matches]
+                matching_loops = [x.get_json(serialize=False) for x in matches]
             result[entry[0]][loop_category] = matching_loops
 
     return result
@@ -310,11 +310,11 @@ def get_saveframes(**kwargs):
     for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry[0]] = {}
         for saveframe_category in saveframe_categories:
-            matches = entry[1].getSaveframesByCategory(saveframe_category)
+            matches = entry[1].get_saveframes_by_category(saveframe_category)
             if kwargs.get('format', "json") == "nmrstar":
                 matching_frames = [str(x) for x in matches]
             else:
-                matching_frames = [x.getJSON(serialize=False) for x in matches]
+                matching_frames = [x.get_json(serialize=False) for x in matches]
             result[entry[0]][saveframe_category] = matching_frames
     return result
 
@@ -546,7 +546,7 @@ def create_chemcomp_from_db(chemcomp, cur=None):
         cur = get_postgres_connection()[1]
 
     # Create entry
-    ent = bmrb.entry.fromScratch(chemcomp)
+    ent = bmrb.Entry.from_scratch(chemcomp)
     chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
                                               cc_id, "ID", cur)
     entity_frame = create_saveframe_from_db("chemcomps", "entity",
@@ -558,8 +558,8 @@ def create_chemcomp_from_db(chemcomp, cur=None):
     except KeyError:
         pass
 
-    ent.addSaveframe(entity_frame)
-    ent.addSaveframe(chemcomp_frame)
+    ent.add_saveframe(entity_frame)
+    ent.add_saveframe(chemcomp_frame)
 
     return ent
 
@@ -669,7 +669,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     sf_id, sf_framecode = cur.fetchone()
 
     # Create the NMR-STAR saveframe
-    built_frame = bmrb.saveframe.fromScratch(sf_framecode)
+    built_frame = bmrb.Saveframe.from_scratch(sf_framecode)
     built_frame.tag_prefix = "_" + table_name
 
     # Figure out which tags to display
@@ -684,9 +684,9 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     for pos, tag in enumerate(cur.description):
         if tag.name in tags_to_use:
             if tag.name in pointer_tags:
-                built_frame.addTag(tag.name, "$" + tag_vals[pos])
+                built_frame.add_tag(tag.name, "$" + tag_vals[pos])
             else:
-                built_frame.addTag(tag.name, tag_vals[pos])
+                built_frame.add_tag(tag.name, tag_vals[pos])
 
     # Figure out which loops we might need to insert
     cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.val_item_tbl
@@ -710,8 +710,8 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
         # If there are any tags in the loop to use
         if len(tags_to_use) > 0:
             # Create the loop
-            bmrb_loop = bmrb.loop.fromScratch(category=each_loop)
-            bmrb_loop.addColumn(tags_to_use)
+            bmrb_loop = bmrb.Loop.from_scratch(category=each_loop)
+            bmrb_loop.add_column(tags_to_use)
 
             # Get the loop data
             to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
@@ -754,10 +754,10 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                         row[pos] = "$" + row[pos]
 
                 # Add the data
-                bmrb_loop.addData(row)
+                bmrb_loop.add_data(row)
 
             if bmrb_loop.data != []:
-                built_frame.addLoop(bmrb_loop)
+                built_frame.add_loop(bmrb_loop)
 
     return built_frame
 
