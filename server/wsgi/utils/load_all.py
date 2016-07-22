@@ -38,7 +38,7 @@ opt.add_option("--redis-db", action="store", dest="db", default=1,
 opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will "
                "interrupt service until the DB is rebuilt! (So only use it on"
-               " the staging DB.")
+               " the staging DB.)")
 # Parse the command line input
 (options, cmd_input) = opt.parse_args()
 
