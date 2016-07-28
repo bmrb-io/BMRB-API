@@ -4,12 +4,10 @@
 import os
 import sys
 import time
-import socket
 import unittest
 import requests
 import querymod
 from StringIO import StringIO
-from urlparse import urlparse
 import test_reference
 
 url = 'http://localhost'
@@ -67,11 +65,11 @@ class TestAPI(unittest.TestCase):
     def test_entries_in_redis(self):
         """ Make sure that one entry in each class is there and parses."""
 
-        self.assertEqual(querymod.bmrb.entry.fromDatabase(15000),
-                         querymod.bmrb.entry.fromFile("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
-        self.assertEqual(querymod.bmrb.entry.fromDatabase("bmse000894"),
-                         querymod.bmrb.entry.fromFile("/share/subedit/metabolomics/bmse000894/bmse000894.str"))
-        self.assertEqual(querymod.bmrb.entry.fromDatabase("chemcomp_0EY"),
+        self.assertEqual(querymod.bmrb.Entry.from_database(15000),
+                         querymod.bmrb.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
+        self.assertEqual(querymod.bmrb.Entry.from_database("bmse000894"),
+                         querymod.bmrb.Entry.from_file("/share/subedit/metabolomics/bmse000894/bmse000894.str"))
+        self.assertEqual(querymod.bmrb.Entry.from_database("chemcomp_0EY"),
                          querymod.create_chemcomp_from_db("chemcomp_0EY"))
 
     def test_chemical_shifts(self):
@@ -118,7 +116,7 @@ class TestAPI(unittest.TestCase):
             #  so make sure to convert datatypes for the loaded entry
             ligand_expo_ent = requests.get("http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_entity=yes&print_chem_comp=yes&%s=Fetch" % key).text
             ligand_expo_ent = "data_chemcomp_%s\n" % key + ligand_expo_ent
-            ligand_expo_ent = querymod.bmrb.entry.fromString(ligand_expo_ent)
+            ligand_expo_ent = querymod.bmrb.Entry.from_string(ligand_expo_ent)
 
             self.assertEquals(local, ligand_expo_ent)
 

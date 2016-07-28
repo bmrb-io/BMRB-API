@@ -18,9 +18,10 @@ import os
 import json
 import zlib
 import logging
+import subprocess
+
 import psycopg2
 from psycopg2.extensions import AsIs
-import subprocess
 import redis
 from redis.sentinel import Sentinel
 
@@ -38,8 +39,8 @@ config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "..", "..", "..", "api_config.json")
 if os.path.isfile(config_loc):
     config_overrides = json.loads(open(config_loc, "r").read())
-    for key in config_overrides:
-        configuration[key] = config_overrides[key]
+    for config_param in config_overrides:
+        configuration[config_param] = config_overrides[config_param]
 
 # Set up logging
 logging.basicConfig()
@@ -54,6 +55,9 @@ def check_local_ip(ip):
     return False
 
 def locate_entry(entry_id):
+    """ Determines what the Redis key is for an entry given the database
+    provided."""
+
     if entry_id.startswith("bm"):
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):
@@ -101,7 +105,19 @@ def get_redis_connection(db=None):
 
     return r
 
-def get_valid_entries_from_redis(search_ids, format_="object"):
+def get_all_entries_from_redis(format_="object", schema="macromolecules"):
+    """ Returns a generator that returns all the entries from a given
+    schema from Redis."""
+
+    # Get the connection to redis
+    r = get_redis_connection()
+    all_ids = list(r.lrange("%s:entry_list" % schema, 0, -1))
+
+    return get_valid_entries_from_redis(all_ids, format_=format_,
+                                        max_results=float("Inf"))
+
+
+def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
 
@@ -118,10 +134,10 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
         search_ids = [search_ids]
 
     # Make sure there are not too many entries
-    if len(search_ids) > 500:
-        raise JSONRPCException(-32602, 'Too many IDs queried. Please query 500 '
+    if len(search_ids) > max_results:
+        raise JSONRPCException(-32602, 'Too many IDs queried. Please query %s '
                                'or fewer entries at a time. You attempted to '
-                               'query %d IDs.' % len(search_ids))
+                               'query %d IDs.' % (max_results, len(search_ids)))
 
     # Get the connection to redis
     r = get_redis_connection()
@@ -158,7 +174,7 @@ def get_valid_entries_from_redis(search_ids, format_="object"):
                         yield (entry_id, entry)
                     else:
                         # Parse the dict into object
-                        entry = bmrb.entry.fromJSON(entry)
+                        entry = bmrb.Entry.from_json(entry)
                         if format_ == "object":
                             yield (entry_id, entry)
                         else:
@@ -216,8 +232,7 @@ def get_chemical_shifts(**kwargs):
 
     # Perform the query
     query_result = select(chem_shift_fields, "Atom_chem_shift",
-                                        as_hash=False, where_dict=wd,
-                                        schema=schema)
+                          as_hash=False, where_dict=wd, schema=schema)
 
     return query_result
 
@@ -230,7 +245,7 @@ def get_tags(**kwargs):
 
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry[0]] = entry[1].getTags(search_tags)
+        result[entry[0]] = entry[1].get_tags(search_tags)
 
     return result
 
@@ -257,7 +272,9 @@ def get_status(**kwargs):
     stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
                                 "list_entries", "chemical_shifts", "select",
                                 "status"]
-    stats['version'] = subprocess.check_output(["git", "describe","--abbrev=0"]).strip()
+    stats['version'] = subprocess.check_output(["git",
+                                                "describe",
+                                                "--abbrev=0"]).strip()
 
     return stats
 
@@ -272,12 +289,12 @@ def get_loops(**kwargs):
     for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry[0]] = {}
         for loop_category in loop_categories:
-            matches = entry[1].getLoopsByCategory(loop_category)
+            matches = entry[1].get_loops_by_category(loop_category)
 
             if kwargs.get('format', "json") == "nmrstar":
                 matching_loops = [str(x) for x in matches]
             else:
-                matching_loops = [x.getJSON(serialize=False) for x in matches]
+                matching_loops = [x.get_json(serialize=False) for x in matches]
             result[entry[0]][loop_category] = matching_loops
 
     return result
@@ -293,11 +310,11 @@ def get_saveframes(**kwargs):
     for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry[0]] = {}
         for saveframe_category in saveframe_categories:
-            matches = entry[1].getSaveframesByCategory(saveframe_category)
+            matches = entry[1].get_saveframes_by_category(saveframe_category)
             if kwargs.get('format', "json") == "nmrstar":
                 matching_frames = [str(x) for x in matches]
             else:
-                matching_frames = [x.getJSON(serialize=False) for x in matches]
+                matching_frames = [x.get_json(serialize=False) for x in matches]
             result[entry[0]][saveframe_category] = matching_frames
     return result
 
@@ -322,7 +339,7 @@ def wrap_it_up(item):
     return AsIs('"' + item + '"')
 
 def select(fetch_list, table, where_dict=None, schema="macromolecules",
-           modifiers=None, as_hash=True):
+           modifiers=None, as_hash=True, cur=None):
     """ Performs a SELECT query constructed from the supplied arguments."""
 
     # Turn None parameters into the proper empty type
@@ -337,7 +354,8 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
         raise JSONRPCException(-32701, "Invalid 'from' parameter.")
 
     # Errors connecting will be handled upstream
-    cur = get_postgres_connection()[1]
+    if cur is None:
+        cur = get_postgres_connection()[1]
 
     # Prepare the query
     if len(fetch_list) == 1 and fetch_list[0] == "*":
@@ -420,7 +438,7 @@ def process_STAR_query(params):
     # Make sure they have IDS
     if "ids" not in params:
         raise JSONRPCException(-32602, 'You must specify one or more entry IDs '
-                                    'with the "ids" parameter.')
+                               'with the "ids" parameter.')
 
     # Set the keys to the empty list if not specified
     if 'keys' not in params:
@@ -480,21 +498,16 @@ def process_select(**params):
 
         if len(params['query']) > 1:
             # If there are multiple queries then add their results to the list
-            cur_res = select(each_query['select'],
-                                           each_query['from'],
-                                           where_dict=each_query['where'],
-                                           schema=schema,
-                                           modifiers=each_query['modifiers'],
-                                           as_hash=False)
+            cur_res = select(each_query['select'], each_query['from'],
+                             where_dict=each_query['where'], schema=schema,
+                             modifiers=each_query['modifiers'], as_hash=False)
             result_list.append(cur_res)
         else:
             # If there is only one query just return it
-            return select(each_query['select'],
-                                        each_query['from'],
-                                        where_dict=each_query['where'],
-                                        schema=schema,
-                                        modifiers=each_query['modifiers'],
-                                        as_hash=each_query['hash'])
+            return select(each_query['select'], each_query['from'],
+                          where_dict=each_query['where'], schema=schema,
+                          modifiers=each_query['modifiers'],
+                          as_hash=each_query['hash'])
 
     return result_list
 
@@ -516,7 +529,7 @@ def process_select(**params):
 
     return new_response
 
-def create_chemcomp_from_db(chemcomp):
+def create_chemcomp_from_db(chemcomp, cur=None):
     """ Create a chem comp entry from the database."""
 
     # Rebuild the chemcomp and generate the cc_id. This way we can work
@@ -529,10 +542,11 @@ def create_chemcomp_from_db(chemcomp):
     chemcomp = "chemcomp_" + cc_id
 
     # Connect to DB
-    cur = get_postgres_connection()[1]
+    if cur is None:
+        cur = get_postgres_connection()[1]
 
     # Create entry
-    ent = bmrb.entry.fromScratch(chemcomp)
+    ent = bmrb.Entry.from_scratch(chemcomp)
     chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
                                               cc_id, "ID", cur)
     entity_frame = create_saveframe_from_db("chemcomps", "entity",
@@ -544,12 +558,18 @@ def create_chemcomp_from_db(chemcomp):
     except KeyError:
         pass
 
-    ent.addSaveframe(entity_frame)
-    ent.addSaveframe(chemcomp_frame)
+    ent.add_saveframe(entity_frame)
+    ent.add_saveframe(chemcomp_frame)
 
     return ent
 
-def get_printable_tags(category, cur):
+def get_printable_tags(category, cur=None):
+    """ Returns a list of the tags that should be printed for the given
+    category and a list of tags that are pointers."""
+
+    # A cursor should always be provided, but just in case
+    if cur is None:
+        cur = get_postgres_connection()[1]
 
     # Figure out the loop tags
     cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq,sfpointerflag
@@ -598,8 +618,10 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
         cur = get_postgres_connection()[1]
 
     # Look up information about the tags to use later
-    #cur.execute('''SELECT val_item_tbl.originaltag,val_item_tbl.internalflag,printflag,val_item_tbl.dictionaryseq,rowindexflg
-   #                FROM dict.val_item_tbl,dict.adit_item_tbl WHERE val_item_tbl.originaltag=adit_item_tbl.originaltag''')
+    #cur.execute('''SELECT val_item_tbl.originaltag,val_item_tbl.internalflag,
+    #printflag,val_item_tbl.dictionaryseq,rowindexflg FROM dict.val_item_tbl,
+    #dict.adit_item_tbl WHERE val_item_tbl.originaltag=
+    #adit_item_tbl.originaltag''')
 
     # Get the list of which tags should be used to order data
     cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
@@ -647,7 +669,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     sf_id, sf_framecode = cur.fetchone()
 
     # Create the NMR-STAR saveframe
-    built_frame = bmrb.saveframe.fromScratch(sf_framecode)
+    built_frame = bmrb.Saveframe.from_scratch(sf_framecode)
     built_frame.tag_prefix = "_" + table_name
 
     # Figure out which tags to display
@@ -662,9 +684,9 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     for pos, tag in enumerate(cur.description):
         if tag.name in tags_to_use:
             if tag.name in pointer_tags:
-                built_frame.addTag(tag.name, "$" + tag_vals[pos])
+                built_frame.add_tag(tag.name, "$" + tag_vals[pos])
             else:
-                built_frame.addTag(tag.name, tag_vals[pos])
+                built_frame.add_tag(tag.name, tag_vals[pos])
 
     # Figure out which loops we might need to insert
     cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.val_item_tbl
@@ -688,8 +710,8 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
         # If there are any tags in the loop to use
         if len(tags_to_use) > 0:
             # Create the loop
-            bmrb_loop = bmrb.loop.fromScratch(category=each_loop)
-            bmrb_loop.addColumn(tags_to_use)
+            bmrb_loop = bmrb.Loop.from_scratch(category=each_loop)
+            bmrb_loop.add_column(tags_to_use)
 
             # Get the loop data
             to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
@@ -732,10 +754,10 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                         row[pos] = "$" + row[pos]
 
                 # Add the data
-                bmrb_loop.addData(row)
+                bmrb_loop.add_data(row)
 
             if bmrb_loop.data != []:
-                built_frame.addLoop(bmrb_loop)
+                built_frame.add_loop(bmrb_loop)
 
     return built_frame
 
