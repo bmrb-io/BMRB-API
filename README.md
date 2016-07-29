@@ -27,9 +27,9 @@ rely on a given API version as we continue to improve and develop the API.
 We intend to keep each released version of the API live as long as is feasible.
 
 Releases will be named with a major and minor version and optionally a revision
-number. For example, the current development version is v0.4.3. This means that
-it is the 0th API version (0 because it is still in beta) and the fourth point
-release. Furthermore, there were two revisions since the release of v0.4.
+number. For example, the current release version is v1.0. This means that
+it is the 1st API version and the there have been no point releases or bug fix
+releases.
 
 Revision numbers incrementing means that bugs have been patched but no other
 substantial changes to the API have been made.
@@ -46,8 +46,8 @@ your application is up to date with any changes.
 ### API URLs
 
 From the root of the API server, first add the version you want to query. For
-example, [webapi.bmrb.wisc.edu/v0.4/](http://webapi.bmrb.wisc.edu/v0.4/) for the
-beta release version v0.4, or
+example, [webapi.bmrb.wisc.edu/v1/](http://webapi.bmrb.wisc.edu/v1/) for the
+release version v1, or
 [webapi.bmrb.wisc.edu/current/](http://webapi.bmrb.wisc.edu/current/)
 to ensure your query goes to the current API version, whatever that is at the
 time.
