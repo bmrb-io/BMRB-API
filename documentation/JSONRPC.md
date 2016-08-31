@@ -11,7 +11,7 @@ need to be sent as POST requests rather than GET requests or you will encounter
 an error. To find the JSON-RPC URL add jsonrpc to the versioned URL described
 [in the main documentation](../README.md#api-urls). For example, the most up to
 date version will always be located at
-[webapi.wisc.edu/current/jsonrpc](http://webapi.wisc.edu/current/jsonrpc).
+[webapi.bmrb.wisc.edu/current/jsonrpc](http://webapi.bmrb.wisc.edu/current/jsonrpc).
 
 Note that JSON-RPC allows submitting multiple queries before receiving the
 results. You should look at the JSON-RPC libraries available
@@ -53,7 +53,7 @@ The BMRB API has 4 databases. They are:
 * `macromolecules` - The standard BMRB database. Contains macromolecules.
 * `metabolomics` - The metabolomics database.
 * `chemcomps` - The chemical compounds used by the PDB in NMR-STAR format. Note
-that these entries only have no chemical shifts.
+that these entries only have chemical shifts.
 * `combined` - A meta database that searches the three databases above.
 
 Note that not all databases contain the same tables. A search in a table that
