@@ -26,7 +26,7 @@ at the end will only return the entries of that type.
 
 #### /entry/$ENTRY_ID/[$ENTRY_FORMAT]
 
-Returns the given BMRB entry in [JSON format](ENTRY.md#entry)by default. If
+Returns the given BMRB entry in [JSON format](ENTRY.md#entry) by default. If
 $ENTRY_FORMAT is specified then return in that format instead.
 
 Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
