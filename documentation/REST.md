@@ -65,7 +65,7 @@ is an example.
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
 can omit the atom type to fetch all chemical shifts and you can use `*` as a
-wildcard character. Optionally specify `macromolecule` or `metabolomics` for the
+wild card character. Optionally specify `macromolecule` or `metabolomics` for the
 database argument to search a specific database. `macromolecule` is the default.
 
 * [All chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/)
