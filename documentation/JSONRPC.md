@@ -5,7 +5,7 @@
 First, you may want to take a look at the
 [JSON-RPC specification](http://www.jsonrpc.org/specification).
 The URL to access the JSON-RPC API is similar to that used to access the REST
-API but does not change based on query type or paramaters. Instead, there is one
+API but does not change based on query type or parameters. Instead, there is one
 fixed URL and all JSON-RPC requests are sent there. Requests to the JSON-RPC API
 need to be sent as POST requests rather than GET requests or you will encounter
 an error. To find the JSON-RPC URL add jsonrpc to the versioned URL described
@@ -30,14 +30,14 @@ queries in parallel.)
 * `jsonrpc` - The version of JSON-RPC used for the query. This should always be
 set to `2.0`.
 * `params` - The parameters of your query. This will always be a dictionary of
-paramater_name -> parameter_value. Many of the query types support lists for the
+parameter_name -> parameter_value. Many of the query types support lists for the
 values of the parameters.
 
 Each JSON-RPC response will contain the following keys:
 
-* `results` - The results of the query. Will be `null` if an error occured.
+* `results` - The results of the query. Will be `null` if an error occurred.
 * `error` - A description of an error in dictionary format. Will not be present
-if no error occured.
+if no error occurred.
   * `code` - The error code. Refer to the
   [specification](http://www.jsonrpc.org/specification#error_object).
   * `message` - A string description of the error.
@@ -77,7 +77,7 @@ in each database, the number of chemical shifts in each database, and the last
 time each database was updated. The available REST and JSON-RPC methods are also
 returned, as well as the version number of the API.
 
-Paramters: None
+Parameters: None
 
 Example query:
 
@@ -157,7 +157,7 @@ database.
 Optional parameters:
 * `database` - Which database to search. See [databases](#databases).
 * `atom_type` - A string specifying which atom type to query for. `*` is
-interpreted as a wildcharacter. Specifying `HB*` would search for all `HB`
+interpreted as a wild character. Specifying `HB*` would search for all `HB`
 shifts.
 
 By default all macromolecule chemical shifts are returned.
@@ -412,12 +412,12 @@ Optional parameters:
     * `count`: Returns the count of matching results rather than the actual
     results.
   * `select`: A list of columns (tags) that you want to select from the table
-  spefified. If you want all of them you can use "*" rather than a list.
+  specified. If you want all of them you can use "*" rather than a list.
   * `where`: A dictionary of as many `key` -> `filter on key` pairs as you want.
-  If you don't have the `key` in your `from` paramter, it will automatically be
+  If you don't have the `key` in your `from` parameter, it will automatically be
   added. An example is `Type`: `SMILES` which specifies that the `Type` column
   MUST BE `SMILES` in order to print the result. You can use `%` multiple times
-  anywhere in the value as a wildcharacter.
+  anywhere in the value as a wild character.
   * `hash`: A boolean. `true` makes the results ordered such that each column is
   a key that points to a list of all of it's values. `false` results in the values
   being returned as a list of rows (as lists).
