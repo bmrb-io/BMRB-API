@@ -261,9 +261,16 @@ def get_chemical_shifts(**kwargs):
                          "Atom_ID", "Atom_type", "Val", "Val_err",
                          "Ambiguity_code", "Assigned_chem_shift_list_ID"]
 
+    # See if the result is already in Redis
+    r = get_redis_connection()
+    redis_cache_name = "cache:%s:assigned_chemical_shifts:%s" % (schema, wd['Atom_ID'])
+    if r.exists(redis_cache_name):
+        return json.loads(zlib.decompress(r.get(redis_cache_name)))
+
     # Perform the query
     query_result = select(chem_shift_fields, "Atom_chem_shift",
                           as_hash=False, where_dict=wd, schema=schema)
+    r.set(redis_cache_name, zlib.compress(json.dumps(query_result)))
 
     return query_result
 

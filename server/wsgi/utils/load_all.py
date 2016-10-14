@@ -94,6 +94,14 @@ to_process['combined'] = (to_process['chemcomps'] +
                           to_process['macromolecules'] +
                           to_process['metabolomics'])
 
+def clear_cache(r_conn, db_name):
+    """ Delete the cache for a given schema."""
+
+    for key in r_conn.scan_iter():
+        if key.startswith("cache:%s" % db_name):
+            r_conn.delete(key)
+            print("Deleting cached query: %s" % key)
+
 def one_entry(entry_name, entry_location, r_conn):
     """ Load an entry and add it to REDIS """
 
@@ -242,10 +250,13 @@ def make_entry_list(name):
 # Use a Redis list so other applications can read the list of entries
 if options.metabolomics:
     make_entry_list('metabolomics')
+    clear_cache(r, 'metabolomics')
 if options.macromolecules:
     make_entry_list('macromolecules')
+    clear_cache(r, 'metabolomics')
 if options.chemcomps:
     make_entry_list('chemcomps')
+    clear_cache(r, 'metabolomics')
 
 # Make the full list from the existing lists regardless of update type
 loaded['combined'] = (r.lrange('metabolomics:entry_list', 0, -1) +
