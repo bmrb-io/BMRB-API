@@ -70,8 +70,8 @@ def list_entries(entry_type="combined"):
     entries = querymod.list_entries(database=entry_type)
     return return_json(entries)
 
-@application.route('/debug')
-def debug(methods=('GET', 'POST')):
+@application.route('/debug', methods=('GET', 'POST'))
+def debug():
     """ This method prints some debugging information."""
     debug_str = "Secure: " + str(request.is_secure)
     debug_str += "<br>URL: " + str(request.url)
