@@ -7,7 +7,8 @@
         ],
         "db": 0,
         "master_name": "redis_sentinel_master_name",
-        "password": "redis_password"
+        "password": "redis_password",
+        "upload_timeout": 604800
     },
     "postgres": {
         "user": "postgres_user",

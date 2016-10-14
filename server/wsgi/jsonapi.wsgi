@@ -30,6 +30,9 @@ def application(request):
     dispatcher["entry"] = querymod.get_entries
     dispatcher["list_entries"] = querymod.list_entries
 
+    # Queries that modify the DB
+    dispatcher["store"] = querymod.store_uploaded_entry
+
     # Database driven queries
     dispatcher["chemical_shifts"] = querymod.get_chemical_shifts
     dispatcher["select"] = querymod.process_select

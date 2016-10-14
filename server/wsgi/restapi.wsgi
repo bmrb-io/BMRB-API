@@ -142,3 +142,10 @@ def get_tag(entry_id, tag_name):
 def get_status():
     """ Returns the server status."""
     return return_json(querymod.get_status())
+
+# Queries that modify the DB
+
+@application.route('/store/', methods=('GET', 'POST'))
+def store_entry():
+    """ Stores the uploaded entry."""
+    return return_json(querymod.store_uploaded_entry(data=request.data))
