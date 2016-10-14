@@ -337,6 +337,37 @@ def get_loops(**kwargs):
 
     return result
 
+def get_enumerations(tag, jquery=False, cur=None):
+    """ Returns a list of enumerations for a given tag from the DB. """
+
+    if cur is None:
+        cur = get_postgres_connection()[1]
+
+    # Get the list of which tags should be used to order data
+    cur.execute('''select itemenumclosedflg,enumeratedflg,dictionaryseq from dict.adit_item_tbl where originaltag=%s''', [tag])
+    query_res = cur.fetchall()
+    if len(query_res) == 0:
+        raise JSONRPCException(-32604, "Invalid tag specified.")
+
+    cur.execute('''select val from dict.enumerations where seq=%s order by val''', [query_res[0][2]])
+    values = cur.fetchall()
+
+    # Generate the result dictionary
+    result = {}
+    result['values'] = [x[0] for x in values]
+    if query_res[0][0] == "Y":
+        result['type'] = "enumerations"
+    elif query_res[0][1] == "Y":
+        result['type'] = "common"
+    else:
+        result['type'] = None
+
+    if jquery:
+        return [{"value":x, "label":x} for x in result['values']]
+
+    return result
+
+
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""
 
