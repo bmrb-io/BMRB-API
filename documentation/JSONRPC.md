@@ -198,6 +198,47 @@ Example response:
 }
 ```
 
+#### store
+
+Upload a NMR-STAR file and store it in the database. You can then perform the
+various queries below against your uploaded file based on the entry_id you will
+be provided.
+
+Mandatory parameters:
+* `data`: The NMR-STAR file as plain text.
+
+Response parameters:
+
+* `entry_id`: The unique key assigned to your submission. You can then use this
+key as the `ENTRY_ID` for the queries below.
+* `expiration`: The unix time that the entry will be removed from the database.
+This is set as a week after upload. Uploading the same exact file will reset the
+expiration to a week from the present time.
+
+Example query:
+```json
+{
+    "method": "store",
+    "jsonrpc": "2.0",
+    "params": {
+        "data": "data_test"
+    },
+    "id": 1
+}
+```
+
+Example response:
+
+```json
+{   "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+        "expiration": 1477059324.444217,
+        "key": "3dd4ba765e125d6252d565a6e83a5fb0"
+    }
+}
+```
+
 #### entry
 
 This query returns the queried BMRB entr(y|ies) in JSON format. Unlike the REST

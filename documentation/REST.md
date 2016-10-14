@@ -24,6 +24,19 @@ or
 [/chemcomps/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/chemcomps)
 at the end will only return the entries of that type.
 
+#### /store/
+
+When you access this URI you must also provide a NMR-STAR entry in text format
+as the body of the request. The entry will be parsed and stored in the database.
+You can then use all of the entry-based queries below on your saved entry. The
+response to this request will include two keys:
+
+* `entry_id`: The unique key assigned to your submission. You can then use this
+key as the `ENTRY_ID` for the queries below.
+* `expiration`: The unix time that the entry will be removed from the database.
+This is set as a week after upload. Uploading the same exact file will reset the
+expiration to a week from the present time.
+
 #### /entry/$ENTRY_ID/[$ENTRY_FORMAT]
 
 Returns the given BMRB entry in [JSON format](ENTRY.md#entry) by default. If
