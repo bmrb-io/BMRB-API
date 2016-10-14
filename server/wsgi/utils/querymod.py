@@ -337,7 +337,7 @@ def get_loops(**kwargs):
 
     return result
 
-def get_enumerations(tag, jquery=False, cur=None):
+def get_enumerations(tag, term=None, cur=None):
     """ Returns a list of enumerations for a given tag from the DB. """
 
     if cur is None:
@@ -362,8 +362,13 @@ def get_enumerations(tag, jquery=False, cur=None):
     else:
         result['type'] = None
 
-    if jquery:
-        return [{"value":x, "label":x} for x in result['values']]
+    # Be able to search through enumerations based on the term argument
+    if term != None:
+        new_result = []
+        for val in result['values']:
+            if val.startswith(term):
+                new_result.append({"value":val, "label":val})
+        return new_result
 
     return result
 

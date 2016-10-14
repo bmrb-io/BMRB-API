@@ -139,10 +139,11 @@ def get_tag(entry_id, tag_name):
     return return_json(querymod.get_tags(ids=entry_id, keys=tag_name))
 
 @application.route('/enumerations/<tag_name>')
-@application.route('/enumerations/<tag_name>/<jquery>')
-def get_enumerations(tag_name, jquery=None):
+def get_enumerations(tag_name):
     """ Returns all enumerations for a given tag."""
-    return return_json(querymod.get_enumerations(tag=tag_name, jquery=jquery))
+
+    return return_json(querymod.get_enumerations(tag=tag_name,
+                                                 term=request.args.get('term')))
 
 @application.route('/status/')
 def get_status():
