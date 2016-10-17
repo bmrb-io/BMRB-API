@@ -74,6 +74,17 @@ Returns tags of a specified type for a given entry.
 [Here](http://webapi.bmrb.wisc.edu/current/rest/tag/15000/_Entry.Title)
 is an example.
 
+### /enumerations/$TAG_NAME
+
+Returns a list of values suggested for the tag in the `values` key if there are
+saved enumerations for the tag. In the `type` key one of the following values will
+appear:
+
+* `common` - The tag values returned are common values but are not the only legal
+values for the tag.
+* `enumerations` - The tag values returned are the only legal values for the tag.
+* `null` - There are no saved enumerations for the tag.
+
 #### /chemical_shifts/[$ATOM_TYPE]/[$DATABASE]
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
