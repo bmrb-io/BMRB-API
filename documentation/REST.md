@@ -24,6 +24,19 @@ or
 [/chemcomps/](http://webapi.bmrb.wisc.edu/current/rest/list_entries/chemcomps)
 at the end will only return the entries of that type.
 
+#### /store/
+
+When you access this URI you must also provide a NMR-STAR entry in text format
+as the body of the request. The entry will be parsed and stored in the database.
+You can then use all of the entry-based queries below on your saved entry. The
+response to this request will include two keys:
+
+* `entry_id`: The unique key assigned to your submission. You can then use this
+key as the `ENTRY_ID` for the queries below.
+* `expiration`: The unix time that the entry will be removed from the database.
+This is set as a week after upload. Uploading the same exact file will reset the
+expiration to a week from the present time.
+
 #### /entry/$ENTRY_ID/[$ENTRY_FORMAT]
 
 Returns the given BMRB entry in [JSON format](ENTRY.md#entry) by default. If
@@ -61,11 +74,22 @@ Returns tags of a specified type for a given entry.
 [Here](http://webapi.bmrb.wisc.edu/current/rest/tag/15000/_Entry.Title)
 is an example.
 
+### /enumerations/$TAG_NAME
+
+Returns a list of values suggested for the tag in the `values` key if there are
+saved enumerations for the tag. In the `type` key one of the following values will
+appear:
+
+* `common` - The tag values returned are common values but are not the only legal
+values for the tag.
+* `enumerations` - The tag values returned are the only legal values for the tag.
+* `null` - There are no saved enumerations for the tag.
+
 #### /chemical_shifts/[$ATOM_TYPE]/[$DATABASE]
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
 can omit the atom type to fetch all chemical shifts and you can use `*` as a
-wildcard character. Optionally specify `macromolecule` or `metabolomics` for the
+wild card character. Optionally specify `macromolecule` or `metabolomics` for the
 database argument to search a specific database. `macromolecule` is the default.
 
 * [All chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/)

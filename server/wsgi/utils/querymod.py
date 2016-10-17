@@ -19,6 +19,8 @@ import json
 import zlib
 import logging
 import subprocess
+from hashlib import md5
+from time import time as unixtime
 
 import psycopg2
 from psycopg2.extensions import AsIs
@@ -62,6 +64,8 @@ def locate_entry(entry_id):
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):
         return "chemcomps:entry:%s" % entry_id
+    elif len(entry_id) == 32:
+        return "uploaded:entry:%s" % entry_id
     else:
         return "macromolecules:entry:%s" % entry_id
 
@@ -150,6 +154,9 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
     for request_id in [str(x) for x in search_ids]:
         if request_id in all_ids:
             valid_ids.append(request_id)
+        # See if the ID is user uploaded
+        if len(request_id) == 32 and r.exists(locate_entry(request_id)) != None:
+            valid_ids.append(request_id)
 
     # Go through the IDs
     for entry_id in valid_ids:
@@ -186,6 +193,30 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
                             else:
                                 raise JSONRPCException(-32702, "Invalid format:"
                                                                " %s." % format_)
+
+def store_uploaded_entry(**kwargs):
+    """ Store an uploaded NMR-STAR file in the database."""
+
+    uploaded_data = kwargs.get("data", None)
+
+    if not uploaded_data:
+        raise JSONRPCException(-32704, "No data uploaded. Please post the "
+                                       "NMR-STAR file as the request body.")
+
+    try:
+        parsed_star = bmrb.Entry.from_string(uploaded_data)
+    except ValueError as e:
+        raise JSONRPCException(-32703, "Invalid uploaded NMR-STAR file."
+                                       " Exception: %s" % str(e))
+
+    key = md5(uploaded_data).digest().encode("hex")
+
+    r = get_redis_connection()
+    r.setex("uploaded:entry:%s" % key, configuration['redis']['upload_timeout'],
+            zlib.compress(parsed_star.get_json()))
+
+    return {"entry_id": key,
+            "expiration": unixtime() + configuration['redis']['upload_timeout']}
 
 def get_raw_entry(entry_id):
     """ Get one serialized entry. """
@@ -230,9 +261,16 @@ def get_chemical_shifts(**kwargs):
                          "Atom_ID", "Atom_type", "Val", "Val_err",
                          "Ambiguity_code", "Assigned_chem_shift_list_ID"]
 
+    # See if the result is already in Redis
+    r = get_redis_connection()
+    redis_cache_name = "cache:%s:assigned_chemical_shifts:%s" % (schema, wd['Atom_ID'])
+    if r.exists(redis_cache_name):
+        return json.loads(zlib.decompress(r.get(redis_cache_name)))
+
     # Perform the query
     query_result = select(chem_shift_fields, "Atom_chem_shift",
                           as_hash=False, where_dict=wd, schema=schema)
+    r.set(redis_cache_name, zlib.compress(json.dumps(query_result)))
 
     return query_result
 
@@ -298,6 +336,42 @@ def get_loops(**kwargs):
             result[entry[0]][loop_category] = matching_loops
 
     return result
+
+def get_enumerations(tag, term=None, cur=None):
+    """ Returns a list of enumerations for a given tag from the DB. """
+
+    if cur is None:
+        cur = get_postgres_connection()[1]
+
+    # Get the list of which tags should be used to order data
+    cur.execute('''select itemenumclosedflg,enumeratedflg,dictionaryseq from dict.adit_item_tbl where originaltag=%s''', [tag])
+    query_res = cur.fetchall()
+    if len(query_res) == 0:
+        raise JSONRPCException(-32604, "Invalid tag specified.")
+
+    cur.execute('''select val from dict.enumerations where seq=%s order by val''', [query_res[0][2]])
+    values = cur.fetchall()
+
+    # Generate the result dictionary
+    result = {}
+    result['values'] = [x[0] for x in values]
+    if query_res[0][0] == "Y":
+        result['type'] = "enumerations"
+    elif query_res[0][1] == "Y":
+        result['type'] = "common"
+    else:
+        result['type'] = None
+
+    # Be able to search through enumerations based on the term argument
+    if term != None:
+        new_result = []
+        for val in result['values']:
+            if val.startswith(term):
+                new_result.append({"value":val, "label":val})
+        return new_result
+
+    return result
+
 
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""

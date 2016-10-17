@@ -70,8 +70,8 @@ def list_entries(entry_type="combined"):
     entries = querymod.list_entries(database=entry_type)
     return return_json(entries)
 
-@application.route('/debug')
-def debug(methods=('GET', 'POST')):
+@application.route('/debug', methods=('GET', 'POST'))
+def debug():
     """ This method prints some debugging information."""
     debug_str = "Secure: " + str(request.is_secure)
     debug_str += "<br>URL: " + str(request.url)
@@ -138,7 +138,21 @@ def get_tag(entry_id, tag_name):
     """ Returns all values for the tag for the given entry."""
     return return_json(querymod.get_tags(ids=entry_id, keys=tag_name))
 
+@application.route('/enumerations/<tag_name>')
+def get_enumerations(tag_name):
+    """ Returns all enumerations for a given tag."""
+
+    return return_json(querymod.get_enumerations(tag=tag_name,
+                                                 term=request.args.get('term')))
+
 @application.route('/status/')
 def get_status():
     """ Returns the server status."""
     return return_json(querymod.get_status())
+
+# Queries that modify the DB
+
+@application.route('/store/', methods=('GET', 'POST'))
+def store_entry():
+    """ Stores the uploaded entry."""
+    return return_json(querymod.store_uploaded_entry(data=request.data))

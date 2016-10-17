@@ -4,7 +4,7 @@
 
 The Biological Magnetic Resonance Bank is developing a hybrid REST/JSON-RPC
 API to use for querying against the substantial BMRB databases. Most data in the
-macromolecule and metabolomics databases are accessbile through the API.
+macromolecule and metabolomics databases are accessible through the API.
 
 The API is free to use and doesn't require an API key; though if you submit a
 large number of queries you may be rate limited.
