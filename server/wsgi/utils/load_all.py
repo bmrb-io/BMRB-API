@@ -253,10 +253,10 @@ if options.metabolomics:
     clear_cache(r, 'metabolomics')
 if options.macromolecules:
     make_entry_list('macromolecules')
-    clear_cache(r, 'metabolomics')
+    clear_cache(r, 'macromolecules')
 if options.chemcomps:
     make_entry_list('chemcomps')
-    clear_cache(r, 'metabolomics')
+    clear_cache(r, 'chemcomps')
 
 # Make the full list from the existing lists regardless of update type
 loaded['combined'] = (r.lrange('metabolomics:entry_list', 0, -1) +
