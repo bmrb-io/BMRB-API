@@ -81,6 +81,12 @@ class TestAPI(unittest.TestCase):
         shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
 
+    def test_enumerations(self):
+        """ Test that the enumerations is working."""
+
+        enums = requests.get(url + "/rest/enumerations/_Entry.Experimental_method").json()['values']
+        self.assertEquals(enums, ["NMR", "Theoretical"])
+
     def test_store_entry(self):
         """ See if we can store an entry in the DB and then retrieve it."""
 
@@ -96,6 +102,9 @@ class TestAPI(unittest.TestCase):
 
         # Make sure the returned entry equals the submitted entry
         self.assertEquals(response2[response['entry_id']], star_test)
+
+        # Delete the entry we uploaded
+        querymod.get_redis_connection().delete(querymod.locate_entry(response['entry_id']))
 
     def test_autoblock(self):
         """ See if we get banned for making too many queries."""
