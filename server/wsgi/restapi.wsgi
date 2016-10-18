@@ -145,14 +145,14 @@ def get_enumerations(tag_name):
     return return_json(querymod.get_enumerations(tag=tag_name,
                                                  term=request.args.get('term')))
 
-@application.route('/status/')
+@application.route('/status')
 def get_status():
     """ Returns the server status."""
     return return_json(querymod.get_status())
 
 # Queries that modify the DB
 
-@application.route('/store/', methods=('GET', 'POST'))
+@application.route('/store', methods=('GET', 'POST'))
 def store_entry():
     """ Stores the uploaded entry."""
     return return_json(querymod.store_uploaded_entry(data=request.data))

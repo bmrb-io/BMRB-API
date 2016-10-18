@@ -55,7 +55,7 @@ class TestAPI(unittest.TestCase):
     def test_redis_is_up_to_date(self):
         """ Make sure the last update has been within one week """
 
-        stats = requests.get(url + "/rest/status/").json()
+        stats = requests.get(url + "/rest/status").json()
         for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
             self.assertLess(time.time() - stats[key]['update_time'], 604800)
             self.assertLess(time.time() - stats[key]['update_time'], 604800)
