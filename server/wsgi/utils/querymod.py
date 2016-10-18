@@ -57,7 +57,7 @@ def check_local_ip(ip):
 
     return False
 
-def locate_entry(entry_id):
+def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
 
@@ -66,7 +66,15 @@ def locate_entry(entry_id):
     elif entry_id.startswith("chemcomp"):
         return "chemcomps:entry:%s" % entry_id
     elif len(entry_id) == 32:
-        return "uploaded:entry:%s" % entry_id
+        entry_loc = "uploaded:entry:%s" % entry_id
+
+        # Update the expiration time if the entry is used
+        if r_conn is None:
+            r_conn = get_redis_connection()
+        if r_conn.exists(entry_loc):
+            r_conn.expire(entry_loc, configuration['redis']['upload_timeout'])
+
+        return entry_loc
     else:
         return "macromolecules:entry:%s" % entry_id
 
@@ -156,13 +164,13 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
         if request_id in all_ids:
             valid_ids.append(request_id)
         # See if the ID is user uploaded
-        if len(request_id) == 32 and r.exists(locate_entry(request_id)) != None:
+        if len(request_id) == 32:
             valid_ids.append(request_id)
 
     # Go through the IDs
     for entry_id in valid_ids:
 
-        entry = r.get(locate_entry(entry_id))
+        entry = r.get(locate_entry(entry_id, r_conn=r))
 
         # See if it is in redis
         if entry:
