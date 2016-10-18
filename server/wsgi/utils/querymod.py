@@ -12,7 +12,8 @@ from __future__ import print_function
 __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'get_loops', 'get_saveframes', 'get_entries', 'get_raw_entry',
            'get_redis_connection', 'get_postgres_connection', 'get_status',
-           'list_entries', 'select', 'configuration']
+           'list_entries', 'select', 'configuration', 'get_enumerations',
+           'store_uploaded_entry']
 
 import os
 import json
