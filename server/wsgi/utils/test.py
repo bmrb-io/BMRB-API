@@ -93,7 +93,7 @@ class TestAPI(unittest.TestCase):
             self.assertEquals(r, 200)
 
             # DOS the server
-            for x in range(0, 75):
+            for x in range(0, 100):
                 r = s.get(url + "/rest/").status_code
 
             # Should be banned now
