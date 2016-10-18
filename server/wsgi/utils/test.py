@@ -81,6 +81,22 @@ class TestAPI(unittest.TestCase):
         shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
 
+    def test_store_entry(self):
+        """ See if we can store an entry in the DB and then retrieve it."""
+
+        star_test = str(querymod.bmrb.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
+        response = requests.post(url + "/rest/store", data=star_test).json()
+
+        # Check the response key length
+        self.assertEqual(len(response['entry_id']), 32)
+
+        # See if we can fetch the entry
+        response2 = requests.get(url + "/rest/entry/%s/nmrstar" % response['entry_id'],
+                                 data=star_test).json()
+
+        # Make sure the returned entry equals the submitted entry
+        self.assertEquals(response2[response['entry_id']], star_test)
+
     def test_autoblock(self):
         """ See if we get banned for making too many queries."""
 
