@@ -134,7 +134,7 @@ Example query (returns a list with all valid macromolecule BMRB IDs):
 {
     "method": "list_entries",
     "jsonrpc": "2.0",
-    "params": {"database": "macromolecule"},
+    "params": {"database": "macromolecules"},
     "id": 1
 }
 ```
