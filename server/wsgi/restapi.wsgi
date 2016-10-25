@@ -150,6 +150,14 @@ def get_status():
     """ Returns the server status."""
     return return_json(querymod.get_status())
 
+# Queries that run commands
+
+@application.route('/validate/<entry_id>')
+def validate_entry(entry_id):
+    """ Returns the validation report for the given entry. """
+
+    return return_json(querymod.get_chemical_shift_validation(ids=entry_id))
+
 # Queries that modify the DB
 
 @application.route('/store', methods=('GET', 'POST'))

@@ -22,6 +22,7 @@ import logging
 import subprocess
 from hashlib import md5
 from time import time as unixtime
+from tempfile import NamedTemporaryFile
 
 import psycopg2
 from psycopg2.extensions import AsIs
@@ -239,6 +240,93 @@ def get_raw_entry(entry_id):
                                     "public database." % entry_id})
     else:
         return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
+
+
+def panav_parser(panav_text):
+    """ Parses the PANAV data into something jsonify-able."""
+
+    lines = panav_text.split("\n")
+
+    # Initialize the result dictionary
+    result = {}
+    result['offsets'] = {}
+    result['deviants'] = []
+    result['suspicious'] = []
+    result['text'] = panav_text
+
+    # Variables to keep track of output line numbers
+    deviant_line = 5
+    suspicious_line = 6
+
+
+    # There is an error
+    if len(lines) < 3:
+        raise JSONRPCException(-32705, "PANAV failed to produce expected output."
+                                   " Output: %s" % panav_text)
+
+    # Check for unusual output
+    if "No reference" in lines[0]:
+        # Handle the special case when no offsets
+        result['offsets'] = {'CO': 0, 'CA': 0, 'CB': 0, 'N': 0}
+        deviant_line = 1
+        suspicious_line = 2
+    # Normal output
+    else:
+        result['offsets']['CO'] = float(lines[1].split(" ")[-1].replace("ppm",""))
+        result['offsets']['CA'] = float(lines[2].split(" ")[-1].replace("ppm",""))
+        result['offsets']['CB'] = float(lines[3].split(" ")[-1].replace("ppm",""))
+        result['offsets']['N'] = float(lines[4].split(" ")[-1].replace("ppm",""))
+
+    # Figure out how many deviant and suspicious shifts were detected
+    num_deviants = int(lines[deviant_line].rstrip().split(" ")[-1])
+    num_suspicious = int(lines[suspicious_line + num_deviants].rstrip().split(" ")[-1])
+    suspicious_line += num_deviants + 1
+    deviant_line += 1
+
+    # Get the deviants
+    for deviant in lines[deviant_line:deviant_line+num_deviants]:
+        resnum, res, atom, shift = deviant.strip().split(" ")
+        result['deviants'].append({"residue_number": resnum, "residue_name": res,
+                                   "atom": atom, "chemical_shift_value": shift})
+
+    # Get the suspicious shifts
+    for suspicious in lines[suspicious_line:suspicious_line+num_suspicious]:
+        resnum, res, atom, shift = suspicious.strip().split(" ")
+        result['suspicious'].append({"residue_number": resnum, "residue_name": res,
+                                   "atom": atom, "chemical_shift_value": shift})
+
+    # Return the result dictionary
+    return result
+
+
+def get_chemical_shift_validation(**kwargs):
+    """ Returns a validation report for the given entry. """
+
+    entries = get_valid_entries_from_redis(kwargs['ids'])
+
+    result = {}
+
+    # Panav first
+    for entry in entries:
+        # For each chemical shift loop
+        for pos, cs_loop in enumerate(entry[1].get_loops_by_category("atom_chem_shift")):
+
+            # There is at least one chem shift saveframe for this entry
+            result[entry[0]] = {}
+            # Put the chemical shift loop in a file
+            with NamedTemporaryFile() as chem_shifts:
+                chem_shifts.file.write(str(cs_loop))
+                chem_shifts.flush()
+
+                panav_location = os.path.join(os.path.dirname(__file__), "../submodules/panav/panav.jar")
+                res = subprocess.check_output(["java", "-cp", panav_location,
+                                        "CLI", "-f", "star", "-i", chem_shifts.name],
+                                        stderr=subprocess.STDOUT)
+
+                result[entry[0]][pos] = panav_parser(res)
+
+    # Return the result dictionary
+    return {"panav": result}
 
 def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
