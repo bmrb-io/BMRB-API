@@ -46,6 +46,10 @@ if os.path.isfile(config_loc):
     for config_param in config_overrides:
         configuration[config_param] = config_overrides[config_param]
 
+# Determine submodules folder
+_SUBMODULE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+                              "submodules")
+
 # Set up logging
 logging.basicConfig()
 
@@ -306,27 +310,50 @@ def get_chemical_shift_validation(**kwargs):
 
     result = {}
 
-    # Panav first
     for entry in entries:
+
+        # AVS
+        # There is at least one chem shift saveframe for this entry
+        result[entry[0]] = {}
+        result[entry[0]]["avs"] = {}
+        # Put the chemical shift loop in a file
+
+        with NamedTemporaryFile(dir="/dev/shm") as star_file:
+            star_file.file.write(str(entry[1]))
+            star_file.flush()
+
+            avs_location = os.path.join(_SUBMODULE_DIR, "avs/validate_assignments_31.pl")
+            res = subprocess.check_output([avs_location, entry[0], "-nitrogen", "-fmean",
+                                           "-aromatic", "-std", "-anomalous", "-suspicious",
+                                           "-star_output", star_file.name],
+                                           stderr=subprocess.STDOUT)
+
+            # There is a -j option that produces a somewhat usable JSON...
+            result[entry[0]]["avs"] = bmrb.Entry.from_string(res).get_json(serialize=False)
+
+        # PANAV
         # For each chemical shift loop
         for pos, cs_loop in enumerate(entry[1].get_loops_by_category("atom_chem_shift")):
 
             # There is at least one chem shift saveframe for this entry
-            result[entry[0]] = {}
+            result[entry[0]]["panav"] = {}
             # Put the chemical shift loop in a file
-            with NamedTemporaryFile() as chem_shifts:
+            with NamedTemporaryFile(dir="/dev/shm") as chem_shifts:
                 chem_shifts.file.write(str(cs_loop))
                 chem_shifts.flush()
 
-                panav_location = os.path.join(os.path.dirname(__file__), "../submodules/panav/panav.jar")
-                res = subprocess.check_output(["java", "-cp", panav_location,
-                                        "CLI", "-f", "star", "-i", chem_shifts.name],
-                                        stderr=subprocess.STDOUT)
-
-                result[entry[0]][pos] = panav_parser(res)
+                panav_location = os.path.join(_SUBMODULE_DIR, "panav/panav.jar")
+                try:
+                    res = subprocess.check_output(["java", "-cp", panav_location,
+                                                   "CLI", "-f", "star", "-i", chem_shifts.name],
+                                                   stderr=subprocess.STDOUT)
+                    # There is a -j option that produces a somewhat usable JSON...
+                    result[entry[0]]["panav"][pos] = panav_parser(res)
+                except subprocess.CalledProcessError:
+                    result[entry[0]]["panav"][pos] = {"error": "PANAV failed on this entry."}
 
     # Return the result dictionary
-    return {"panav": result}
+    return result
 
 def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
