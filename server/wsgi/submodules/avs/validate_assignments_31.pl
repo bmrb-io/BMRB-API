@@ -188,6 +188,8 @@ my $entry_line_end = "";
 my $skip_output = 0;
 # XXX_end
 
+my $entry_id = shift @ARGV;
+
 while (@ARGV && ($ARGV[0] =~ /^\-/))
   {
   my $switch = shift @ARGV;
@@ -284,14 +286,14 @@ if ($input_bmrb_filename =~ /^\s*$/)
   exit(1);
   }
 # XXX David Tolmie Addition
-else 
-  {
+#else 
+#  {
   # Strip out entry_id value from filename.
   # Filename is in bmr#####.str format.
   #$entry_id = $input_bmrb_filename;
   #$entry_id =~ s/^[^0-9]*([0-9]*).*$/\1/g;
-  $entry_id = 1;
-  }
+  #$entry_id = 1;
+  #}
 # XXX_end
 
 if (($deuteration < 0) || ($deuteration > 1))
