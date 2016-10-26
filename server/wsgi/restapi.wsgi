@@ -98,25 +98,34 @@ def chemical_shifts(atom_type=None, database=None):
     return return_json(querymod.get_chemical_shifts(atom_type=atom_type,
                                                     database=database))
 
+@application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>/')
 @application.route('/entry/<entry_id>/<format_>/')
-def get_entry(entry_id, format_="json"):
+def get_entry(entry_id=None, format_="json"):
     """ Returns an entry in the specified format."""
 
-    if format_ == "json":
-        # You could just use the portion in the "else" below, but this
-        #  is faster because the entry doesn't have to be JSON decoded and
-        #   then JSON encoded.
-        return return_json(querymod.get_raw_entry(entry_id), encode=False)
-    else:
-        # Special case to return raw nmrstar
-        if format_ == "rawnmrstar":
-            ent = querymod.get_entries(ids=entry_id, format="nmrstar")[entry_id]
-            return Response(str(ent), mimetype="text/nmrstar")
+    # If they are storing
+    if request.method == "POST":
+        return return_json(querymod.store_uploaded_entry(data=request.data))
 
-        # Return the entry in any other format
-        result = querymod.get_entries(ids=entry_id, format=format_)
-        return return_json(result)
+    # Loading
+    else:
+        if entry_id is None:
+            return return_json({"error":"Cannot access this page through GET."})
+        if format_ == "json":
+            # You could just use the portion in the "else" below, but this
+            #  is faster because the entry doesn't have to be JSON decoded and
+            #   then JSON encoded.
+            return return_json(querymod.get_raw_entry(entry_id), encode=False)
+        else:
+            # Special case to return raw nmrstar
+            if format_ == "rawnmrstar":
+                ent = querymod.get_entries(ids=entry_id, format="nmrstar")[entry_id]
+                return Response(str(ent), mimetype="text/nmrstar")
+
+            # Return the entry in any other format
+            result = querymod.get_entries(ids=entry_id, format=format_)
+            return return_json(result)
 
 @application.route('/saveframe/<entry_id>/<saveframe_category>')
 @application.route('/saveframe/<entry_id>/<saveframe_category>/<format_>/')
@@ -157,10 +166,3 @@ def validate_entry(entry_id):
     """ Returns the validation report for the given entry. """
 
     return return_json(querymod.get_chemical_shift_validation(ids=entry_id))
-
-# Queries that modify the DB
-
-@application.route('/store', methods=('GET', 'POST'))
-def store_entry():
-    """ Stores the uploaded entry."""
-    return return_json(querymod.store_uploaded_entry(data=request.data))
