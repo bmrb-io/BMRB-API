@@ -288,8 +288,9 @@ else
   {
   # Strip out entry_id value from filename.
   # Filename is in bmr#####.str format.
-  $entry_id = $input_bmrb_filename;
-  $entry_id =~ s/^[^0-9]*([0-9]*).*$/\1/g;
+  #$entry_id = $input_bmrb_filename;
+  #$entry_id =~ s/^[^0-9]*([0-9]*).*$/\1/g;
+  $entry_id = 1;
   }
 # XXX_end
 
