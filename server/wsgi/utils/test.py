@@ -91,7 +91,7 @@ class TestAPI(unittest.TestCase):
         """ See if we can store an entry in the DB and then retrieve it."""
 
         star_test = str(querymod.bmrb.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
-        response = requests.post(url + "/rest/store", data=star_test).json()
+        response = requests.post(url + "/rest/entry/", data=star_test).json()
 
         # Check the response key length
         self.assertEqual(len(response['entry_id']), 32)
