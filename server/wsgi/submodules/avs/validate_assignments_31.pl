@@ -188,6 +188,8 @@ my $entry_line_end = "";
 my $skip_output = 0;
 # XXX_end
 
+my $entry_id = shift @ARGV;
+
 while (@ARGV && ($ARGV[0] =~ /^\-/))
   {
   my $switch = shift @ARGV;
@@ -284,13 +286,14 @@ if ($input_bmrb_filename =~ /^\s*$/)
   exit(1);
   }
 # XXX David Tolmie Addition
-else 
-  {
+#else 
+#  {
   # Strip out entry_id value from filename.
   # Filename is in bmr#####.str format.
-  $entry_id = $input_bmrb_filename;
-  $entry_id =~ s/^[^0-9]*([0-9]*).*$/\1/g;
-  }
+  #$entry_id = $input_bmrb_filename;
+  #$entry_id =~ s/^[^0-9]*([0-9]*).*$/\1/g;
+  #$entry_id = 1;
+  #}
 # XXX_end
 
 if (($deuteration < 0) || ($deuteration > 1))
@@ -1132,21 +1135,21 @@ if ($star_output && ! $anno_ltr_output)
   if (@avs_star_residue_table)
     {  
     print "loop_\n";
-    print "    _AVS_analysis.Assembly_ID\n";
-    print "    _AVS_analysis.Entity_assembly_ID\n";
-    print "    _AVS_analysis.Entity_ID\n";
-    print "    _AVS_analysis.Comp_index_ID\n";
-    print "    _AVS_analysis.Comp_ID\n";
-    print "    _AVS_analysis.Comp_overall_assignment_score\n";
-    print "    _AVS_analysis.Comp_typing_score\n";
-    print "    _AVS_analysis.Comp_SRO_score\n";
-    print "    _AVS_analysis.Comp_1H_shifts_analysis_status\n";
-    print "    _AVS_analysis.Comp_13C_shifts_analysis_status\n";
-    print "    _AVS_analysis.Comp_15N_shifts_analysis_status\n";
-    print "    _AVS_analysis.SRO_rule_break\n";
-    print "    _AVS_analysis.SRO_rule_break_probability\n";
-    print "    _AVS_analysis.Entry_ID\n";
-    print "    _AVS_analysis.AVS_report_ID\n\n";
+    print "    _AVS_analysis_r.Assembly_ID\n";
+    print "    _AVS_analysis_r.Entity_assembly_ID\n";
+    print "    _AVS_analysis_r.Entity_ID\n";
+    print "    _AVS_analysis_r.Comp_index_ID\n";
+    print "    _AVS_analysis_r.Comp_ID\n";
+    print "    _AVS_analysis_r.Comp_overall_assignment_score\n";
+    print "    _AVS_analysis_r.Comp_typing_score\n";
+    print "    _AVS_analysis_r.Comp_SRO_score\n";
+    print "    _AVS_analysis_r.Comp_1H_shifts_analysis_status\n";
+    print "    _AVS_analysis_r.Comp_13C_shifts_analysis_status\n";
+    print "    _AVS_analysis_r.Comp_15N_shifts_analysis_status\n";
+    print "    _AVS_analysis_r.SRO_rule_break\n";
+    print "    _AVS_analysis_r.SRO_rule_break_probability\n";
+    print "    _AVS_analysis_r.Entry_ID\n";
+    print "    _AVS_analysis_r.AVS_report_ID\n\n";
 
     foreach my $row (@avs_star_residue_table)
       { print $row; }
@@ -1158,19 +1161,19 @@ if ($star_output && ! $anno_ltr_output)
   if (@avs_star_chem_shift_table)
     {
     print "loop_\n";
-    print "    _AVS_analysis.Assembly_ID\n";
-    print "    _AVS_analysis.Entity_assembly_ID\n";
-    print "    _AVS_analysis.Entity_ID\n";
-    print "    _AVS_analysis.Comp_index_ID\n";
-    print "    _AVS_analysis.Comp_ID\n";
-    print "    _AVS_analysis.Atom_ID\n";
-    print "    _AVS_analysis.Observed_chem_shift\n";
-    print "    _AVS_analysis.Observed_chem_shift_typing\n";
-    print "    _AVS_analysis.Stat_chem_shift_expected\n";
-    print "    _AVS_analysis.Stat_chem_shift_std\n";
-    print "    _AVS_analysis.Stat_chem_shift_chi_sqr\n";
-    print "    _AVS_analysis.Entry_ID\n";
-    print "    _AVS_analysis.AVS_report_ID\n\n";
+    print "    _AVS_analysis_s.Assembly_ID\n";
+    print "    _AVS_analysis_s.Entity_assembly_ID\n";
+    print "    _AVS_analysis_s.Entity_ID\n";
+    print "    _AVS_analysis_s.Comp_index_ID\n";
+    print "    _AVS_analysis_s.Comp_ID\n";
+    print "    _AVS_analysis_s.Atom_ID\n";
+    print "    _AVS_analysis_s.Observed_chem_shift\n";
+    print "    _AVS_analysis_s.Observed_chem_shift_typing\n";
+    print "    _AVS_analysis_s.Stat_chem_shift_expected\n";
+    print "    _AVS_analysis_s.Stat_chem_shift_std\n";
+    print "    _AVS_analysis_s.Stat_chem_shift_chi_sqr\n";
+    print "    _AVS_analysis_s.Entry_ID\n";
+    print "    _AVS_analysis_s.AVS_report_ID\n\n";
     
     foreach my $row (@avs_star_chem_shift_table)
       { print $row; }
@@ -1182,15 +1185,15 @@ if ($star_output && ! $anno_ltr_output)
   if (@avs_star_prtl_table)
     {
     print "loop_\n";
-    print "    _AVS_analysis.Assembly_ID\n";
-    print "    _AVS_analysis.Entity_assembly_ID\n";
-    print "    _AVS_analysis.Entity_ID\n";
-    print "    _AVS_analysis.Comp_index_ID\n";
-    print "    _AVS_analysis.Comp_ID\n";
-    print "    _AVS_analysis.PRTL_comp_type\n";
-    print "    _AVS_analysis.PRTL_probability_score\n";
-    print "    _AVS_analysis.Entry_ID\n";
-    print "    _AVS_analysis.AVS_report_ID\n\n";
+    print "    _AVS_analysis_p.Assembly_ID\n";
+    print "    _AVS_analysis_p.Entity_assembly_ID\n";
+    print "    _AVS_analysis_p.Entity_ID\n";
+    print "    _AVS_analysis_p.Comp_index_ID\n";
+    print "    _AVS_analysis_P.Comp_ID\n";
+    print "    _AVS_analysis_p.PRTL_comp_type\n";
+    print "    _AVS_analysis_p.PRTL_probability_score\n";
+    print "    _AVS_analysis_p.Entry_ID\n";
+    print "    _AVS_analysis_p.AVS_report_ID\n\n";
     foreach my $row (@avs_star_prtl_table)
       { print $row; }
    

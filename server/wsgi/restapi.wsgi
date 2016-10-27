@@ -161,8 +161,8 @@ def get_status():
 
 # Queries that run commands
 
-@application.route('/validate/<entry_id>')
-def validate_entry(entry_id):
-    """ Returns the validation report for the given entry. """
+#@application.route('/validate/<entry_id>')
+#def validate_entry(entry_id):
+    #""" Returns the validation report for the given entry. """
 
-    return return_json(querymod.get_chemical_shift_validation(ids=entry_id))
+    #return return_json(querymod.get_chemical_shift_validation(ids=entry_id))

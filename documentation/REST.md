@@ -35,7 +35,13 @@ response to this request will include two keys:
 key as the `ENTRY_ID` for the queries below.
 * `expiration`: The unix time that the entry will be removed from the database.
 This is set as a week after upload. Uploading the same exact file will reset the
-expiration to a week from the present time.
+expiration to a week from the present time. The expiration date will also be
+reset to a week from the present time each you make a request to the API that
+uses the provided `ENTRY_ID`. (For example, fetching the entry with `/entry/ENTRY_ID`
+will reset the expiration.)
+
+*Caution* - Data you upload to the server is publicly accessibly to anyone with
+access to the assigned `ENTRY_ID` you are provided.
 
 #### /entry/$ENTRY_ID/[$ENTRY_FORMAT] - Retrieve entry (GET)
 
