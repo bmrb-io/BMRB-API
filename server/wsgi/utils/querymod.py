@@ -328,8 +328,17 @@ def get_chemical_shift_validation(**kwargs):
                                            "-star_output", star_file.name],
                                            stderr=subprocess.STDOUT)
 
-            # There is a -j option that produces a somewhat usable JSON...
-            result[entry[0]]["avs"] = bmrb.Entry.from_string(res).get_json(serialize=False)
+            error_loop = bmrb.Entry.from_string(res).get_loops_by_category("_AVS_analysis_r")[0].filter(["Assembly_ID", "Entity_assembly_ID", "Entity_ID", "Comp_index_ID", "Comp_ID", "Comp_overall_assignment_score", "Comp_typing_score", "Comp_SRO_score", "Comp_1H_shifts_analysis_status", "Comp_13C_shifts_analysis_status", "Comp_15N_shifts_analysis_status"])
+            error_loop.category = "AVS_analysis"
+
+            # Modify the chemical shift loops with the new data
+            shift_lists = entry[1].get_loops_by_category("atom_chem_shift")
+            for loop in shift_lists:
+                loop.add_column(["AVS_analysis_status", "PANAV_analysis_status"])
+                for row in loop.data:
+                    row.extend(["Consistent", "Consistent"])
+
+            result[entry[0]]["avs"] = error_loop.get_json(serialize=False)
 
         # PANAV
         # For each chemical shift loop
