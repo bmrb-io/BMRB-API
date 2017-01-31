@@ -396,7 +396,7 @@ def get_chemical_shifts(**kwargs):
 
     # See if the result is already in Redis
     r = get_redis_connection()
-    redis_cache_name = "cache:%s:assigned_chemical_shifts:%s" % (schema, wd['Atom_ID'])
+    redis_cache_name = "cache:%s:assigned_chemical_shifts:%s" % (schema, wd.get('Atom_ID', 'all'))
     if r.exists(redis_cache_name):
         return json.loads(zlib.decompress(r.get(redis_cache_name)))
 
