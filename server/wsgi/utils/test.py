@@ -101,7 +101,7 @@ class TestAPI(unittest.TestCase):
                                  data=star_test).json()
 
         # Make sure the returned entry equals the submitted entry
-        self.assertEquals(response2[response['entry_id']], star_test)
+        self.assertEquals(querymod.bmrb.Entry.from_string(response2[response['entry_id']]), querymod.bmrb.Entry.from_string(star_test))
 
         # Delete the entry we uploaded
         querymod.get_redis_connection().delete(querymod.locate_entry(response['entry_id']))
