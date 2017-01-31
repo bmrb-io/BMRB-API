@@ -147,6 +147,31 @@ def get_tag(entry_id, tag_name):
     """ Returns all values for the tag for the given entry."""
     return return_json(querymod.get_tags(ids=entry_id, keys=tag_name))
 
+@application.route('/get_id_from_search/<tag_name>/<tag_value>')
+@application.route('/get_id_from_search/<tag_name>/<tag_value>/<schema>')
+def get_id_from_search(tag_name, tag_value, schema="macromolecules"):
+    """ Returns all BMRB IDs that were found when querying for entries
+    which contain the supplied value for the supplied tag. """
+
+    sp = tag_name.split(".")
+    if sp[0].startswith("_"):
+        sp[0] = sp[0][1:]
+    if len(sp) < 2:
+        return return_json({"error": "You must provide a full tag name with saveframe included. For example: Entry.Experimental_method_subtype"})
+
+    # We don't know if this is an "ID" or "Entry_ID" saveframe...
+    try:
+        result = querymod.select(['ID'], sp[0], where_dict={sp[1]:tag_value},
+                       modifiers=['lower'], schema=schema)
+    except JSONRPCException:
+        try:
+            result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
+                       modifiers=['lower'], schema=schema)
+        except JSONRPCException:
+            return return_json({"error": "Either the saveframe or the tag was not found: %s" % tag_name})
+
+    return return_json(result[result.keys()[0]])
+
 @application.route('/enumerations/<tag_name>')
 def get_enumerations(tag_name):
     """ Returns all enumerations for a given tag."""
