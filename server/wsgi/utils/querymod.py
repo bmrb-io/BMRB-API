@@ -505,6 +505,9 @@ def get_enumerations(tag, term=None, cur=None):
 
     return result
 
+def get_software():
+    """ Returns a list of the various software pacakges. """
+    return 1
 
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""
