@@ -161,12 +161,12 @@ def get_id_from_search(tag_name, tag_value, schema="macromolecules"):
 
     # We don't know if this is an "ID" or "Entry_ID" saveframe...
     try:
-        result = querymod.select(['ID'], sp[0], where_dict={sp[1]:tag_value},
-                       modifiers=['lower'], schema=schema)
+        result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
+                                 modifiers=['lower'], schema=schema)
     except JSONRPCException:
         try:
-            result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
-                       modifiers=['lower'], schema=schema)
+            result = querymod.select(['ID'], sp[0], where_dict={sp[1]:tag_value},
+                                     modifiers=['lower'], schema=schema)
         except JSONRPCException:
             return return_json({"error": "Either the saveframe or the tag was not found: %s" % tag_name})
 
