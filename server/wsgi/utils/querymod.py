@@ -505,9 +505,39 @@ def get_enumerations(tag, term=None, cur=None):
 
     return result
 
-def get_software():
-    """ Returns a list of the various software pacakges. """
-    return 1
+def get_entry_software(entry_id):
+    """ Returns the software used for a given entry. """
+
+    cur = get_postgres_connection()[1]
+
+    cur.execute('''
+SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+FROM macromolecules."Software"
+   LEFT JOIN macromolecules."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN macromolecules."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+WHERE "Software"."Entry_ID"='%s';''', [entry_id])
+
+
+    column_names = [desc[0] for desc in cur.description]
+    return {"columns": column_names, "values": cur.fetchall()}
+
+def get_software_entries(software_name):
+    """ Returns the entries assosciated with a given piece of software. """
+
+    cur = get_postgres_connection()[1]
+
+    # Get the list of which tags should be used to order data
+    cur.execute('''
+SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version", vendor."Name" as "Vendor Name", vendor."Electronic_address" as "e-mail", task."Task" as "Task"
+FROM macromolecules."Software"
+   LEFT JOIN macromolecules."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN macromolecules."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
+
+    column_names = [desc[0] for desc in cur.description]
+    return {"columns": column_names, "values": cur.fetchall()}
+
+
 
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""
