@@ -63,3 +63,6 @@ target/
 
 # Don't save the redis password file
 api_config.json
+
+# Don't count submodules towards the languages of this module
+server/wsgi/submodules/* linguist-vendored

@@ -172,6 +172,12 @@ def get_id_from_search(tag_name, tag_value, schema="macromolecules"):
 
     return return_json(result[result.keys()[0]])
 
+@application.route('/search/peaks/<float:shift_val>/')
+def get_1d_peak_search(shift_val):
+    """ Do a 1d peak search. """
+
+    return return_json(querymod.chemical_shift_search_1d(shift_val))
+
 @application.route('/enumerations/<tag_name>')
 def get_enumerations(tag_name):
     """ Returns all enumerations for a given tag."""

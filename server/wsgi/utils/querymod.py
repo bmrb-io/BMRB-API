@@ -505,7 +505,33 @@ def get_enumerations(tag, term=None, cur=None):
 
     return result
 
-def get_entry_software(entry_id):
+def chemical_shift_search_1d(peak, threshold=.02, atom=None, database="macromolecules"):
+    """ Searches for a given chemical shift. """
+
+    cur = get_postgres_connection()[1]
+
+    range_low = str(float(peak) - threshold)
+    range_high = str(float(peak) + threshold)
+
+    # See if a specific atom is needed
+    if atom is None:
+        cur.execute('''
+SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
+FROM macromolecules."Atom_chem_shift"
+WHERE "Atom_chem_shift"."Val" < %s AND "Atom_chem_shift"."Val" > %s''', [range_high, range_low])
+    else:
+        cur.execute('''
+SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
+FROM macromolecules."Atom_chem_shift"
+WHERE "Atom_chem_shift"."Atom_type"=%s AND "Atom_chem_shift"."Val" < %s AND "Atom_chem_shift"."Val" > %s;''', [atom, range_high, range_low])
+
+    #print(cur.query)
+
+    column_names = [desc[0] for desc in cur.description]
+    return {"columns": column_names, "values": cur.fetchall()}
+
+
+def get_entry_software(entry_id, database="macromolecules"):
     """ Returns the software used for a given entry. """
 
     cur = get_postgres_connection()[1]
