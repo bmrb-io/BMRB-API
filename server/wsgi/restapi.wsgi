@@ -185,6 +185,33 @@ def get_enumerations(tag_name):
     return return_json(querymod.get_enumerations(tag=tag_name,
                                                  term=request.args.get('term')))
 
+
+# Software queries
+@application.route('/software/entry/<entry_id>/')
+@application.route('/software/entry/<entry_id>/<database>/')
+def get_software_by_entry(entry_id, database="macromolcules"):
+    """ Returns the software used on a per-entry basis. """
+    return return_json(querymod.get_entry_software(entry_id, database=database))
+
+@application.route('/software/package/<package_name>')
+@application.route('/software/package/<package_name>/<database>/')
+def get_software_by_package(package_name, database="macromolcule"):
+    """ Returns the entries that used a particular software package. Search
+    is done case-insensitive and is an x in y search rather than x == y
+    search. """
+    return return_json(querymod.get_software_entries(package_name, database=database))
+
+@application.route('/software/')
+def get_software_summary(package_name):
+    """ Returns a summary of all software used in
+    all entries. """
+    return return_json(querymod.get_software_summary(entry_id, database=database))
+
+
+
+
+
+
 @application.route('/status')
 def get_status():
     """ Returns the server status."""

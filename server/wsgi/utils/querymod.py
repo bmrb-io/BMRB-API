@@ -541,13 +541,13 @@ SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."N
 FROM macromolecules."Software"
    LEFT JOIN macromolecules."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
    LEFT JOIN macromolecules."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE "Software"."Entry_ID"='%s';''', [entry_id])
+WHERE "Software"."Entry_ID"=%s;''', [entry_id])
 
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "values": cur.fetchall()}
 
-def get_software_entries(software_name):
+def get_software_entries(software_name, database="macromolecules"):
     """ Returns the entries assosciated with a given piece of software. """
 
     cur = get_postgres_connection()[1]
@@ -563,7 +563,46 @@ WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "values": cur.fetchall()}
 
+def get_software_summary(database="macromolecules"):
+    """ Attempts to auto-bucket the software. """
 
+    cur = get_postgres_connection()[1]
+
+#'''SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version"
+    cur.execute('''SELECT "Software"."Name"
+FROM macromolecules."Software"
+   LEFT JOIN macromolecules."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"''')
+
+    names = cur.fetchall()
+
+    # Read the mapping
+    from csv import reader as csv_reader
+    mapping_file = open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "software_name_conversion.csv"), "r")
+    software_map = {}
+    buckets = {}
+    for line in csv_reader(mapping_file):
+        software_map[line[0]] = line[1]
+        buckets[line[1]] = []
+
+    from difflib import SequenceMatcher
+
+    for item in names:
+        item = item[0]
+        best_match_percent = 0
+        best_match_list = []
+        for package in buckets:
+            try:
+                ratio = SequenceMatcher(None, item, package).ratio()
+            except TypeError:
+                continue
+
+            if ratio > best_match_percent:
+                best_match_ratio = ratio
+                best_match_list = buckets[package]
+                #print("Best match for %s set to %s with ratio %f" % (package, item, ratio))
+        buckets[package].append(item)
+
+    return buckets
 
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""
@@ -869,7 +908,7 @@ def get_printable_tags(category, cur=None):
 def create_saveframe_from_db(schema, category, entry_id, id_search_field,
                              cur=None):
     """ Builds a saveframe from the database. You specify the schema:
-    (metabolomics, macromolecule, chemcomps, combined), the category of the
+    (metabolomics, macromolecules, chemcomps, combined), the category of the
     saveframe, the identifier of the saveframe, and the name of the column that
     we should search for the identifier (within the saveframe's table).
 
