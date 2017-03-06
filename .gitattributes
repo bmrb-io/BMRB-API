@@ -1,0 +1,2 @@
+# Don't count submodules towards the languages of this module
+server/wsgi/submodules/* linguist-vendored
