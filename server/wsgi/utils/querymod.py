@@ -10,7 +10,7 @@ from __future__ import print_function
 
 # Module level defines
 __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
-           'get_loops', 'get_saveframes', 'get_entries', 'get_raw_entry',
+           'get_loops', 'get_saveframes', 'get_entries',
            'get_redis_connection', 'get_postgres_connection', 'get_status',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
@@ -134,7 +134,6 @@ def get_all_entries_from_redis(format_="object", schema="macromolecules"):
     return get_valid_entries_from_redis(all_ids, format_=format_,
                                         max_results=float("Inf"))
 
-
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
@@ -151,6 +150,9 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
     if not isinstance(search_ids, list):
         search_ids = [search_ids]
 
+    # Make sure all the entry ids are strings
+    search_ids = [str(x) for x in search_ids]
+
     # Make sure there are not too many entries
     if len(search_ids) > max_results:
         raise JSONRPCException(-32602, 'Too many IDs queried. Please query %s '
@@ -159,21 +161,9 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
 
     # Get the connection to redis
     r = get_redis_connection()
-    # Making it a set makes the lookups faster
-    all_ids = set(r.lrange("combined:entry_list", 0, -1))
-
-    valid_ids = []
-
-    # Figure out which IDs in the query exist in the database
-    for request_id in [str(x) for x in search_ids]:
-        if request_id in all_ids:
-            valid_ids.append(request_id)
-        # See if the ID is user uploaded
-        if len(request_id) == 32:
-            valid_ids.append(request_id)
 
     # Go through the IDs
-    for entry_id in valid_ids:
+    for entry_id in search_ids:
 
         entry = r.get(locate_entry(entry_id, r_conn=r))
 
@@ -200,7 +190,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
                             yield (entry_id, entry)
                         else:
                             # Return NMR-STAR
-                            if format_ == "nmrstar":
+                            if format_ == "nmrstar" or format_ == "rawnmrstar":
                                 yield (entry_id, str(entry))
 
                             # Unknown format
@@ -231,20 +221,6 @@ def store_uploaded_entry(**kwargs):
 
     return {"entry_id": key,
             "expiration": unixtime() + configuration['redis']['upload_timeout']}
-
-def get_raw_entry(entry_id):
-    """ Get one serialized entry. """
-
-    # Look for the entry in Redis
-    entry = get_redis_connection().get(locate_entry(entry_id))
-
-    # See if the entry is in the database
-    if entry is None:
-        return json.dumps({"error": "Entry '%s' does not exist in the "
-                                    "public database." % entry_id})
-    else:
-        return '{"%s": ' % entry_id + zlib.decompress(entry) + "}"
-
 
 def panav_parser(panav_text):
     """ Parses the PANAV data into something jsonify-able."""

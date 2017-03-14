@@ -118,32 +118,29 @@ def get_entry(entry_id=None, format_="json"):
             else:
                 return return_json({"error":"You must specify the entry number."})
 
+        # Get the entry
+        entry = querymod.get_entries(ids=entry_id, format=format_)
+
+        # Make sure it is a valid entry
+        if not entry_id in entry:
+            return json.dumps({"error": "Entry '%s' does not exist in the "
+                                        "public database." % entry_id})
+
+        # Bypass JSON encode/decode cycle
         if format_ == "json":
-            # You could just use the portion in the "else" below, but this
-            #  is faster because the entry doesn't have to be JSON decoded and
-            #   then JSON encoded.
-            return return_json(querymod.get_raw_entry(entry_id), encode=False)
-        else:
-            # Special case to return raw nmrstar
-            if format_ == "rawnmrstar":
-                ent = querymod.get_entries(ids=entry_id, format="nmrstar")[entry_id]
-                return Response(str(ent), mimetype="text/nmrstar")
+            return return_json("""{"%s": %s}""" % (entry_id, entry[entry_id]),
+                               encode=False)
 
-            # Get the result
-            result = querymod.get_entries(ids=entry_id, format=format_)
+        # Special case to return raw nmrstar
+        elif format_ == "rawnmrstar":
+            return Response(entry[entry_id], mimetype="text/nmrstar")
 
-            # Special case for raw zlib
-            if format_ == "zlib":
-                try:
-                    return result[entry_id]
-                except KeyError:
-                    zlc = querymod.zlib.compress
-                    jsd = querymod.json.dumps
-                    return zlc(jsd({"error":"Entry '%s' does not exist in"
-                                    " the public database." % entry_id}))
+        # Special case for raw zlib
+        elif format_ == "zlib":
+            return Response(entry[entry_id], mimetype="application/zlib")
 
-            # Return the entry in any other format
-            return return_json(result)
+        # Return the entry in any other format
+        return return_json(entry)
 
 @application.route('/saveframe/<entry_id>/<saveframe_category>')
 @application.route('/saveframe/<entry_id>/<saveframe_category>/<format_>/')
