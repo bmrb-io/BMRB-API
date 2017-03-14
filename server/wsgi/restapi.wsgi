@@ -111,7 +111,13 @@ def get_entry(entry_id=None, format_="json"):
     # Loading
     else:
         if entry_id is None:
-            return return_json({"error":"Cannot access this page through GET."})
+            # They are trying to send an entry using GET
+            if request.args.get('data', None):
+                return return_json({"error":"Cannot access this page through GET."})
+            # They didn't specify an entry ID
+            else:
+                return return_json({"error":"You must specify the entry number."})
+
         if format_ == "json":
             # You could just use the portion in the "else" below, but this
             #  is faster because the entry doesn't have to be JSON decoded and
@@ -123,8 +129,20 @@ def get_entry(entry_id=None, format_="json"):
                 ent = querymod.get_entries(ids=entry_id, format="nmrstar")[entry_id]
                 return Response(str(ent), mimetype="text/nmrstar")
 
-            # Return the entry in any other format
+            # Get the result
             result = querymod.get_entries(ids=entry_id, format=format_)
+
+            # Special case for raw zlib
+            if format_ == "zlib":
+                try:
+                    return result[entry_id]
+                except KeyError:
+                    zlc = querymod.zlib.compress
+                    jsd = querymod.json.dumps
+                    return zlc(jsd({"error":"Entry '%s' does not exist in"
+                                    " the public database." % entry_id}))
+
+            # Return the entry in any other format
             return return_json(result)
 
 @application.route('/saveframe/<entry_id>/<saveframe_category>')
@@ -206,9 +224,6 @@ def get_software_summary(package_name):
     """ Returns a summary of all software used in
     all entries. """
     return return_json(querymod.get_software_summary(entry_id, database=database))
-
-
-
 
 
 
