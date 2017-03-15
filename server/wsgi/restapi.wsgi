@@ -33,7 +33,8 @@ def handle_jsonrpc_error(error):
     """ Catches JSON-RPC exceptions (ones we raise) and formats
     them for the REST interface."""
 
-    return return_json({"error":error.error.message})
+    # Assume the client did something wrong with the 400 error
+    return return_json({"error":error.error.message}, code=400)
 
 @application.errorhandler(Exception)
 def handle_other_errors(error):
@@ -45,17 +46,29 @@ def handle_other_errors(error):
         return Response(traceback.format_exc(), mimetype="text/plain")
     else:
         msg = "Server error. Contact webmaster@bmrb.wisc.edu."
-        return return_json({"error": msg})
+        return return_json({"error": msg}, code=500)
 
-def return_json(obj, encode=True):
+def return_json(obj, encode=True, code=None):
     """ Returns a flask Response object containing the JSON-encoded version of
     the passed object. If encode is set to False than a Response with the string
     version of the object is returned."""
 
+    # JSON encode if necessary
     if encode:
-        return Response(response=json.dumps(obj), mimetype="application/json")
-    else:
-        return Response(response=obj, mimetype="application/json")
+        obj = json.dumps(obj)
+
+    response = Response(response=obj, mimetype="application/json")
+
+    # Set an error code
+    if "error" in obj:
+        # Assume the user made the mistake
+        response.status_code = 400
+
+    # If a specific error code was provided send it rather than the default
+    if code:
+        response.status_code = code
+
+    return response
 
 @application.route('/')
 def no_params():
@@ -123,8 +136,9 @@ def get_entry(entry_id=None, format_="json"):
 
         # Make sure it is a valid entry
         if not entry_id in entry:
-            return json.dumps({"error": "Entry '%s' does not exist in the "
-                                        "public database." % entry_id})
+            return return_json({"error": "Entry '%s' does not exist in the "
+                                        "public database." % entry_id},
+                               code=404)
 
         # Bypass JSON encode/decode cycle
         if format_ == "json":
