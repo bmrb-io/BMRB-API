@@ -214,6 +214,18 @@ def get_enumerations(tag_name):
     return return_json(querymod.get_enumerations(tag=tag_name,
                                                  term=request.args.get('term')))
 
+@application.route('/select', methods=('GET', 'POST'))
+@application.route('/select')
+def select():
+    """ Performs an advanced select query. """
+
+    # Check for GET request
+    if request.method == "GET":
+        return return_json({"error":"Cannot access this page through GET."})
+
+    data = json.loads(request.get_data(cache=False, as_text=True))
+
+    return return_json(querymod.process_select(**data))
 
 # Software queries
 @application.route('/software/entry/<entry_id>/')
