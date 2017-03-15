@@ -128,6 +128,17 @@ can omit the atom type to fetch all chemical shifts and you can use `*` as a
 wild card character. Optionally specify `macromolecule` or `metabolomics` for the
 database argument to search a specific database. `macromolecule` is the default.
 
+In addition, the following parameters can be provided using the
+[standard notation](https://en.wikipedia.org/wiki/Query_string#Web_forms):
+
+* `atom_id` The chemical element of the atom.
+* `comp_id` The residue as a 3 letter code.
+* `shift` A specific chemical shift to search for. Uses a default threshold of .03
+* `threshold` Only has meaning in conjunction with `shift`. Specifies the search
+threshold for a shift.
+
+Examples:
+
 * [All chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/)
 * [All CA chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/CA)
 * [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/HB*)

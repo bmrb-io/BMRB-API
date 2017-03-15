@@ -104,12 +104,21 @@ def debug():
     return debug_str
 
 @application.route('/chemical_shifts/')
-@application.route('/chemical_shifts/<atom_type>')
-@application.route('/chemical_shifts/<atom_type>/<database>')
-def chemical_shifts(atom_type=None, database=None):
-    """ Return a list of all chemical shifts for the given atom type."""
-    return return_json(querymod.get_chemical_shifts(atom_type=atom_type,
-                                                    database=database))
+@application.route('/chemical_shifts/<atom_id>')
+@application.route('/chemical_shifts/<atom_id>/<database>')
+def chemical_shifts(atom_id=None, database="macromolecules"):
+    """ Return a list of all chemical shifts that match the selectors"""
+
+    # To enable changing URL syntax in the future to remove /<atom_id>/
+    if request.args.get('atom_id', None):
+        atom_id = request.args.get('atom_id', None)
+
+    return return_json(querymod.chemical_shift_search_1d(shift_val=request.args.get('shift', None),
+                                                         threshold=request.args.get('threshold', .03),
+                                                         atom_type=request.args.get('atom_type', None),
+                                                         atom_id=atom_id,
+                                                         comp_id=request.args.get('comp_id', None),
+                                                         database=database))
 
 @application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>/')
@@ -200,12 +209,6 @@ def get_id_from_search(tag_name, tag_value, schema="macromolecules"):
             return return_json({"error": "Either the saveframe or the tag was not found: %s" % tag_name})
 
     return return_json(result[result.keys()[0]])
-
-@application.route('/search/peaks/<float:shift_val>/')
-def get_1d_peak_search(shift_val):
-    """ Do a 1d peak search. """
-
-    return return_json(querymod.chemical_shift_search_1d(shift_val))
 
 @application.route('/enumerations/<tag_name>')
 def get_enumerations(tag_name):

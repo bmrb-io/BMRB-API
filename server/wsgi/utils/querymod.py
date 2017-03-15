@@ -432,7 +432,7 @@ def get_status(**kwargs):
 
     # Add the available methods
     stats['rest_methods'] = ['list_entries', 'chemical_shifts', 'entry',
-                             'saveframe', 'loop', 'peaks', 'tag', 'status',
+                             'saveframe', 'loop', 'tag', 'status',
                              'select', 'software', 'validate', 'search']
     stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
                                 "list_entries", "chemical_shifts", "select",
@@ -499,7 +499,7 @@ def get_enumerations(tag, term=None, cur=None):
 
     return result
 
-def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom_id=None, residue=None, database="macromolecules"):
+def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom_id=None, comp_id=None, database="macromolecules"):
     """ Searches for a given chemical shift. """
 
     cur = get_postgres_connection()[1]
@@ -518,17 +518,17 @@ WHERE ''')
     # See if a specific atom type is needed
     if atom_type:
         sql += '''"Atom_chem_shift"."Atom_type"=%s AND '''
-        args.append(atom_type)
+        args.append(atom_type.replace("*", "%").upper())
 
     # See if a specific atom is needed
     if atom_id:
         sql += '''"Atom_chem_shift"."Atom_ID"=%s AND '''
-        args.append(atom_id)
+        args.append(atom_id.replace("*", "%").upper())
 
     # See if a specific residue is needed
-    if residue:
+    if comp_id:
         sql += '''"Atom_chem_shift"."Comp_ID"=%s AND '''
-        args.append(residue)
+        args.append(comp_id.replace("*", "%").upper())
 
     # See if a peak is specified
     if shift_val:
@@ -538,13 +538,14 @@ WHERE ''')
         args.append(range_high)
         args.append(range_low)
 
+    # Make sure the SQL query syntax works out
     sql += "1=1"
 
     # Do the query
     cur.execute(sql, args)
 
     column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "values": cur.fetchall()}
+    return {"columns": column_names, "data": cur.fetchall()}
 
 
 def get_entry_software(entry_id):
@@ -562,7 +563,7 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
 WHERE "Software"."Entry_ID"=%s;'''), [entry_id])
 
     column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "values": cur.fetchall()}
+    return {"columns": column_names, "data": cur.fetchall()}
 
 def get_software_entries(software_name, database="macromolecules"):
     """ Returns the entries assosciated with a given piece of software. """
@@ -578,7 +579,7 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
 WHERE lower("Software"."Name") like lower(%s);'''), ["%" + software_name + "%"])
 
     column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "values": cur.fetchall()}
+    return {"columns": column_names, "data": cur.fetchall()}
 
 def get_software_summary(database="macromolecules"):
     """ Returns all software packages from the DB. """
@@ -593,7 +594,7 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
    LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";'''))
 
     column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "values": cur.fetchall()}
+    return {"columns": column_names, "data": cur.fetchall()}
 
 def suggest_new_software_links(database="macromolecules"):
     """ Attempts to auto-bucket the software. """
