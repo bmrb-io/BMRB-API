@@ -133,3 +133,24 @@ database argument to search a specific database. `macromolecule` is the default.
 * [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/HB*)
 
 * [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/C1/metabolomics)
+
+#### /software/
+
+Returns a summary of all software packages used in BMRB entries.
+
+#### /software/entry/$ENTRY_ID
+
+Returns a list of all software packages used by a given entry. Each item in the
+list of software will be a list with the following four values in order:
+
+* `SOFTWARE_NAME`
+* `SOFTWARE_VERSION`
+* `SOFTWARE_TASK`
+* `SOFTWARE_VENDOR`
+
+#### /software/package/$SOFTWARE_PACKAGE/[$DATABASE]
+
+Returns a list of all entries used by the specified software package. The search
+is done case-insensitive and does not require perfect matches. For example,
+`SPARK` would match `SPARKY` and `NMRFAM_SPARY`.
+

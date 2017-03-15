@@ -229,26 +229,30 @@ def select():
 
 # Software queries
 @application.route('/software/entry/<entry_id>/')
-@application.route('/software/entry/<entry_id>/<database>/')
-def get_software_by_entry(entry_id, database="macromolcules"):
+def get_software_by_entry(entry_id):
     """ Returns the software used on a per-entry basis. """
-    return return_json(querymod.get_entry_software(entry_id, database=database))
+    return return_json(querymod.get_entry_software(entry_id))
 
 @application.route('/software/package/<package_name>')
-@application.route('/software/package/<package_name>/<database>/')
+@application.route('/software/package/<package_name>/<database>')
 def get_software_by_package(package_name, database="macromolcule"):
     """ Returns the entries that used a particular software package. Search
     is done case-insensitive and is an x in y search rather than x == y
     search. """
     return return_json(querymod.get_software_entries(package_name, database=database))
 
+@application.route('/software/name_suggestions')
+@application.route('/software/name_suggestions/<database>')
+def get_software_suggestions(database="macromolcule"):
+    """ Returns new software name suggestions. """
+
+    return Response(querymod.suggest_new_software_links(database=database), mimetype="text/csv")
+
 @application.route('/software/')
-def get_software_summary(package_name):
-    """ Returns a summary of all software used in
-    all entries. """
-    return return_json(querymod.get_software_summary(entry_id, database=database))
+def get_software_summary():
+    """ Returns a summary of all software used in all entries. """
 
-
+    return return_json(querymod.get_software_summary())
 
 @application.route('/status')
 def get_status():

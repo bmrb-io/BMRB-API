@@ -62,6 +62,15 @@ def check_local_ip(ip):
 
     return False
 
+def insert_db(db, query):
+    """ Make sure they specified a valid DB and then insert it into the
+    query. """
+
+    if db not in ["metabolomics", "macromolecules", "combined"]:
+        raise JSONRPCException(-32702, "Invalid database: %s." % db)
+
+    return query.replace("DB_SCHEMA_MAGIC_STRING", db)
+
 def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
@@ -82,6 +91,14 @@ def locate_entry(entry_id, r_conn=None):
         return entry_loc
     else:
         return "macromolecules:entry:%s" % entry_id
+
+def get_database_from_entry_id(entry_id):
+    """ Returns the appropriate database to inspect based on ID."""
+
+    if entry_id.startswith("bm"):
+        return "metabolomics"
+    else:
+        return "macromolecules"
 
 def get_postgres_connection(user=configuration['postgres']['user'],
                             host=configuration['postgres']['host'],
@@ -415,7 +432,8 @@ def get_status(**kwargs):
 
     # Add the available methods
     stats['rest_methods'] = ['list_entries', 'chemical_shifts', 'entry',
-                             'saveframe', 'loop', 'tag', 'status']
+                             'saveframe', 'loop', 'peaks', 'tag', 'status',
+                             'select', 'software', 'validate', 'search']
     stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
                                 "list_entries", "chemical_shifts", "select",
                                 "status"]
@@ -481,44 +499,67 @@ def get_enumerations(tag, term=None, cur=None):
 
     return result
 
-def chemical_shift_search_1d(peak, threshold=.02, atom=None, database="macromolecules"):
+def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom_id=None, residue=None, database="macromolecules"):
     """ Searches for a given chemical shift. """
 
     cur = get_postgres_connection()[1]
 
-    range_low = str(float(peak) - threshold)
-    range_high = str(float(peak) + threshold)
+    try:
+        threshold = float(threshold)
+    except ValueError:
+        JSONRPCException(-32705, "Invalid threshold.")
+
+    sql = insert_db(database, '''
+SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
+FROM DB_SCHEMA_MAGIC_STRING."Atom_chem_shift"
+WHERE ''')
+    args = []
+
+    # See if a specific atom type is needed
+    if atom_type:
+        sql += '''"Atom_chem_shift"."Atom_type"=%s AND '''
+        args.append(atom_type)
 
     # See if a specific atom is needed
-    if atom is None:
-        cur.execute('''
-SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
-FROM macromolecules."Atom_chem_shift"
-WHERE "Atom_chem_shift"."Val" < %s AND "Atom_chem_shift"."Val" > %s''', [range_high, range_low])
-    else:
-        cur.execute('''
-SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
-FROM macromolecules."Atom_chem_shift"
-WHERE "Atom_chem_shift"."Atom_type"=%s AND "Atom_chem_shift"."Val" < %s AND "Atom_chem_shift"."Val" > %s;''', [atom, range_high, range_low])
+    if atom_id:
+        sql += '''"Atom_chem_shift"."Atom_ID"=%s AND '''
+        args.append(atom_id)
 
-    #print(cur.query)
+    # See if a specific residue is needed
+    if residue:
+        sql += '''"Atom_chem_shift"."Comp_ID"=%s AND '''
+        args.append(residue)
+
+    # See if a peak is specified
+    if shift_val:
+        sql += '''"Atom_chem_shift"."Val"::float  < %s AND "Atom_chem_shift"."Val"::float  > %s AND '''
+        range_low = str(float(shift_val) - threshold)
+        range_high = str(float(shift_val) + threshold)
+        args.append(range_high)
+        args.append(range_low)
+
+    sql += "1=1"
+
+    # Do the query
+    cur.execute(sql, args)
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "values": cur.fetchall()}
 
 
-def get_entry_software(entry_id, database="macromolecules"):
+def get_entry_software(entry_id):
     """ Returns the software used for a given entry. """
+
+    database = get_database_from_entry_id(entry_id)
 
     cur = get_postgres_connection()[1]
 
-    cur.execute('''
+    cur.execute(insert_db(database, '''
 SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
-FROM macromolecules."Software"
-   LEFT JOIN macromolecules."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN macromolecules."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE "Software"."Entry_ID"=%s;''', [entry_id])
-
+FROM DB_SCHEMA_MAGIC_STRING."Software"
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+WHERE "Software"."Entry_ID"=%s;'''), [entry_id])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "values": cur.fetchall()}
@@ -529,56 +570,111 @@ def get_software_entries(software_name, database="macromolecules"):
     cur = get_postgres_connection()[1]
 
     # Get the list of which tags should be used to order data
-    cur.execute('''
+    cur.execute(insert_db(database, '''
 SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version", vendor."Name" as "Vendor Name", vendor."Electronic_address" as "e-mail", task."Task" as "Task"
-FROM macromolecules."Software"
-   LEFT JOIN macromolecules."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN macromolecules."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
+FROM DB_SCHEMA_MAGIC_STRING."Software"
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+WHERE lower("Software"."Name") like lower(%s);'''), ["%" + software_name + "%"])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "values": cur.fetchall()}
 
 def get_software_summary(database="macromolecules"):
+    """ Returns all software packages from the DB. """
+
+    cur = get_postgres_connection()[1]
+
+    # Get the list of which tags should be used to order data
+    cur.execute(insert_db(database, '''
+SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+FROM DB_SCHEMA_MAGIC_STRING."Software"
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";'''))
+
+    column_names = [desc[0] for desc in cur.description]
+    return {"columns": column_names, "values": cur.fetchall()}
+
+def suggest_new_software_links(database="macromolecules"):
     """ Attempts to auto-bucket the software. """
 
     cur = get_postgres_connection()[1]
 
-#'''SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version"
-    cur.execute('''SELECT "Software"."Name"
-FROM macromolecules."Software"
-   LEFT JOIN macromolecules."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"''')
+    #'''SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version"
+    cur.execute(insert_db(database, '''SELECT "Software"."Name","Software"."Entry_ID"
+FROM DB_SCHEMA_MAGIC_STRING."Software"
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"'''))
 
     names = cur.fetchall()
 
-    # Read the mapping
     from csv import reader as csv_reader
-    mapping_file = open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "software_name_conversion.csv"), "r")
-    software_map = {}
-    buckets = {}
-    for line in csv_reader(mapping_file):
-        software_map[line[0]] = line[1]
-        buckets[line[1]] = []
-
+    from csv import writer as csv_writer
+    from cStringIO import StringIO
     from difflib import SequenceMatcher
 
-    for item in names:
-        item = item[0]
+    # Read the mapping
+    mapping_file = open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "software_name_conversion.csv"), "r")
+
+    software_list = set()
+    unmapped = set()
+    # From bad name to good
+    software_map = {}
+    result = {}
+
+    for line in csv_reader(mapping_file):
+        # Store the correct names
+        software_list.add(line[1])
+        software_map[line[0]] = line[1]
+        result[line[1]] = set()
+
+    # Go through the provided software names
+    for pos, item in enumerate([x[0] for x in names]):
+
+        if item is None:
+            continue
+
+        item_lower = item.lower()
+
+        item_lower.replace(",","/")
+
+        # Short circuit if known package
+        if item in software_map:
+            result[software_map[item]].add(item)
+            continue
+
         best_match_percent = 0
-        best_match_list = []
-        for package in buckets:
+        best_match_package = ""
+
+        # Compare this new one to all existing software
+        for package in software_list:
+
             try:
-                ratio = SequenceMatcher(None, item, package).ratio()
-            except TypeError:
+                ratio = SequenceMatcher(None, item_lower, package.lower()).ratio()
+            except (TypeError, AttributeError):
                 continue
 
             if ratio > best_match_percent:
-                best_match_ratio = ratio
-                best_match_list = buckets[package]
-                #print("Best match for %s set to %s with ratio %f" % (package, item, ratio))
-        buckets[package].append(item)
+                best_match_percent = ratio
+                best_match_package = package
 
-    return buckets
+        # Something new!?
+        if best_match_percent < .4:
+            result[item] = set([item])
+            unmapped.add((item, best_match_package))
+
+        # Put it in the correct bucket
+        else:
+            result[best_match_package].add(item)
+            unmapped.add((item, best_match_package))
+
+    csv_string = StringIO()
+
+    cw = csv_writer(csv_string)
+    cw.writerow(["original name", "suggested name"])
+    cw.writerows(unmapped)
+    csv_string.seek(0)
+
+    return csv_string.read()
 
 def get_saveframes(**kwargs):
     """ Returns the matching saveframes."""
