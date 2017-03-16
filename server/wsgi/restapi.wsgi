@@ -246,7 +246,7 @@ def get_software_by_package(package_name, database="macromolcule"):
 
 @application.route('/software/name_suggestions')
 @application.route('/software/name_suggestions/<database>')
-def get_software_suggestions(database="macromolcule"):
+def get_software_suggestions(database="macromolcules"):
     """ Returns new software name suggestions. """
 
     return Response(querymod.suggest_new_software_links(database=database), mimetype="text/csv")
