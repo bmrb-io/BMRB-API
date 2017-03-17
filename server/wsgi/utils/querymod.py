@@ -596,6 +596,20 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
 
+def get_instant_search(term):
+    """ Does an instant search and returns results. """
+
+    cur = get_postgres_connection()[1]
+
+    cur.execute('''SELECT "Entry"."ID" AS "id", "Entry"."Title" AS "title", citation."Title" AS "citation_title"
+FROM macromolecules."Entry"
+LEFT JOIN macromolecules."Citation" AS citation ON citation."Entry_ID"="Entry"."ID"
+WHERE lower("Entry"."Title") LIKE LOWER(%s) OR LOWER(citation."Title") LIKE LOWER(%s)
+ORDER BY "id" DESC;;''', ["%" + term + "%", "%" + term + "%"])
+    entry_titles = cur.fetchall()
+
+    return entry_titles
+
 def suggest_new_software_links(database="macromolecules"):
     """ Attempts to auto-bucket the software. """
 
