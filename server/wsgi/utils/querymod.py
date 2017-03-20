@@ -26,6 +26,7 @@ from tempfile import NamedTemporaryFile
 
 import psycopg2
 from psycopg2.extensions import AsIs
+from psycopg2 import ProgrammingError
 import redis
 from redis.sentinel import Sentinel
 
@@ -601,14 +602,50 @@ def get_instant_search(term):
 
     cur = get_postgres_connection()[1]
 
-    cur.execute('''SELECT "Entry"."ID" AS "id", "Entry"."Title" AS "title", citation."Title" AS "citation_title"
-FROM macromolecules."Entry"
-LEFT JOIN macromolecules."Citation" AS citation ON citation."Entry_ID"="Entry"."ID"
-WHERE lower("Entry"."Title") LIKE LOWER(%s) OR LOWER(citation."Title") LIKE LOWER(%s)
-ORDER BY "id" DESC;;''', ["%" + term + "%", "%" + term + "%"])
+    # Get the titles
+    try:
+        cur.execute('''SELECT "Entry"."ID","Entry"."Title" FROM macromolecules."Entry"
+WHERE lower("Entry"."Title") like lower(%s) ORDER BY INSTR("Entry"."Title", %s), "Entry"."ID" DESC LIMIT 10;''', ["%" + term + "%", term])
+    except ProgrammingError:
+        # New connection
+        cur = get_postgres_connection()[1]
+        # Make the functions we need
+        instr_sql_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "instr.sql")
+        cur.execute(open(instr_sql_loc, "r").read())
+        # Re-do the query
+        cur.execute('''SELECT "Entry"."ID","Entry"."Title" FROM macromolecules."Entry"
+WHERE lower("Entry"."Title") like lower(%s) ORDER BY INSTR("Entry"."Title", %s), "Entry"."ID" DESC LIMIT 10;''', ["%" + term + "%", term])
+
+    # Get the entry titles
     entry_titles = cur.fetchall()
 
-    return entry_titles
+    # Get the citations
+    cur.execute('''SELECT "Citation"."Entry_ID","Citation"."Title" FROM macromolecules."Citation"
+WHERE lower("Citation"."Title") like lower(%s) ORDER BY INSTR("Citation"."Title", %s), "Citation"."Entry_ID" DESC LIMIT 10;''', ["%" + term + "%", term])
+    entry_citations = cur.fetchall()
+
+    # Get the authors
+    at = term.replace(",", " ").replace("  ", " ")
+    # This query is complicated in attempts to prioritize the authors they are actually searching for...
+    cur.execute('''SELECT "Citation_author"."Entry_ID",REPLACE("Citation_author"."Given_name"::text || ' ' || COALESCE(Replace("Citation_author"."Middle_initials", '.', ''),'') || ' ' || "Citation_author"."Family_name"::text, '  ', ' '), entry."Title" FROM macromolecules."Citation_author"
+LEFT JOIN macromolecules."Entry" AS entry ON entry."ID"="Citation_author"."Entry_ID"
+WHERE lower("Citation_author"."Given_name"::text || ' ' || "Citation_author"."Family_name"::text) like lower(%s)
+OR lower("Citation_author"."Given_name"::text || ' ' || Replace("Citation_author"."Middle_initials", '.', '') || ' ' || "Citation_author"."Family_name"::text) like lower(%s)
+OR lower("Citation_author"."Family_name"::text || ' ' || "Citation_author"."Given_name"::text) like lower(%s)
+ORDER BY INSTR("Citation_author"."Family_name", %s) DESC, INSTR("Citation_author"."Given_name", %s) DESC, "Citation_author"."Entry_ID" DESC LIMIT 10;''', [at + "%", "%" + at + "%", at + "%", at, at])
+    entry_authors = cur.fetchall()
+
+    result = []
+    # Let the JavaScript know what type of results these are
+    for title in entry_authors:
+        result.append({"value": title[0], "label": "Author: " + title[1] + " Title: " + title[2], "type": "entry_author"})
+    for title in entry_titles:
+        result.append({"value": title[0], "label": title[1], "type": "entry_title"})
+    for title in entry_citations:
+        result.append({"value": title[0], "label": title[1], "type": "entry_citation"})
+
+    return result
+
 
 def suggest_new_software_links(database="macromolecules"):
     """ Attempts to auto-bucket the software. """
