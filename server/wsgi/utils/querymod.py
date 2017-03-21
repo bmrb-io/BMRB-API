@@ -597,10 +597,13 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
 
-def do_sql_mods():
+def do_sql_mods(conn=None, cur=None):
     """ Make sure functions we need are saved in the DB. """
 
-    conn, cur = get_postgres_connection()
+    # Re-use existing connection
+    if not (conn and cur):
+        conn, cur = get_postgres_connection()
+
     instr_sql_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
     cur.execute(open(instr_sql_loc, "r").read())
     conn.commit()
@@ -609,10 +612,20 @@ def get_instant_search(term):
     """ Does an instant search and returns results. """
 
     cur = get_postgres_connection()[1]
-    cur.execute('''
+
+    instant_query = '''
 SELECT id,title,citations,authors,link FROM instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;''', [term, term])
+ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+
+    try:
+        cur.execute(instant_query, [term, term])
+    except ProgrammingError:
+        # Make sure our index exists
+        conn, cur = get_postgres_connection()
+        do_sql_mods(conn, cur)
+        # Re-do the query
+        cur.execute(instant_query, [term, term])
 
     result = []
     for item in cur.fetchall():
