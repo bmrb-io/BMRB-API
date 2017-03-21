@@ -597,21 +597,46 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
 
+def do_sql_mods():
+    """ Make sure functions we need are saved in the DB. """
+    conn, cur = get_postgres_connection()
+    instr_sql_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "instr.sql")
+    cur.execute(open(instr_sql_loc, "r").read())
+    conn.commit()
+
 def get_instant_search(term):
     """ Does an instant search and returns results. """
 
     cur = get_postgres_connection()[1]
+
+    cur.execute('''
+SELECT id,title,citations,authors FROM "instant"
+WHERE tsv @@ plainto_tsquery(%s)
+ORDER BY ts_rank_cd(tsv, plainto_tsquery(%s))
+DESC LIMIT 25;''', [term, term])
+
+    return cur.fetchall()
+
+    term = term.lower()
+
+    instant_sql = os.path.join(os.path.dirname(os.path.realpath(__file__)), "instant_query.sql")
+    cur.execute(open(instant_sql, "r").read(),
+                ["%" + term + "%",
+                 "%" + term + "%",
+"%" + term + "%",
+                  term])
+
+    return cur.fetchall()
 
     # Get the titles
     try:
         cur.execute('''SELECT "Entry"."ID","Entry"."Title" FROM macromolecules."Entry"
 WHERE lower("Entry"."Title") like lower(%s) ORDER BY INSTR("Entry"."Title", %s), "Entry"."ID" DESC LIMIT 10;''', ["%" + term + "%", term])
     except ProgrammingError:
+        # Make sure the functions are there
+        do_sql_mods()
         # New connection
         cur = get_postgres_connection()[1]
-        # Make the functions we need
-        instr_sql_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "instr.sql")
-        cur.execute(open(instr_sql_loc, "r").read())
         # Re-do the query
         cur.execute('''SELECT "Entry"."ID","Entry"."Title" FROM macromolecules."Entry"
 WHERE lower("Entry"."Title") like lower(%s) ORDER BY INSTR("Entry"."Title", %s), "Entry"."ID" DESC LIMIT 10;''', ["%" + term + "%", term])
