@@ -3,14 +3,15 @@
 --   CREATE EXTENSION pg_trgm;
 
 DROP TABLE "instant";
-CREATE TABLE "instant" (id varchar(12), title text, citations text[], authors text[], tsv tsvector);
+CREATE TABLE "instant" (id varchar(12), title text, citations text[], authors text[], link text, tsv tsvector);
 
 INSERT INTO "instant"
 SELECT
  entry."ID",
  clean_title(entry."Title"),
  array_agg(DISTINCT clean_title(citation."Title")),
- array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.', '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.', ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ', ' '))
+ array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.', '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.', ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ', ' ')),
+ '/data_library/summary/index.php?bmrbId=' || entry."ID"
 FROM macromolecules."Entry" as entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
@@ -23,7 +24,8 @@ SELECT
  entry."ID",
  clean_title(entry."Title"),
  array_agg(DISTINCT clean_title(citation."Title")),
- array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.', '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.', ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ', ' '))
+ array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.', '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.', ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ', ' ')),
+ '/metabolomics/mol_summary/index.php?whichTab=0&molName=' || entry."Title" || '&id=' || entry."ID"
 FROM metabolomics."Entry" as entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
