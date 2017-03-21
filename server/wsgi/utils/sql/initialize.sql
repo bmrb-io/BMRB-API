@@ -3,7 +3,7 @@
 --   CREATE EXTENSION pg_trgm;
 
 DROP TABLE "instant";
-CREATE TABLE "instant" (id varchar(12), title text, citations text[], authors text[], link text, sub_date date, tsv tsvector);
+CREATE TABLE "instant" (id varchar(12), title text, citations text[], authors text[], link text, sub_date date, is_metab boolean, tsv tsvector);
 
 INSERT INTO "instant"
 SELECT
@@ -12,7 +12,8 @@ SELECT
  array_agg(DISTINCT clean_title(citation."Title")),
  array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.', '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.', ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ', ' ')),
  '/data_library/summary/index.php?bmrbId=' || entry."ID",
- to_date(entry."Submission_date", 'YYYY-MM-DD')
+ to_date(entry."Submission_date", 'YYYY-MM-DD'),
+ False
 FROM macromolecules."Entry" as entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
@@ -27,7 +28,8 @@ SELECT
  array_agg(DISTINCT clean_title(citation."Title")),
  array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.', '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.', ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ', ' ')),
  '/metabolomics/mol_summary/index.php?whichTab=0&molName=' || entry."Title" || '&id=' || entry."ID",
- to_date(entry."Submission_date"::text, 'YYYY-MM-DD')
+ entry."Submission_date",
+ True
 FROM metabolomics."Entry" as entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
