@@ -610,9 +610,9 @@ def get_instant_search(term):
 
     cur = get_postgres_connection()[1]
     cur.execute('''
-SELECT id,title,citations,authors,link FROM "instant"
+SELECT id,title,citations,authors,link,sub_date FROM "instant"
 WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY id DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;''', [term, term])
+ORDER BY sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;''', [term, term])
 
     result = []
     for item in cur.fetchall():
