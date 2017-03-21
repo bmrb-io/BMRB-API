@@ -599,8 +599,9 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
 
 def do_sql_mods():
     """ Make sure functions we need are saved in the DB. """
+
     conn, cur = get_postgres_connection()
-    instr_sql_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "instr.sql")
+    instr_sql_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
     cur.execute(open(instr_sql_loc, "r").read())
     conn.commit()
 
@@ -608,69 +609,17 @@ def get_instant_search(term):
     """ Does an instant search and returns results. """
 
     cur = get_postgres_connection()[1]
-
     cur.execute('''
 SELECT id,title,citations,authors FROM "instant"
 WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY ts_rank_cd(tsv, plainto_tsquery(%s))
 DESC LIMIT 25;''', [term, term])
 
-    return cur.fetchall()
-
-    term = term.lower()
-
-    instant_sql = os.path.join(os.path.dirname(os.path.realpath(__file__)), "instant_query.sql")
-    cur.execute(open(instant_sql, "r").read(),
-                ["%" + term + "%",
-                 "%" + term + "%",
-"%" + term + "%",
-                  term])
-
-    return cur.fetchall()
-
-    # Get the titles
-    try:
-        cur.execute('''SELECT "Entry"."ID","Entry"."Title" FROM macromolecules."Entry"
-WHERE lower("Entry"."Title") like lower(%s) ORDER BY INSTR("Entry"."Title", %s), "Entry"."ID" DESC LIMIT 10;''', ["%" + term + "%", term])
-    except ProgrammingError:
-        # Make sure the functions are there
-        do_sql_mods()
-        # New connection
-        cur = get_postgres_connection()[1]
-        # Re-do the query
-        cur.execute('''SELECT "Entry"."ID","Entry"."Title" FROM macromolecules."Entry"
-WHERE lower("Entry"."Title") like lower(%s) ORDER BY INSTR("Entry"."Title", %s), "Entry"."ID" DESC LIMIT 10;''', ["%" + term + "%", term])
-
-    # Get the entry titles
-    entry_titles = cur.fetchall()
-
-    # Get the citations
-    cur.execute('''SELECT "Citation"."Entry_ID","Citation"."Title" FROM macromolecules."Citation"
-WHERE lower("Citation"."Title") like lower(%s) ORDER BY INSTR("Citation"."Title", %s), "Citation"."Entry_ID" DESC LIMIT 10;''', ["%" + term + "%", term])
-    entry_citations = cur.fetchall()
-
-    # Get the authors
-    at = term.replace(",", " ").replace("  ", " ")
-    # This query is complicated in attempts to prioritize the authors they are actually searching for...
-    cur.execute('''SELECT "Citation_author"."Entry_ID",REPLACE("Citation_author"."Given_name"::text || ' ' || COALESCE(Replace("Citation_author"."Middle_initials", '.', ''),'') || ' ' || "Citation_author"."Family_name"::text, '  ', ' '), entry."Title" FROM macromolecules."Citation_author"
-LEFT JOIN macromolecules."Entry" AS entry ON entry."ID"="Citation_author"."Entry_ID"
-WHERE lower("Citation_author"."Given_name"::text || ' ' || "Citation_author"."Family_name"::text) like lower(%s)
-OR lower("Citation_author"."Given_name"::text || ' ' || Replace("Citation_author"."Middle_initials", '.', '') || ' ' || "Citation_author"."Family_name"::text) like lower(%s)
-OR lower("Citation_author"."Family_name"::text || ' ' || "Citation_author"."Given_name"::text) like lower(%s)
-ORDER BY INSTR("Citation_author"."Family_name", %s) DESC, INSTR("Citation_author"."Given_name", %s) DESC, "Citation_author"."Entry_ID" DESC LIMIT 10;''', [at + "%", "%" + at + "%", at + "%", at, at])
-    entry_authors = cur.fetchall()
-
     result = []
-    # Let the JavaScript know what type of results these are
-    for title in entry_authors:
-        result.append({"value": title[0], "label": "Author: " + title[1] + " Title: " + title[2], "type": "entry_author"})
-    for title in entry_titles:
-        result.append({"value": title[0], "label": title[1], "type": "entry_title"})
-    for title in entry_citations:
-        result.append({"value": title[0], "label": title[1], "type": "entry_citation"})
-
+    for item in cur.fetchall():
+        result.append({"title":item[1], "citations": item[2], "authors": item[3],
+                        "value": item[0], "label": "%s: %s" % (item[0], item[1])})
     return result
-
 
 def suggest_new_software_links(database="macromolecules"):
     """ Attempts to auto-bucket the software. """
