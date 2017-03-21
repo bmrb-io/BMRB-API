@@ -546,7 +546,7 @@ WHERE ''')
     cur.execute(sql, args)
 
     column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "data": cur.fetchall()}
+    return {"columns": ["Atom_chem_shift." + x for x in column_names], "data": cur.fetchall()}
 
 
 def get_entry_software(entry_id):
