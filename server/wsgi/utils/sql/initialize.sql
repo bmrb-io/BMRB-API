@@ -3,7 +3,7 @@
 --   CREATE EXTENSION pg_trgm;
 
 DROP TABLE IF EXISTS instant_cache;
-CREATE TABLE instant_cache (id varchar(12), title text, citations text[], authors text[], link text, sub_date date, is_metab boolean, tsv tsvector);
+CREATE TABLE instant_cache (id varchar(12) PRIMARY KEY, title text, citations text[], authors text[], link text, sub_date date, is_metab boolean, tsv tsvector);
 
 INSERT INTO instant_cache
 SELECT
@@ -37,7 +37,7 @@ LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
-CREATE INDEX tsv_idx ON instant_cache USING gin(tsv);
+CREATE INDEX ON instant_cache USING gin(tsv);
 UPDATE instant_cache SET tsv =
     setweight(to_tsvector(instant_cache.id), 'A') ||
     setweight(to_tsvector(array_to_string(instant_cache.authors, ' ')), 'B') ||
