@@ -610,7 +610,7 @@ def get_instant_search(term):
 
     cur = get_postgres_connection()[1]
     cur.execute('''
-SELECT id,title,citations,authors,link FROM "instant"
+SELECT id,title,citations,authors,link FROM instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;''', [term, term])
 
