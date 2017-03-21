@@ -612,14 +612,13 @@ def get_instant_search(term):
     cur.execute('''
 SELECT id,title,citations,authors,link FROM "instant"
 WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY ts_rank_cd(tsv, plainto_tsquery(%s))
-DESC, id DESC LIMIT 25;''', [term, term])
+ORDER BY id DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;''', [term, term])
 
     result = []
     for item in cur.fetchall():
         result.append({"title":item[1], "citations": item[2], "authors": item[3],
                        "link": item[4],
-                        "value": item[0], "label": "%s: %s" % (item[0], item[1])})
+                       "value": item[0], "label": "%s: %s" % (item[0], item[1])})
     return result
 
 def suggest_new_software_links(database="macromolecules"):
