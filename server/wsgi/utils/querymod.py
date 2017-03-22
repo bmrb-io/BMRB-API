@@ -597,15 +597,21 @@ FROM DB_SCHEMA_MAGIC_STRING."Software"
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
 
-def do_sql_mods(conn=None, cur=None):
+def do_sql_mods(conn=None, cur=None, sql_file=None):
     """ Make sure functions we need are saved in the DB. """
 
     # Re-use existing connection
     if not (conn and cur):
         conn, cur = get_postgres_connection()
 
-    instr_sql_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
-    cur.execute(open(instr_sql_loc, "r").read())
+    if sql_file is None:
+        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
+    else:
+        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", sql_file)
+
+    cur.execute(open(sql_file, "r").read())
+    conn.commit()
+
     conn.commit()
 
 def get_instant_search(term):
