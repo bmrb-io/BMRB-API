@@ -612,7 +612,47 @@ def do_sql_mods(conn=None, cur=None, sql_file=None):
     cur.execute(open(sql_file, "r").read())
     conn.commit()
 
+def build_fulltext_search():
+    """ Allows querying the full text of an entry. """
+
+    conn, cur = get_postgres_connection()
+    cur.execute('''
+DROP TABLE IF EXISTS instant_text_cache_tmp;
+CREATE TABLE instant_text_cache_tmp (id varchar(12) PRIMARY KEY, tsv tsvector);
+CREATE INDEX ON instant_text_cache_tmp USING gin(tsv);''')
+
+    # Metabolomics
+    for entry in get_all_entries_from_redis(schema="metabolomics"):
+        print("Inserting %s" % entry[0]);
+        cur.execute('''INSERT INTO instant_text_cache_tmp (id, tsv) VALUES (%s, to_tsvector(%s));''',
+                    [entry[0], get_bmrb_as_text(entry[1])])
     conn.commit()
+
+    # Macromolecules
+    for entry in get_all_entries_from_redis(schema="macromolecules"):
+        print("Inserting %s" % entry[0]);
+        cur.execute('''INSERT INTO instant_text_cache_tmp (id, tsv) VALUES (%s, to_tsvector(%s));''',
+                    [entry[0], get_bmrb_as_text(entry[1])])
+
+    cur.execute('''
+ALTER TABLE IF EXISTS instant_text_cache RENAME TO instant_text_cache_old;
+ALTER TABLE IF EXISTS instant_text_cache_tmp RENAME TO instant_text_cache;
+DROP TABLE IF EXISTS instant_text_cache_old;
+''')
+    conn.commit()
+
+def get_bmrb_as_text(entry):
+    """ Prints the unique set of data in a BMRB entry. """
+
+    res_strings = set()
+
+    for saveframe in entry:
+        res_strings.update([x[1].replace("\n", " ") for x in saveframe.tags])
+        for loop in saveframe:
+            for row in loop:
+                res_strings.update(row)
+
+    return " ".join(res_strings)
 
 def get_instant_search(term):
     """ Does an instant search and returns results. """
