@@ -2,6 +2,13 @@
 -- psql -d bmrbeverything -U postgres
 --   CREATE EXTENSION pg_trgm;
 
+CREATE OR REPLACE FUNCTION clean_title(varchar) RETURNS varchar AS
+$body$
+BEGIN
+    RETURN replace(regexp_replace($1, E'[\\n\\r]+', ' ', 'g' ), '  ', ' ');
+END;
+$body$                                                                                                                IMMUTABLE LANGUAGE plpgsql;
+
 DROP TABLE IF EXISTS instant_cache;
 CREATE TABLE instant_cache (id varchar(12) PRIMARY KEY, title text, citations text[], authors text[], link text, sub_date date, is_metab boolean, tsv tsvector);
 
