@@ -545,9 +545,15 @@ WHERE ''')
     # Do the query
     cur.execute(sql, args)
 
-    column_names = [desc[0] for desc in cur.description]
-    return {"columns": ["Atom_chem_shift." + x for x in column_names], "data": cur.fetchall()}
+    result = {}
 
+    # Send query string if in debug mode
+    if configuration['debug']:
+        result['debug'] = cur.query
+
+    result['columns'] = ["Atom_chem_shift." + desc[0] for desc in cur.description]
+    result['data'] = cur.fetchall()
+    return result
 
 def get_entry_software(entry_id):
     """ Returns the software used for a given entry. """
