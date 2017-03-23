@@ -666,7 +666,7 @@ def get_instant_search(term):
     cur = get_postgres_connection()[1]
 
     instant_query = '''
-SELECT id,title,citations,authors,link FROM instant_cache
+SELECT id,title,citations,authors,link,sub_date FROM instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
@@ -682,7 +682,7 @@ ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;
     result = []
     for item in cur.fetchall():
         result.append({"citations": item[2], "authors": item[3], "link": item[4],
-                       "value": item[0], "label": "%s" % (item[1])})
+                       "value": item[0], "sub_date": str(item[5]), "label": "%s" % (item[1])})
     return result
 
 def suggest_new_software_links(database="macromolecules"):
