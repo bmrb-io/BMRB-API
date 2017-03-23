@@ -682,7 +682,7 @@ ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;
     result = []
     for item in cur.fetchall():
         result.append({"citations": item[2], "authors": item[3], "link": item[4],
-                       "value": item[0], "label": "%s: %s" % (item[0], item[1])})
+                       "value": item[0], "label": "%s" % (item[1])})
     return result
 
 def suggest_new_software_links(database="macromolecules"):
