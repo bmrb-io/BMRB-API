@@ -5,7 +5,7 @@
 CREATE OR REPLACE FUNCTION web.clean_title(varchar) RETURNS varchar AS
 $body$
 BEGIN
-    RETURN replace(regexp_replace($1, E'[\\n\\r]+', ' ', 'g' ), '  ', ' ');
+    RETURN regexp_replace( regexp_replace( "Citation"."Title", E'\\s+', ' ', 'g' ), E'\\s+', ' ', 'g' )
 END;
 $body$
 IMMUTABLE LANGUAGE plpgsql;
@@ -43,8 +43,7 @@ SELECT
 '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.',
 ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ',
 ' ')),
- '/metabolomics/mol_summary/index.php?whichTab=0&molName=' ||
-entry."Title" || '&id=' || entry."ID",
+ '/metabolomics/mol_summary/index.php?whichTab=0&id=' || entry."ID",
  entry."Submission_date",
  True
 FROM metabolomics."Entry" as entry
@@ -63,3 +62,5 @@ UPDATE web.instant_cache SET tsv =
     setweight(to_tsvector(array_to_string(instant_cache.citations, '
 ')), 'D')
 ;
+
+DROP FUNCTION web.clean_title;
