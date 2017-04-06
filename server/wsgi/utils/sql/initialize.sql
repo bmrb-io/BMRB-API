@@ -60,7 +60,6 @@ UPDATE web.instant_cache SET tsv =
 'B') ||
     setweight(to_tsvector(instant_cache.title), 'C') ||
     setweight(to_tsvector(array_to_string(instant_cache.citations, '
-')), 'D')
-;
+')), 'D');
 
-DROP FUNCTION web.clean_title;
+DROP FUNCTION web.clean_title(varchar);
