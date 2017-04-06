@@ -5,8 +5,8 @@
 CREATE OR REPLACE FUNCTION web.clean_title(varchar) RETURNS varchar AS
 $body$
 BEGIN
-    RETURN regexp_replace( regexp_replace( "Citation"."Title", E'\\s+', ' ', 'g' ), E'\\s+', ' ', 'g' )
-END;
+    RETURN regexp_replace( regexp_replace( "Citation"."Title", E'\\s+', ' ', 'g' ), E'\\s+', ' ', 'g' );
+END
 $body$
 IMMUTABLE LANGUAGE plpgsql;
 
