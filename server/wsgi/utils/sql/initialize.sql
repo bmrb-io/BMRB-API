@@ -43,7 +43,7 @@ SELECT
 '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.',
 ''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ',
 ' ')),
- '/metabolomics/mol_summary/index.php?whichTab=0&id=' || entry."ID",
+ '/metabolomics/mol_summary/show_data.php?id=' || entry."ID",
  entry."Submission_date",
  True
 FROM metabolomics."Entry" as entry
@@ -53,6 +53,31 @@ LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
+-- Processing
+INSERT INTO web.instant_cache
+SELECT
+ accno,
+ 'Entry is being processed',
+ array[]::text[],
+ array[]::text[],
+ '/data_library/received.shtml',
+ received,
+ False
+FROM web.procque WHERE onhold='N';
+
+-- On hold
+INSERT INTO web.instant_cache
+SELECT
+ accno,
+ 'Entry is being processed. Release: ' || status,
+ array[]::text[],
+ array[]::text[],
+ '/data_library/held.shtml',
+ received,
+ False
+FROM web.procque WHERE onhold='Y';
+
+-- Create the index on the TSV
 CREATE INDEX ON web.instant_cache USING gin(tsv);
 UPDATE web.instant_cache SET tsv =
     setweight(to_tsvector(instant_cache.id), 'A') ||
@@ -63,3 +88,5 @@ UPDATE web.instant_cache SET tsv =
 ')), 'D');
 
 DROP FUNCTION web.clean_title(varchar);
+
+GRANT ALL PRIVILEGES ON TABLE web.instant_cache to web;
