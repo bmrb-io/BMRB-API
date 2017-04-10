@@ -23,7 +23,8 @@ CREATE TABLE web.instant_cache (
  sub_date date,
  is_metab boolean,
  tsv tsvector,
- full_text tsvector);
+ full_tsv tsvector,
+ full_text text);
 
 -- Macromolecules
 INSERT INTO web.instant_cache
@@ -89,7 +90,7 @@ SELECT
  False
 FROM web.procque WHERE onhold='Y';
 
--- Create the index on the TSV
+-- Create the index on the tsvector
 CREATE INDEX ON web.instant_cache USING gin(tsv);
 UPDATE web.instant_cache SET tsv =
     setweight(to_tsvector(instant_cache.id), 'A') ||
@@ -99,8 +100,10 @@ UPDATE web.instant_cache SET tsv =
     setweight(to_tsvector(array_to_string(instant_cache.citations, '
 ')), 'D');
 
--- Create the index for the text search
-CREATE INDEX ON web.instant_cache USING gin(full_text);
+-- Create the index for the text search using tsvector
+CREATE INDEX ON web.instant_cache USING gin(full_tsv);
+-- Create a trigram index on the full text
+CREATE INDEX ON web.instant_cache USING gin(full_text gin_trgm_ops);
 
 DROP FUNCTION web.clean_title(varchar);
 

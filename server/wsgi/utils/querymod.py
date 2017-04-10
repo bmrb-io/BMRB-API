@@ -652,23 +652,27 @@ def build_fulltext_search():
     # Metabolomics
     for entry in get_all_entries_from_redis(schema="metabolomics"):
         print("Inserting %s" % entry[0]);
+        ent_text = get_bmrb_as_text(entry[1])
         cur.execute('''
 UPDATE web.instant_cache
 SET
- full_text=to_tsvector(%s)
+ full_tsv=to_tsvector(%s),
+ full_text=%s
 WHERE id=%s;''',
-                    [get_bmrb_as_text(entry[1]), entry[0]])
+                    [ent_text, ent_text, entry[0]])
     conn.commit()
 
     # Macromolecules
     for entry in get_all_entries_from_redis(schema="macromolecules"):
         print("Inserting %s" % entry[0]);
+        ent_text = get_bmrb_as_text(entry[1])
         cur.execute('''
 UPDATE web.instant_cache
 SET
- full_text=to_tsvector(%s)
+ full_tsv=to_tsvector(%s),
+ full_text=%s
 WHERE id=%s;''',
-              [get_bmrb_as_text(entry[1]), entry[0]])
+              [ent_text, ent_text, entry[0]])
 
     conn.commit()
 
@@ -678,7 +682,7 @@ def get_bmrb_as_text(entry):
     res_strings = set()
 
     for saveframe in entry:
-        res_strings.update([x[1].replace("\n", " ") for x in saveframe.tags])
+        res_strings.update([x[1].replace("\n", "") for x in saveframe.tags])
         for loop in saveframe:
             for row in loop:
                 res_strings.update(row)
@@ -694,6 +698,12 @@ def get_instant_search(term):
 SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+
+    # Trigram search on full text
+    a = """SELECT id, similarity(full_text, '%s') AS sml
+  FROM web.instant_cache
+  WHERE full_text % '%s'
+  ORDER BY sml DESC, id;"""
 
     try:
         cur.execute(instant_query, [term, term])
