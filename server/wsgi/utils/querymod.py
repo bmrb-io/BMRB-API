@@ -708,11 +708,8 @@ ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;
     try:
         cur.execute(instant_query, [term, term])
     except ProgrammingError:
-        # Make sure our index exists
-        conn, cur = get_postgres_connection()
-        do_sql_mods(conn, cur)
-        # Re-do the query
-        cur.execute(instant_query, [term, term])
+        return [{"label":"Instant search temporarily offline.", "value":"error",
+                 "link":"/software/query/"}]
 
     result = []
     for item in cur.fetchall():
