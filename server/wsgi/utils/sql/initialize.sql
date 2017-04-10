@@ -1,7 +1,9 @@
+-- To support the feature we need
 -- yum install postgresql-contrib
 -- psql -d bmrbeverything -U postgres
 --   CREATE EXTENSION pg_trgm;
 
+-- Helper function. We will delete this later.
 CREATE OR REPLACE FUNCTION web.clean_title(varchar) RETURNS varchar AS
 $body$
 BEGIN
@@ -10,11 +12,20 @@ END
 $body$
 IMMUTABLE LANGUAGE plpgsql;
 
+-- Create table
 DROP TABLE IF EXISTS web.instant_cache;
-CREATE TABLE web.instant_cache (id varchar(12) PRIMARY KEY, title text,
-citations text[], authors text[], link text, sub_date date, is_metab
-boolean, tsv tsvector);
+CREATE TABLE web.instant_cache (
+ id varchar(12) PRIMARY KEY,
+ title text,
+ citations text[],
+ authors text[],
+ link text,
+ sub_date date,
+ is_metab boolean,
+ tsv tsvector,
+ full_text tsvector);
 
+-- Macromolecules
 INSERT INTO web.instant_cache
 SELECT
  entry."ID",
@@ -34,6 +45,7 @@ LEFT JOIN macromolecules."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
+-- Metabolomics
 INSERT INTO web.instant_cache
 SELECT
  entry."ID",
@@ -86,6 +98,9 @@ UPDATE web.instant_cache SET tsv =
     setweight(to_tsvector(instant_cache.title), 'C') ||
     setweight(to_tsvector(array_to_string(instant_cache.citations, '
 ')), 'D');
+
+-- Create the index for the text search
+CREATE INDEX ON web.instant_cache USING gin(full_text);
 
 DROP FUNCTION web.clean_title(varchar);
 

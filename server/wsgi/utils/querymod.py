@@ -618,33 +618,58 @@ def do_sql_mods(conn=None, cur=None, sql_file=None):
     cur.execute(open(sql_file, "r").read())
     conn.commit()
 
+def create_csrosetta_table(csrosetta_sqlite_file):
+    """Creates the CS-Rosetta links table."""
+
+    import sqlite3
+
+    c = sqlite3.connect(csrosetta_sqlite_file).cursor()
+    entries = c.execute('SELECT key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest FROM entries;').fetchall()
+
+    pconn, pcur = get_postgres_connection()
+    pcur.execute('''
+DROP TABLE IF EXISTS web.bmrb_csrosetta_entries;
+CREATE TABLE web.bmrb_csrosetta_entries (
+ key varchar(13) PRIMARY KEY,
+ bmrbid integer,
+ rosetta_version
+ varchar(5),
+ csrosetta_version varchar(5),
+ rmsd_lowest float);''')
+
+    pcur.executemany('''
+INSERT INTO web.bmrb_csrosetta_entries(key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest)
+VALUES (%s, %s, %s, %s, %s);''',
+                    entries)
+
+    pconn.commit()
+
 def build_fulltext_search():
     """ Allows querying the full text of an entry. """
 
     conn, cur = get_postgres_connection()
-    cur.execute('''
-DROP TABLE IF EXISTS instant_text_cache_tmp;
-CREATE TABLE instant_text_cache_tmp (id varchar(12) PRIMARY KEY, tsv tsvector);
-CREATE INDEX ON instant_text_cache_tmp USING gin(tsv);''')
 
     # Metabolomics
     for entry in get_all_entries_from_redis(schema="metabolomics"):
         print("Inserting %s" % entry[0]);
-        cur.execute('''INSERT INTO instant_text_cache_tmp (id, tsv) VALUES (%s, to_tsvector(%s));''',
-                    [entry[0], get_bmrb_as_text(entry[1])])
+        cur.execute('''
+UPDATE web.instant_cache
+SET
+ full_text=to_tsvector(%s)
+WHERE id=%s;''',
+                    [get_bmrb_as_text(entry[1]), entry[0]])
     conn.commit()
 
     # Macromolecules
     for entry in get_all_entries_from_redis(schema="macromolecules"):
         print("Inserting %s" % entry[0]);
-        cur.execute('''INSERT INTO instant_text_cache_tmp (id, tsv) VALUES (%s, to_tsvector(%s));''',
-                    [entry[0], get_bmrb_as_text(entry[1])])
+        cur.execute('''
+UPDATE web.instant_cache
+SET
+ full_text=to_tsvector(%s)
+WHERE id=%s;''',
+              [get_bmrb_as_text(entry[1]), entry[0]])
 
-    cur.execute('''
-ALTER TABLE IF EXISTS instant_text_cache RENAME TO instant_text_cache_old;
-ALTER TABLE IF EXISTS instant_text_cache_tmp RENAME TO instant_text_cache;
-DROP TABLE IF EXISTS instant_text_cache_old;
-''')
     conn.commit()
 
 def get_bmrb_as_text(entry):
