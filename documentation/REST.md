@@ -59,7 +59,7 @@ reset to a week from the present time each you make a request to the API that
 uses the provided `ENTRY_ID`. (For example, fetching the entry with `/entry/ENTRY_ID`
 will reset the expiration.)
 
-*Caution* - Data you upload to the server is publicly accessibly to anyone with
+*Caution* - Data you upload to the server is publicly accessible to anyone with
 access to the assigned `ENTRY_ID` you are provided.
 
 #### /entry/$ENTRY_ID[/$ENTRY_FORMAT] - Retrieve entry (GET)
