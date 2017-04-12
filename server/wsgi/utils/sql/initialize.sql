@@ -82,7 +82,7 @@ FROM web.procque WHERE onhold='N';
 INSERT INTO web.instant_cache
 SELECT
  accno,
- 'Entry is being processed. Release: ' || status,
+ 'Entry is on hold. Release: ' || status,
  array[]::text[],
  array[]::text[],
  '/data_library/held.shtml',
