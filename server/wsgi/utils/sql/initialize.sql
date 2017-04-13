@@ -12,7 +12,36 @@ END
 $body$
 IMMUTABLE LANGUAGE plpgsql;
 
--- Create table
+-- Create terms table
+DROP TABLE IF EXISTS web.instant_extra_search_terms;
+CREATE TABLE web.instant_extra_search_terms (
+    id varchar(12),
+    term text);
+CREATE INDEX ON web.instant_extra_search_terms USING gin(term gin_trgm_ops);
+
+INSERT INTO web.instant_extra_search_terms
+-- metabolomics
+SELECT DISTINCT "Entry_ID", "Name" FROM metabolomics."Chem_comp_systematic_name"
+UNION
+SELECT DISTINCT "Entry_ID", "Formula" FROM metabolomics."Chem_comp"
+UNION
+SELECT DISTINCT "Entry_ID", "Name" FROM metabolomics."Chem_comp_common_name"
+UNION
+SELECT DISTINCT "Entry_ID", "String" FROM metabolomics."Chem_comp_SMILES"
+UNION
+SELECT DISTINCT "Entry_ID", "Descriptor" FROM metabolomics."Chem_comp_descriptor"
+--macromolecule
+UNION
+SELECT "Entry_ID",regexp_replace("Polymer_seq_one_letter_code", '\n', '', 'g') FROM macromolecules."Entity"
+UNION
+SELECT "Entry_ID","Database_code"||':'||"Accession_code" FROM macromolecules."Entity_db_link" WHERE "Database_code" != 'BMRB'
+UNION
+SELECT "Entry_ID","Organism_name_scientific" FROM macromolecules."Entity_natural_src" WHERE "Organism_name_scientific" IS NOT null
+UNION
+SELECT "Entry_ID","Organism_name_common" FROM macromolecules."Entity_natural_src" WHERE "Organism_name_common" IS NOT null
+;
+
+-- Create tsvector table
 DROP TABLE IF EXISTS web.instant_cache;
 CREATE TABLE web.instant_cache (
  id varchar(12) PRIMARY KEY,
@@ -25,6 +54,7 @@ CREATE TABLE web.instant_cache (
  tsv tsvector,
  full_tsv tsvector,
  full_text text);
+
 
 -- Macromolecules
 INSERT INTO web.instant_cache
@@ -85,7 +115,7 @@ SELECT
  'Entry is on hold. Release: ' || status,
  array[]::text[],
  array[]::text[],
- '/data_library/held.shtml',
+ '/data_library/held.shtml#' || accno,
  received,
  False
 FROM web.procque WHERE onhold='Y';
@@ -108,3 +138,4 @@ CREATE INDEX ON web.instant_cache USING gin(full_text gin_trgm_ops);
 DROP FUNCTION web.clean_title(varchar);
 
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to web;
+GRANT ALL PRIVILEGES ON TABLE web.instant_cache to bmrb;
