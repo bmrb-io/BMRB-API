@@ -238,7 +238,7 @@ def get_software_by_entry(entry_id):
 
 @application.route('/software/package/<package_name>')
 @application.route('/software/package/<package_name>/<database>')
-def get_software_by_package(package_name, database="macromolcule"):
+def get_software_by_package(package_name, database="macromolcules"):
     """ Returns the entries that used a particular software package. Search
     is done case-insensitive and is an x in y search rather than x == y
     search. """
