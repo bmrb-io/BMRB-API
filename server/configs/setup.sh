@@ -1,8 +1,9 @@
 #!/bin/sh
 
-yum install redis python-redis mod_evasive apache-gzip java-1.8.0-openjdk-headless
+yum install redis python-pip python-redis mod_evasive apache-gzip java-1.8.0-openjdk-headless
 
-sudo pip install flask psycopg2
+sudo pip install flask
+sudo pip install psycopg2
 
 # Configure redis installation
 systemctl enable redis
