@@ -16,29 +16,37 @@ IMMUTABLE LANGUAGE plpgsql;
 DROP TABLE IF EXISTS web.instant_extra_search_terms;
 CREATE TABLE web.instant_extra_search_terms (
     id varchar(12),
-    term text);
+    term text,
+    termname text);
 CREATE INDEX ON web.instant_extra_search_terms USING gin(term gin_trgm_ops);
 
 INSERT INTO web.instant_extra_search_terms
 -- metabolomics
-SELECT DISTINCT "Entry_ID", "Name" FROM metabolomics."Chem_comp_systematic_name"
+SELECT DISTINCT "Entry_ID", "Name",'Systematic name' FROM metabolomics."Chem_comp_systematic_name"
 UNION
-SELECT DISTINCT "Entry_ID", "Formula" FROM metabolomics."Chem_comp"
+SELECT DISTINCT "Entry_ID", "Formula",'Formula' FROM metabolomics."Chem_comp"
 UNION
-SELECT DISTINCT "Entry_ID", "Name" FROM metabolomics."Chem_comp_common_name"
+SELECT DISTINCT "Entry_ID", "InCHi_code",'InChI' FROM metabolomics."Chem_comp"
 UNION
-SELECT DISTINCT "Entry_ID", "String" FROM metabolomics."Chem_comp_SMILES"
+SELECT DISTINCT "Entry_ID", "Name",'Common name' FROM metabolomics."Chem_comp_common_name"
 UNION
-SELECT DISTINCT "Entry_ID", "Descriptor" FROM metabolomics."Chem_comp_descriptor"
+SELECT DISTINCT "Entry_ID", "String", 'SMILES' FROM metabolomics."Chem_comp_SMILES"
+UNION
+SELECT DISTINCT "Entry_ID", "Descriptor",'Compound desciption' FROM metabolomics."Chem_comp_descriptor"
+UNION
+SELECT DISTINCT "Entry_ID", "Name",'Entity name' FROM metabolomics."Entity"
+UNION
+SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM metabolomics."Assembly"
+
 --macromolecule
 UNION
-SELECT "Entry_ID",regexp_replace("Polymer_seq_one_letter_code", '\n', '', 'g') FROM macromolecules."Entity"
+SELECT DISTINCT "Entry_ID",regexp_replace("Polymer_seq_one_letter_code", '\n| ', '', 'g'),'Polymer sequence' FROM macromolecules."Entity"
 UNION
-SELECT "Entry_ID","Database_code"||':'||"Accession_code" FROM macromolecules."Entity_db_link" WHERE "Database_code" != 'BMRB'
+SELECT DISTINCT "Entry_ID","Database_code"||':'||"Accession_code",'Accession code' FROM macromolecules."Entity_db_link" WHERE "Database_code" != 'BMRB'
 UNION
-SELECT "Entry_ID","Organism_name_scientific" FROM macromolecules."Entity_natural_src" WHERE "Organism_name_scientific" IS NOT null
+SELECT DISTINCT "Entry_ID","Organism_name_scientific",'Scientific name' FROM macromolecules."Entity_natural_src" WHERE "Organism_name_scientific" IS NOT null
 UNION
-SELECT "Entry_ID","Organism_name_common" FROM macromolecules."Entity_natural_src" WHERE "Organism_name_common" IS NOT null
+SELECT DISTINCT "Entry_ID","Organism_name_common",'Common name' FROM macromolecules."Entity_natural_src" WHERE "Organism_name_common" IS NOT null
 ;
 
 -- Create tsvector table
@@ -137,5 +145,27 @@ CREATE INDEX ON web.instant_cache USING gin(full_text gin_trgm_ops);
 
 DROP FUNCTION web.clean_title(varchar);
 
+GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to web;
+GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to web;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to bmrb;
+
+    
+    
+/*
+-- Query both tsv and trigram at once. Partially broken still since
+-- the UNIONED results are not in the right order
+SELECT DISTINCT ON (id) * from(
+SELECT * FROM (
+  SELECT ''::text as term,''::text as term,1.5::real as sml,id,title,citations,authors,link,sub_date FROM web.instant_cache
+    WHERE tsv @@ plainto_tsquery('caffeine')
+    ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery('caffeine')) DESC) AS one
+UNION
+SELECT * FROM (
+  SELECT DISTINCT on (id) term,termname,similarity(tt.term, 'caffeine') as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.term % 'caffeine'
+    ORDER BY id DESC, similarity(tt.term, 'caffeine') DESC) AS two) AS three;
+*/
+
