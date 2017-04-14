@@ -27,8 +27,10 @@ databases are searched for those query types.
 
 Returns the current status of the databases. This includes the number of entries
 in each database, the number of chemical shifts in each database, and the last
-time each database was updated. The available REST and JSON-RPC methods are also
+time each database was updated. The available REST methods are also
 returned, as well as the version number of the API.
+
+[Link](http://webapi.bmrb.wisc.edu/v1/rest/status)
 
 #### /list_entries/[metabolomics|macromolecule|chemcomps]
 
@@ -60,16 +62,29 @@ uses the provided `ENTRY_ID`. (For example, fetching the entry with `/entry/ENTR
 will reset the expiration.)
 
 *Caution* - Data you upload to the server is publicly accessible to anyone with
-access to the assigned `ENTRY_ID` you are provided.
+access to the assigned `ENTRY_ID` you are provided. Therefore you should not
+share this key with anyone who you do not intend to share the data with.
 
 #### /entry/$ENTRY_ID[/$ENTRY_FORMAT] - Retrieve entry (GET)
 
 Returns the given BMRB entry in [JSON format](ENTRY.md#entry) by default. If
 $ENTRY_FORMAT is specified then return in that format instead.
 
-Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
+The formats available are:
 
-[Here](http://webapi.bmrb.wisc.edu/current/rest/entry/15000/) is an example.
+* `json` - The default format. Returns the entry in JSON format. [Example](http://webapi.bmrb.wisc.edu/v1/rest/entry/15000/)
+* `nmrstar` - The response is still JSON but the entire entry is returned
+as one large text string rather than JSON. [Example](http://webapi.bmrb.wisc.edu/v1/rest/entry/15000/nmrstar/)
+* `rawnmrstar` - The entry is returned in pure NMR-STAR format. There is
+no wrapping JSON. If you need to fetch a large number of NMR-STAR entries
+in text form you may be better served getting them from the [FTP site](http://www.bmrb.wisc.edu/ftp/pub/bmrb/entry_directories/). [Example](http://webapi.bmrb.wisc.edu/v1/rest/entry/15000/rawnmrstar/)
+* `zlib` - A zlib-compressed JSON representation of the entry is returned.
+This is how the entries are stored in the API database and is therefore the
+absolute fastest way to retrieve an entry. This format mainly exists
+to enable the [PyNMR-STAR python library](https://github.com/uwbmrb/PyNMRSTAR) to
+fetch entries as quickly as possible and it is not expected you will
+benefit from the moderately faster entry access considering the additional
+code complexity required. [Example](http://webapi.bmrb.wisc.edu/v1/rest/entry/15000/zlib/)
 
 #### /saveframe/$ENTRY_ID/$SAVEFRAME_CATEGORY[/$ENTRY_FORMAT]
 
@@ -77,7 +92,8 @@ Returns all saveframes of the given category for an entry in
 [JSON format](ENTRY.md#saveframe) by default. If $ENTRY_FORMAT is specified then
 return in that format instead.
 
-Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
+Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT. These
+formats are the same as described in the entry method.
 
 [Here](http://webapi.bmrb.wisc.edu/current/rest/saveframe/15000/assigned_chemical_shifts)
 is an example query.
@@ -88,7 +104,8 @@ Returns all loops of a given category for a given entry in
 [JSON format](ENTRY.md#loop) by default. If $ENTRY_FORMAT is specified then
 return in that format instead.
 
-Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT.
+Only `json` and `nmrstar` are currently allowed for $ENTRY_FORMAT. These
+formats are the same as described in the entry method.
 
 [Here](http://webapi.bmrb.wisc.edu/current/rest/loop/15000/_Sample_condition_variable)
 is an example query.
@@ -96,7 +113,7 @@ is an example query.
 #### /tag/$ENTRY_ID/$TAG_NAME
 
 Returns tags of a specified type for a given entry.
-[Here](http://webapi.bmrb.wisc.edu/current/rest/tag/15000/_Entry.Title)
+[Here](http://webapi.bmrb.wisc.edu/v1/rest/tag/15000/_Entry.Title)
 is an example.
 
 #### /enumerations/$TAG_NAME
@@ -119,7 +136,7 @@ to query the metabolomics database rather than the macromolecule one.
 
 An example:
 
-* [All entries which used solid-state NMR](http://webapi.bmrb.wisc.edu/current/rest/get_id_from_search/Entry.Experimental_method_subtype/solid-state)
+* [All entries which used solid-state NMR](http://webapi.bmrb.wisc.edu/v1/rest/get_id_from_search/Entry.Experimental_method_subtype/solid-state)
 
 #### /chemical_shifts[/$ATOM_TYPE][/$DATABASE]
 
@@ -139,15 +156,15 @@ threshold for a shift.
 
 Examples:
 
-* [All chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/)
-* [All CA chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/CA)
-* [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/HB*)
-
-* [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/current/rest/chemical_shifts/C1/metabolomics)
+* [All chemical shifts](http://webapi.bmrb.wisc.edu/v1/rest/chemical_shifts/)
+* [All CA chemical shifts](http://webapi.bmrb.wisc.edu/v1/rest/chemical_shifts/CA)
+* [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/v1/rest/chemical_shifts/HB*)
+* [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v1/rest/chemical_shifts/C1/metabolomics)
+* [All C chemical shifts between 130 and 131 ppm](http://webapi.bmrb.wisc.edu/v1/rest/chemical_shifts/C?shift=130.5&threshold=.5)
 
 #### /software/
 
-Returns a summary of all software packages used in BMRB entries.
+Returns a summary of all software packages used in BMRB entries. [Link](http://webapi.bmrb.wisc.edu/v1/rest/software/)
 
 #### /software/entry/$ENTRY_ID
 
@@ -159,9 +176,12 @@ list of software will be a list with the following four values in order:
 * `SOFTWARE_TASK`
 * `SOFTWARE_VENDOR`
 
+[Example for entry 15000](http://webapi.bmrb.wisc.edu/v1/rest/software/entry/15000/)
+
 #### /software/package/$SOFTWARE_PACKAGE/[$DATABASE]
 
 Returns a list of all entries used by the specified software package. The search
 is done case-insensitive and does not require perfect matches. For example,
 `SPARK` would match `SPARKY` and `NMRFAM_SPARY`.
 
+[Example for SPARKY](http://webapi.bmrb.wisc.edu/v1/rest/software/package/sparky/macromolecules)
