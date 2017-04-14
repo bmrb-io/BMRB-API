@@ -26,6 +26,7 @@ from tempfile import NamedTemporaryFile
 
 import psycopg2
 from psycopg2.extensions import AsIs
+from psycopg2.extras import execute_values, DictCursor
 from psycopg2 import ProgrammingError
 import redis
 from redis.sentinel import Sentinel
@@ -103,11 +104,15 @@ def get_database_from_entry_id(entry_id):
 
 def get_postgres_connection(user=configuration['postgres']['user'],
                             host=configuration['postgres']['host'],
-                            database=configuration['postgres']['database']):
+                            database=configuration['postgres']['database'],
+                            dictionary_cursor=False):
     """ Returns a connection to postgres and a cursor."""
 
     # Errors connecting will be handled upstream
-    conn = psycopg2.connect(user=user, host=host, database=database)
+    if dictionary_cursor:
+        conn = psycopg2.connect(user=user, host=host, database=database, cursor_factory=DictCursor) 
+    else:
+        conn = psycopg2.connect(user=user, host=host, database=database)
     cur = conn.cursor()
 
     return conn, cur
@@ -637,10 +642,10 @@ CREATE TABLE web.bmrb_csrosetta_entries (
  csrosetta_version varchar(5),
  rmsd_lowest float);''')
 
-    pcur.executemany('''
+    execute_values(pcur, '''
 INSERT INTO web.bmrb_csrosetta_entries(key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest)
-VALUES (%s, %s, %s, %s, %s);''',
-                    entries)
+VALUES %s;''',
+              entries)
 
     pconn.commit()
 
@@ -692,29 +697,55 @@ def get_bmrb_as_text(entry):
 def get_instant_search(term):
     """ Does an instant search and returns results. """
 
-    cur = get_postgres_connection()[1]
+    cur = get_postgres_connection(dictionary_cursor=True)[1]
 
-    instant_query = '''
+    instant_query_one = '''
 SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
-    # Trigram search on full text
-    a = """SELECT id, similarity(full_text, '%s') AS sml
-  FROM web.instant_cache
-  WHERE full_text % '%s'
-  ORDER BY sml DESC, id;"""
+    #select set_limit(.5);
+    instant_query_two = '''
+SELECT * from (
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.term %% %s
+    ORDER BY id, similarity(tt.term, %s) DESC) as x
+ORDER BY sml DESC LIMIT 25;'''
 
     try:
-        cur.execute(instant_query, [term, term])
+        cur.execute(instant_query_one, [term, term])
     except ProgrammingError:
         return [{"label":"Instant search temporarily offline.", "value":"error",
                  "link":"/software/query/"}]
 
+    # First query
     result = []
+    ids = {}
     for item in cur.fetchall():
-        result.append({"citations": item[2], "authors": item[3], "link": item[4],
-                       "value": item[0], "sub_date": str(item[5]), "label": "%s" % (item[1])})
+        result.append({"citations": item['citations'],
+                       "authors": item['authors'],
+                       "link": item['link'],
+                       "value": item['id'],
+                       "sub_date": str(item['sub_date']),
+                       "label": "%s" % (item['title'])})
+        ids[item['id']] = 1
+                       
+    
+    # Second query
+    cur.execute(instant_query_two, [term, term, term])
+    for item in cur.fetchall():
+        if item['id'] not in ids:
+            result.append({"citations": item['citations'],
+                           "authors": item['authors'],
+                           "link": item['link'],
+                           "value": item['id'],
+                           "sub_date": str(item['sub_date']),
+                           "label": "%s" % (item['title']),
+                           "extra": {"term": item['term'],
+                                     "termname": item['termname']}})
+    
     return result
 
 def suggest_new_software_links(database="macromolecules"):
