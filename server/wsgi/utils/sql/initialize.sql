@@ -47,6 +47,10 @@ UNION
 SELECT DISTINCT "Entry_ID","Organism_name_scientific",'Scientific name' FROM macromolecules."Entity_natural_src" WHERE "Organism_name_scientific" IS NOT null
 UNION
 SELECT DISTINCT "Entry_ID","Organism_name_common",'Common name' FROM macromolecules."Entity_natural_src" WHERE "Organism_name_common" IS NOT null
+UNION
+SELECT DISTINCT "Entry_ID", "Name",'Entity name' FROM macromolecules."Entity"
+UNION
+SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM macromolecules."Assembly"
 ;
 
 -- Create tsvector table
