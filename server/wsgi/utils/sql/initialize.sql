@@ -13,14 +13,13 @@ $body$
 IMMUTABLE LANGUAGE plpgsql;
 
 -- Create terms table
-DROP TABLE IF EXISTS web.instant_extra_search_terms;
-CREATE TABLE web.instant_extra_search_terms (
+CREATE TABLE web.instant_extra_search_terms_tmp (
     id varchar(12),
     term text,
     termname text);
-CREATE INDEX ON web.instant_extra_search_terms USING gin(term gin_trgm_ops);
+CREATE INDEX ON web.instant_extra_search_terms_tmp USING gin(term gin_trgm_ops);
 
-INSERT INTO web.instant_extra_search_terms
+INSERT INTO web.instant_extra_search_terms_tmp
 -- metabolomics
 SELECT DISTINCT "Entry_ID", "Name",'Systematic name' FROM metabolomics."Chem_comp_systematic_name"
 UNION
@@ -53,9 +52,22 @@ UNION
 SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM macromolecules."Assembly"
 ;
 
+-- Easier to do this to delete ~2000 rows than modify all of the above statements to exclude nulls
+DELETE FROM web.instant_extra_search_terms_tmp WHERE term IS NULL;
+
+-- Move the new table into place
+ALTER TABLE IF EXISTS web.instant_extra_search_terms RENAME TO instant_extra_search_terms_old;
+ALTER TABLE web.instant_extra_search_terms_tmp RENAME TO instant_extra_search_terms;
+DROP TABLE IF EXISTS web.instant_extra_search_terms_old;
+
+
+
+
+
+
 -- Create tsvector table
 DROP TABLE IF EXISTS web.instant_cache;
-CREATE TABLE web.instant_cache (
+CREATE TABLE web.instant_cache_tmp (
  id varchar(12) PRIMARY KEY,
  title text,
  citations text[],
@@ -69,7 +81,7 @@ CREATE TABLE web.instant_cache (
 
 
 -- Macromolecules
-INSERT INTO web.instant_cache
+INSERT INTO web.instant_cache_tmp
 SELECT
  entry."ID",
  web.clean_title(entry."Title"),
@@ -89,7 +101,7 @@ LEFT JOIN macromolecules."Citation_author" AS citation_author
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
 -- Metabolomics
-INSERT INTO web.instant_cache
+INSERT INTO web.instant_cache_tmp
 SELECT
  entry."ID",
  web.clean_title(entry."Title"),
@@ -109,7 +121,7 @@ LEFT JOIN metabolomics."Citation_author" AS citation_author
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
 -- Processing
-INSERT INTO web.instant_cache
+INSERT INTO web.instant_cache_tmp
 SELECT
  accno,
  'Entry is being processed',
@@ -121,7 +133,7 @@ SELECT
 FROM web.procque WHERE onhold='N';
 
 -- On hold
-INSERT INTO web.instant_cache
+INSERT INTO web.instant_cache_tmp
 SELECT
  accno,
  'Entry is on hold. Release: ' || status,
@@ -133,22 +145,28 @@ SELECT
 FROM web.procque WHERE onhold='Y';
 
 -- Create the index on the tsvector
-CREATE INDEX ON web.instant_cache USING gin(tsv);
-UPDATE web.instant_cache SET tsv =
-    setweight(to_tsvector(instant_cache.id), 'A') ||
-    setweight(to_tsvector(array_to_string(instant_cache.authors, ' ')),
+CREATE INDEX ON web.instant_cache_tmp USING gin(tsv);
+UPDATE web.instant_cache_tmp SET tsv =
+    setweight(to_tsvector(instant_cache_tmp.id), 'A') ||
+    setweight(to_tsvector(array_to_string(instant_cache_tmp.authors, ' ')),
 'B') ||
-    setweight(to_tsvector(instant_cache.title), 'C') ||
-    setweight(to_tsvector(array_to_string(instant_cache.citations, '
+    setweight(to_tsvector(instant_cache_tmp.title), 'C') ||
+    setweight(to_tsvector(array_to_string(instant_cache_tmp.citations, '
 ')), 'D');
 
 -- Create the index for the text search using tsvector
-CREATE INDEX ON web.instant_cache USING gin(full_tsv);
+CREATE INDEX ON web.instant_cache_tmp USING gin(full_tsv);
 -- Create a trigram index on the full text
-CREATE INDEX ON web.instant_cache USING gin(full_text gin_trgm_ops);
+CREATE INDEX ON web.instant_cache_tmp USING gin(full_text gin_trgm_ops);
 
+
+-- Move the new table into place
+ALTER TABLE IF EXISTS web.instant_cache RENAME TO instant_cache_old;
+ALTER TABLE web.instant_cache_tmp RENAME TO instant_cache;
+DROP TABLE IF EXISTS web.instant_cache_old;
+
+-- Clean up
 DROP FUNCTION web.clean_title(varchar);
-
 GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to web;
 GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to web;
