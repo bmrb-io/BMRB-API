@@ -106,27 +106,6 @@ class TestAPI(unittest.TestCase):
         # Delete the entry we uploaded
         querymod.get_redis_connection().delete(querymod.locate_entry(response['entry_id']))
 
-    def test_autoblock(self):
-        """ See if we get banned for making too many queries."""
-
-        # We have to reuse a socket in order to make requests fast enough to
-        #  get banned
-        with requests.Session() as s:
-
-            # Check we are not banned
-            r = s.get(url + "/rest/").status_code
-            self.assertEquals(r, 200)
-
-            # DOS the server
-            for x in range(0, 100):
-                r = s.get(url + "/rest/").status_code
-
-            # Should be banned now
-            self.assertEquals(r, 403)
-
-        # Make sure we are unbanned before the next test
-        time.sleep(11)
-
     def test_create_chemcomp_from_db(self):
         """ See if our code to generate a chemcomp from the DB is working."""
 
