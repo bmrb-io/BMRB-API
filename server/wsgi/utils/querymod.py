@@ -706,6 +706,7 @@ ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;
 
     #select set_limit(.5);
     instant_query_two = '''
+SELECT set_limit(.5);
 SELECT * from (
 SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
@@ -744,7 +745,8 @@ ORDER BY sml DESC LIMIT 25;'''
                            "sub_date": str(item['sub_date']),
                            "label": "%s" % (item['title']),
                            "extra": {"term": item['term'],
-                                     "termname": item['termname']}})
+                                     "termname": item['termname']},
+                           "sml": "%s" % item['sml']})
     
     return result
 

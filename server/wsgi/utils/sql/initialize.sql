@@ -27,6 +27,8 @@ SELECT DISTINCT "Entry_ID", "Formula",'Formula' FROM metabolomics."Chem_comp"
 UNION
 SELECT DISTINCT "Entry_ID", "InCHi_code",'InChI' FROM metabolomics."Chem_comp"
 UNION
+SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM metabolomics."Chem_comp"
+UNION
 SELECT DISTINCT "Entry_ID", "Name",'Common name' FROM metabolomics."Chem_comp_common_name"
 UNION
 SELECT DISTINCT "Entry_ID", "String", 'SMILES' FROM metabolomics."Chem_comp_SMILES"
@@ -36,12 +38,14 @@ UNION
 SELECT DISTINCT "Entry_ID", "Name",'Entity name' FROM metabolomics."Entity"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM metabolomics."Assembly"
+UNION
+SELECT DISTINCT "Entry_ID", "PubMed_ID", 'PubMed ID'  FROM metabolomics."Citation"
 
 --macromolecule
 UNION
 SELECT DISTINCT "Entry_ID",regexp_replace("Polymer_seq_one_letter_code", '\n| ', '', 'g'),'Polymer sequence' FROM macromolecules."Entity"
 UNION
-SELECT DISTINCT "Entry_ID","Database_code"||':'||"Accession_code",'Accession code' FROM macromolecules."Entity_db_link" WHERE "Database_code" != 'BMRB'
+SELECT DISTINCT "Entry_ID","Accession_code","Database_code" || ' Accession code' FROM macromolecules."Entity_db_link" WHERE "Database_code" != 'BMRB'
 UNION
 SELECT DISTINCT "Entry_ID","Organism_name_scientific",'Scientific name' FROM macromolecules."Entity_natural_src" WHERE "Organism_name_scientific" IS NOT null
 UNION
@@ -50,6 +54,10 @@ UNION
 SELECT DISTINCT "Entry_ID", "Name",'Entity name' FROM macromolecules."Entity"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM macromolecules."Assembly"
+UNION
+SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM metabolomics."Chem_comp"
+UNION
+SELECT DISTINCT "Entry_ID", "PubMed_ID", 'PubMed ID'  FROM macromolecules."Citation"
 ;
 
 -- Easier to do this to delete ~2000 rows than modify all of the above statements to exclude nulls
