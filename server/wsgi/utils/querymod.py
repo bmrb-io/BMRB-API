@@ -702,7 +702,7 @@ def get_instant_search(term):
     instant_query_one = '''
 SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
     #select set_limit(.5);
     instant_query_two = '''
@@ -721,7 +721,7 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
 ORDER BY sml DESC LIMIT 25;'''
 
     try:
-        cur.execute(instant_query_one, [term, term])
+        cur.execute(instant_query_one, [term, term, term])
     except ProgrammingError:
         return [{"label":"Instant search temporarily offline.", "value":"error",
                  "link":"/software/query/"}]
