@@ -705,7 +705,7 @@ WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
     instant_query_two = '''
-SELECT set_limit(.5);
+SELECT set_limit(.6);
 SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
@@ -715,9 +715,9 @@ SELECT * from (
 SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
-    WHERE tt.term %% %s AND tt.identical_term IS NOT NULL
+    WHERE tt.term %% %s AND tt.identical_term IS NULL
     ORDER BY id, similarity(tt.term, %s) DESC) as y
-ORDER BY sml DESC LIMIT 25;'''
+ORDER BY sml DESC LIMIT 75;'''
 
     try:
         cur.execute(instant_query_one, [term, term, term])
