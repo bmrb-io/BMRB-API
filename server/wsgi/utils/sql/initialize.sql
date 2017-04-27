@@ -18,16 +18,23 @@ CREATE TABLE web.instant_extra_search_terms_tmp (
     id varchar(12),
     term text,
     termname text,
-    identical_term text);
+    identical_term tsvector);
 CREATE INDEX ON web.instant_extra_search_terms_tmp USING gin(term gin_trgm_ops);
-CREATE INDEX ON web.instant_extra_search_terms_tmp (LOWER(identical_term));
+CREATE INDEX ON web.instant_extra_search_terms_tmp USING gin(identical_term);
 
-INSERT INTO web.instant_extra_search_terms_tmp
-SELECT DISTINCT "Entry_ID", NULL, 'PubMed ID', "PubMed_ID" FROM metabolomics."Citation"
+INSERT INTO web.instant_extra_search_terms_tmp (id, termname, term, identical_term)
+SELECT DISTINCT "Entry_ID", 'PubMed ID', "PubMed_ID", to_tsvector("PubMed_ID") FROM metabolomics."Citation"
 UNION
-SELECT DISTINCT "Entry_ID", NULL, 'PubMed ID', "PubMed_ID" FROM macromolecules."Citation"
+SELECT DISTINCT "Entry_ID", 'PubMed ID', "PubMed_ID", to_tsvector("PubMed_ID") FROM macromolecules."Citation"
 UNION
-SELECT DISTINCT "Entry_ID", NULL, 'BLAST-linked ' || "Database_code" || ' Accession code', "Accession_code" FROM macromolecules."Entity_db_link"
+SELECT DISTINCT "Entry_ID", 'Data type present', "Type", to_tsvector("Type") FROM macromolecules."Datum"
+-- This is here and below to make exact matches show up prior to fuzzy matches, but still allow fuzzy matches
+UNION
+SELECT DISTINCT "Entry_ID", 'Author provided ' || "Database_code" || ' Accession code', "Accession_code", to_tsvector("Accession_code") FROM macromolecules."Entity_db_link"
+--
+  WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'yes'
+UNION
+SELECT DISTINCT "Entry_ID", 'BLAST-linked ' || "Database_code" || ' Accession code', "Accession_code", to_tsvector("Accession_code") FROM macromolecules."Entity_db_link"
   WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'no';
 
 INSERT INTO web.instant_extra_search_terms_tmp
@@ -63,8 +70,6 @@ UNION
 SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM macromolecules."Assembly"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM macromolecules."Chem_comp"
-UNION
-SELECT DISTINCT "Entry_ID", "Type", 'Data type present' FROM macromolecules."Datum"
 UNION
 SELECT DISTINCT "Entry_ID", "Accession_code", 'Author provided ' || "Database_code" || ' Accession code' FROM macromolecules."Entity_db_link"
   WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'yes';
