@@ -62,7 +62,9 @@ SELECT DISTINCT "Entry_ID", "Name",'Entity name' FROM macromolecules."Entity"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM macromolecules."Assembly"
 UNION
-SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM metabolomics."Chem_comp"
+SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM macromolecules."Chem_comp"
+UNION
+SELECT DISTINCT "Entry_ID", "Type", 'Data type present' FROM macromolecules."Datum"
 UNION
 SELECT DISTINCT "Entry_ID", "Accession_code", 'Author provided ' || "Database_code" || ' Accession code' FROM macromolecules."Entity_db_link"
   WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'yes';
