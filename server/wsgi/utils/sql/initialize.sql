@@ -13,17 +13,28 @@ $body$
 IMMUTABLE LANGUAGE plpgsql;
 
 -- Create terms table
+DROP TABLE IF EXISTS web.instant_extra_search_terms_tmp;
 CREATE TABLE web.instant_extra_search_terms_tmp (
     id varchar(12),
     term text,
-    termname text);
+    termname text,
+    identical_term text);
 CREATE INDEX ON web.instant_extra_search_terms_tmp USING gin(term gin_trgm_ops);
+CREATE INDEX ON web.instant_extra_search_terms_tmp (LOWER(identical_term));
+
+INSERT INTO web.instant_extra_search_terms_tmp
+SELECT DISTINCT "Entry_ID", NULL, 'PubMed ID', "PubMed_ID" FROM metabolomics."Citation"
+UNION
+SELECT DISTINCT "Entry_ID", NULL, 'PubMed ID', "PubMed_ID" FROM macromolecules."Citation"
+UNION
+SELECT DISTINCT "Entry_ID", NULL, 'BLAST-linked ' || "Database_code" || ' Accession code', "Accession_code" FROM macromolecules."Entity_db_link"
+  WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'no';
 
 INSERT INTO web.instant_extra_search_terms_tmp
 -- metabolomics
 SELECT DISTINCT "Entry_ID", "Name",'Systematic name' FROM metabolomics."Chem_comp_systematic_name"
 UNION
-SELECT DISTINCT "Entry_ID", "Formula",'Formula' FROM metabolomics."Chem_comp"
+SELECT DISTINCT "Entry_ID", regexp_replace("Formula", '\s', '', 'g'),'Formula' FROM metabolomics."Chem_comp"
 UNION
 SELECT DISTINCT "Entry_ID", "InCHi_code",'InChI' FROM metabolomics."Chem_comp"
 UNION
@@ -38,14 +49,10 @@ UNION
 SELECT DISTINCT "Entry_ID", "Name",'Entity name' FROM metabolomics."Entity"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM metabolomics."Assembly"
-UNION
-SELECT DISTINCT "Entry_ID", "PubMed_ID", 'PubMed ID'  FROM metabolomics."Citation"
 
 --macromolecule
 UNION
 SELECT DISTINCT "Entry_ID",regexp_replace("Polymer_seq_one_letter_code", '\n| ', '', 'g'),'Polymer sequence' FROM macromolecules."Entity"
-UNION
-SELECT DISTINCT "Entry_ID","Accession_code","Database_code" || ' Accession code' FROM macromolecules."Entity_db_link" WHERE "Database_code" != 'BMRB'
 UNION
 SELECT DISTINCT "Entry_ID","Organism_name_scientific",'Scientific name' FROM macromolecules."Entity_natural_src" WHERE "Organism_name_scientific" IS NOT null
 UNION
@@ -57,11 +64,11 @@ SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM macromolecules."Assembly
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM metabolomics."Chem_comp"
 UNION
-SELECT DISTINCT "Entry_ID", "PubMed_ID", 'PubMed ID'  FROM macromolecules."Citation"
-;
+SELECT DISTINCT "Entry_ID", "Accession_code", 'Author provided ' || "Database_code" || ' Accession code' FROM macromolecules."Entity_db_link"
+  WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'yes';
 
 -- Easier to do this to delete ~2000 rows than modify all of the above statements to exclude nulls
-DELETE FROM web.instant_extra_search_terms_tmp WHERE term IS NULL;
+DELETE FROM web.instant_extra_search_terms_tmp WHERE term IS NULL AND identical_term IS NULL;
 
 -- Move the new table into place
 ALTER TABLE IF EXISTS web.instant_extra_search_terms RENAME TO instant_extra_search_terms_old;
@@ -180,8 +187,8 @@ GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to web;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to bmrb;
 
-    
-    
+
+
 /*
 -- Query both tsv and trigram at once. Partially broken still since
 -- the UNIONED results are not in the right order

@@ -110,7 +110,7 @@ def get_postgres_connection(user=configuration['postgres']['user'],
 
     # Errors connecting will be handled upstream
     if dictionary_cursor:
-        conn = psycopg2.connect(user=user, host=host, database=database, cursor_factory=DictCursor) 
+        conn = psycopg2.connect(user=user, host=host, database=database, cursor_factory=DictCursor)
     else:
         conn = psycopg2.connect(user=user, host=host, database=database)
     cur = conn.cursor()
@@ -613,7 +613,7 @@ def do_sql_mods(conn=None, cur=None, sql_file=None):
 
     # Re-use existing connection
     if not (conn and cur):
-        conn, cur = get_postgres_connection()
+        conn, cur = get_postgres_connection(user=configuration['postgres']['reload_user'])
 
     if sql_file is None:
         sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
@@ -707,12 +707,17 @@ ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;
     #select set_limit(.5);
     instant_query_two = '''
 SELECT set_limit(.5);
+SELECT DISTINCT on (id) identical_term as term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE LOWER(tt.identical_term) = LOWER(%s)
+UNION
 SELECT * from (
 SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.term %% %s
-    ORDER BY id, similarity(tt.term, %s) DESC) as x
+    ORDER BY id, similarity(tt.term, %s) DESC) as y
 ORDER BY sml DESC LIMIT 25;'''
 
     try:
@@ -732,10 +737,15 @@ ORDER BY sml DESC LIMIT 25;'''
                        "sub_date": str(item['sub_date']),
                        "label": "%s" % (item['title'])})
         ids[item['id']] = 1
-                       
-    
+
+
     # Second query
-    cur.execute(instant_query_two, [term, term, term])
+    try:
+        cur.execute(instant_query_two, [term, term, term, term])
+    except ProgrammingError:
+        return [{"label":"Instant search temporarily offline.", "value":"error",
+                 "link":"/software/query/"}]
+
     for item in cur.fetchall():
         if item['id'] not in ids:
             result.append({"citations": item['citations'],
@@ -747,7 +757,7 @@ ORDER BY sml DESC LIMIT 25;'''
                            "extra": {"term": item['term'],
                                      "termname": item['termname']},
                            "sml": "%s" % item['sml']})
-    
+
     return result
 
 def suggest_new_software_links(database="macromolecules"):
