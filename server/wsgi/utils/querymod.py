@@ -439,7 +439,8 @@ def get_status(**kwargs):
     # Add the available methods
     stats['rest_methods'] = ['list_entries', 'chemical_shifts', 'entry',
                              'saveframe', 'loop', 'tag', 'status',
-                             'select', 'software', 'validate', 'search']
+                             'select', 'software', 'validate', 'search',
+                             'get_id_from_search']
     stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
                                 "list_entries", "chemical_shifts", "select",
                                 "status"]
