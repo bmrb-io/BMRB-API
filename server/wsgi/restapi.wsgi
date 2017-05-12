@@ -73,7 +73,12 @@ def return_json(obj, encode=True, code=None):
 @application.route('/')
 def no_params():
     """ Return an error if they have not specified which method type to use."""
-    return "No method specified!"
+
+    result = ""
+    for method in querymod._METHODS:
+        result += '<a href="%s">%s</a><br>' % (method, method)
+
+    return result
 
 @application.route('/list_entries/')
 @application.route('/list_entries/<entry_type>')
@@ -138,7 +143,7 @@ def get_entry(entry_id=None, format_="json"):
                 return return_json({"error":"Cannot access this page through GET."})
             # They didn't specify an entry ID
             else:
-                return return_json({"error":"You must specify the entry number."})
+                return return_json({"error":"You must specify the entry ID."})
 
         # Get the entry
         entry = querymod.get_entries(ids=entry_id, format=format_)
@@ -165,31 +170,63 @@ def get_entry(entry_id=None, format_="json"):
         # Return the entry in any other format
         return return_json(entry)
 
+@application.route('/saveframe/')
+@application.route('/saveframe/<entry_id>/')
 @application.route('/saveframe/<entry_id>/<saveframe_category>')
 @application.route('/saveframe/<entry_id>/<saveframe_category>/<format_>/')
-def get_saveframe(entry_id, saveframe_category, format_="json"):
+def get_saveframe(entry_id=None, saveframe_category=None, format_="json"):
     """ Returns a saveframe in the specified format."""
+
+    if not entry_id:
+        return return_json({"error":"You must specify the entry ID."})
+    if not saveframe_category:
+        return return_json({"error":"You must specify the saveframe category."})
+
     result = querymod.get_saveframes(ids=entry_id, keys=saveframe_category,
                                      format=format_)
     return return_json(result)
 
+@application.route('/loop/')
+@application.route('/loop/<entry_id>/')
 @application.route('/loop/<entry_id>/<loop_category>')
 @application.route('/loop/<entry_id>/<loop_category>/<format_>/')
-def get_loop(entry_id, loop_category, format_="json"):
+def get_loop(entry_id=None, loop_category=None, format_="json"):
     """ Returns a loop in in the specified format."""
+
+    if not entry_id:
+        return return_json({"error":"You must specify the entry ID."})
+    if not loop_category:
+        return return_json({"error":"You must specify the loop category."})
+
     return return_json(querymod.get_loops(ids=entry_id, keys=loop_category,
                                           format=format_))
 
+@application.route('/tag/')
+@application.route('/tag/<entry_id>/')
 @application.route('/tag/<entry_id>/<tag_name>')
-def get_tag(entry_id, tag_name):
+def get_tag(entry_id=None, tag_name=None):
     """ Returns all values for the tag for the given entry."""
+
+    if not entry_id:
+        return return_json({"error":"You must specify the entry ID."})
+    if not tag_name:
+        return return_json({"error":"You must specify the tag name."})
+
     return return_json(querymod.get_tags(ids=entry_id, keys=tag_name))
 
+
+@application.route('/get_id_from_search/')
+@application.route('/get_id_from_search/<tag_name>/')
 @application.route('/get_id_from_search/<tag_name>/<tag_value>')
 @application.route('/get_id_from_search/<tag_name>/<tag_value>/<schema>')
-def get_id_from_search(tag_name, tag_value, schema="macromolecules"):
+def get_id_from_search(tag_name=None, tag_value=None, schema="macromolecules"):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
+
+    if not tag_name:
+        return return_json({"error":"You must specify the tag name."})
+    if not tag_value:
+        return return_json({"error":"You must specify the tag value."})
 
     sp = tag_name.split(".")
     if sp[0].startswith("_"):
@@ -210,15 +247,18 @@ def get_id_from_search(tag_name, tag_value, schema="macromolecules"):
 
     return return_json(result[result.keys()[0]])
 
+@application.route('/enumerations/')
 @application.route('/enumerations/<tag_name>')
-def get_enumerations(tag_name):
+def get_enumerations(tag_name=None):
     """ Returns all enumerations for a given tag."""
+
+    if not tag_name:
+        return return_json({"error":"You must specify the tag name."})
 
     return return_json(querymod.get_enumerations(tag=tag_name,
                                                  term=request.args.get('term')))
 
 @application.route('/select', methods=('GET', 'POST'))
-@application.route('/select')
 def select():
     """ Performs an advanced select query. """
 
@@ -230,18 +270,34 @@ def select():
 
     return return_json(querymod.process_select(**data))
 
+@application.route('/software/')
+def get_software_summary():
+    """ Returns a summary of all software used in all entries. """
+
+    return return_json(querymod.get_software_summary())
+
 # Software queries
+@application.route('/software/entry/')
 @application.route('/software/entry/<entry_id>/')
-def get_software_by_entry(entry_id):
+def get_software_by_entry(entry_id=None):
     """ Returns the software used on a per-entry basis. """
+
+    if not entry_id:
+        return return_json({"error":"You must specify the entry ID."})
+
     return return_json(querymod.get_entry_software(entry_id))
 
+@application.route('/software/package/')
 @application.route('/software/package/<package_name>')
 @application.route('/software/package/<package_name>/<database>')
-def get_software_by_package(package_name, database="macromolcules"):
+def get_software_by_package(package_name=None, database="macromolcules"):
     """ Returns the entries that used a particular software package. Search
     is done case-insensitive and is an x in y search rather than x == y
     search. """
+
+    if not package_name:
+        return return_json({"error":"You must specify the software package name."})
+
     return return_json(querymod.get_software_entries(package_name, database=database))
 
 @application.route('/software/name_suggestions')
@@ -251,27 +307,29 @@ def get_software_suggestions(database="macromolecules"):
 
     return Response(querymod.suggest_new_software_links(database=database), mimetype="text/csv")
 
+@application.route('/instant')
 @application.route('/instant/')
 def get_instant():
     """ Do the instant search. """
 
+    if not request.args.get('term', None):
+        return return_json({"error":"You must specify the search term using ?term=search_term"})
+
     return return_json(querymod.get_instant_search(term=request.args.get('term')))
-
-@application.route('/software/')
-def get_software_summary():
-    """ Returns a summary of all software used in all entries. """
-
-    return return_json(querymod.get_software_summary())
 
 @application.route('/status')
 def get_status():
     """ Returns the server status."""
+
     return return_json(querymod.get_status())
 
 # Queries that run commands
-
+@application.route('/validate/')
 @application.route('/validate/<entry_id>')
-def validate_entry(entry_id):
+def validate_entry(entry_id=None):
     """ Returns the validation report for the given entry. """
+
+    if not entry_id:
+        return return_json({"error":"You must specify the entry ID."})
 
     return return_json(querymod.get_chemical_shift_validation(ids=entry_id))

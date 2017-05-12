@@ -15,6 +15,10 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
+_METHODS = ['list_entries/', 'chemical_shifts/', 'entry/', 'saveframe/', 'loop/',
+            'tag/', 'status', 'select', 'software/', 'validate/', 'instant',
+            'enumerations', 'get_id_from_search/']
+
 import os
 import json
 import zlib
@@ -437,13 +441,7 @@ def get_status(**kwargs):
         stats[key]['num_chemical_shifts'] = pg.fetchone()[0]
 
     # Add the available methods
-    stats['rest_methods'] = ['list_entries', 'chemical_shifts', 'entry',
-                             'saveframe', 'loop', 'tag', 'status',
-                             'select', 'software', 'validate', 'search',
-                             'get_id_from_search']
-    stats['jsonrpc_methods'] = ["tag", "loop", "saveframe", "entry",
-                                "list_entries", "chemical_shifts", "select",
-                                "status"]
+    stats['methods'] = _METHODS
     stats['version'] = subprocess.check_output(["git",
                                                 "describe",
                                                 "--abbrev=0"]).strip()
