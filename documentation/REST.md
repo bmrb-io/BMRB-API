@@ -127,6 +127,62 @@ values for the tag.
 * `enumerations` - The tag values returned are the only legal values for the tag.
 * `null` - There are no saved enumerations for the tag.
 
+Example: [List of common NMR-STAR versions](http://webapi.bmrb.wisc.edu/v1/rest/enumerations/_Entry.NMR_STAR_version)
+
+You can narrow the results to those starting with the value you provide in the
+`term` parameter in the query string. This will return the results in a form
+that can be used by JQuery's auto-complete.
+
+Example: [List of common NMR-STAR versions starting with 2](http://webapi.bmrb.wisc.edu/v1/rest/enumerations/_Entry.NMR_STAR_version?term=2)
+
+#### /instant?term=$SEARCH_TERM
+
+This URL powers the BMRB instant search tool. It queries all macromolecule and
+metabolomics entries based on a variety of commonly searched fields. It does exact
+searches on certain fields and fuzzy-matches on others depending on what is most
+appropriate for the field (for example, database matches must be exact but InChI
+matches may be similar). It returns matches sorted by what results it thinks are
+the most relevant. It should always begin sending results within 1 second to allow
+you to use it in interactive applications. A non-exhaustive list of the search fields:
+
+* Title
+* Citation Title
+* Authors
+* Entry ID
+* Related Database Codes
+* Organism name (common and scientific)
+* InChI string and SMILES string (for metabolomics entries)
+* Formula (for metabolomics entries)
+* Sequence (for macromolecule entries)
+* Citation DOI
+* Additional data available (e.g. residual dipolar couplings)
+
+You can use this endpoint to do a "general search" against the entire BMBR
+archive. [Example link for "john markley mouse"](http://webapi.bmrb.wisc.edu/v1/rest/instant/?term=john%20markley%20mouse).
+It will return results that can be used by JQuery auto-complete with some additional fields provided. This means
+it returns a list of dictionaries, each of which corresponds to one matching entry.
+Entries are only listed once even if multiple fields matches. The entry
+dictionaries will always contain the following keys:
+
+* `sub_date` - The date of submission of the entry. YYY-MM-DD format.
+* `value` - The unique BMRB entry ID. Could be a macromolecule or metabolomics
+ID. (e.g. 15000 or bmse000001)
+* `label` - The title of the entry.
+* `citation` - A list of citation titles for the entry.
+* `link` - A relative link (relative to the BMRB home page) pointing to the URL
+this entry can be accessed at. Always use this value (appended to www.bmrb.wisc.edu)
+rather than constructing the URL yourself since some results returned link to non-entry
+summary pages. (For example, on-hold entries appear in the results if searched by ID.
+their link points to the "on hold entries" page at BMRB.)
+* `authors` - The list of authors for this entry.
+
+If the search matched one of the "additional" search fields (any field other than
+ID, Title, Author and Citation) the key `extra` will also exist and point to another
+dictionary. That dictionary contains the following two keys:
+
+* `termname` - The name of the field that the search matched. (e.g. organism scientific name)
+* `term` - The value of the matching field value from the BMRB entry.
+
 #### /get_id_from_search/$TAG_NAME/$TAG_VALUE[/$DATABASE]
 
 Returns a list of BMRB entry IDs which contain the specified $TAG_VALUE for the
