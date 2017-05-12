@@ -475,6 +475,9 @@ def get_enumerations(tag, term=None, cur=None):
     if cur is None:
         cur = get_postgres_connection()[1]
 
+    if not tag.startswith("_"):
+        tag = "_" + tag
+
     # Get the list of which tags should be used to order data
     cur.execute('''select itemenumclosedflg,enumeratedflg,dictionaryseq from dict.adit_item_tbl where originaltag=%s''', [tag])
     query_res = cur.fetchall()
