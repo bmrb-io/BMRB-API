@@ -129,7 +129,7 @@ LEFT JOIN macromolecules."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
--- Metabolomics
+-- Metabolomics bmse
 INSERT INTO web.instant_cache_tmp
 SELECT
  entry."ID",
@@ -147,6 +147,28 @@ LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
 LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
+WHERE entry."ID" like 'bmse%'
+GROUP BY entry."ID",entry."Title", entry."Submission_date";
+
+-- Metabolomics bmst
+INSERT INTO web.instant_cache_tmp
+SELECT
+ entry."ID",
+ web.clean_title(entry."Title"),
+ array_agg(DISTINCT web.clean_title(citation."Title")),
+ array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.',
+'') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.',
+''),'') || ' ' || Replace(citation_author."Family_name", '.', ''), '  ',
+' ')),
+ '/metabolomics/mol_summary/show_theory.php?id=' || entry."ID",
+ entry."Submission_date",
+ True
+FROM metabolomics."Entry" as entry
+LEFT JOIN metabolomics."Citation" AS citation
+  ON entry."ID"=citation."Entry_ID"
+LEFT JOIN metabolomics."Citation_author" AS citation_author
+  ON entry."ID"=citation_author."Entry_ID"
+WHERE entry."ID" like 'bmst%'
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
 -- Processing
