@@ -39,6 +39,15 @@ from redis.sentinel import Sentinel
 import bmrb
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONRPCException
 
+class ServerError(StandardError):
+    """ Something is wrong with the server. """
+    pass
+
+class RequestError(StandardError):
+    """ Something is wrong with the request. """
+    pass
+
+
 # Load the configuration file
 config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "..", "..", "..", "..", "api_config.json")
