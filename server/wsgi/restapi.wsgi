@@ -73,7 +73,7 @@ def debug():
     result['URL'] = request.url
     result['method'] = request.method
     result['remote_address'] = request.remote_addr
-    result['available'] = request
+    result['available'] = dir(request)
 
     red = querymod.get_redis_connection()
 
