@@ -3,6 +3,20 @@
 -- psql -d bmrbeverything -U postgres
 --   CREATE EXTENSION pg_trgm;
 
+
+
+
+-- Update metabolomics and macromolecule entry tables to have "Entry_ID"
+ALTER TABLE macromolecules."Entry" ADD COLUMN "Entry_ID" text;
+UPDATE macromolecules."Entry" Set "Entry_ID" = "ID";
+ALTER TABLE metabolomics."Entry" ADD COLUMN "Entry_ID" text;
+UPDATE metabolomics."Entry" Set "Entry_ID" = "ID";
+
+
+
+
+-- Now start with the instant search...
+
 -- Helper function. We will delete this later.
 CREATE OR REPLACE FUNCTION web.clean_title(varchar) RETURNS varchar AS
 $body$
