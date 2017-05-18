@@ -37,7 +37,6 @@ from redis.sentinel import Sentinel
 
 # Local imports
 import bmrb
-from jsonrpc.exceptions import JSONRPCDispatchException as JSONRPCException
 
 class ServerError(Exception):
     """ Something is wrong with the server. """
@@ -106,7 +105,7 @@ def insert_db(db, query):
     query. """
 
     if db not in ["metabolomics", "macromolecules", "combined"]:
-        raise JSONRPCException(-32702, "Invalid database: %s." % db)
+        raise RequestError("Invalid database: %s." % db)
 
     return query.replace("DB_SCHEMA_MAGIC_STRING", db)
 
@@ -179,7 +178,7 @@ def get_redis_connection(db=None):
     # Raise an exception if we cannot connect to the database server
     except (redis.exceptions.ConnectionError,
             redis.sentinel.MasterNotFoundError):
-        raise JSONRPCException(-32603, 'Could not connect to database server.')
+        raise ServerError('Could not connect to database server.')
 
     return r
 
@@ -215,9 +214,9 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
 
     # Make sure there are not too many entries
     if len(search_ids) > max_results:
-        raise JSONRPCException(-32602, 'Too many IDs queried. Please query %s '
-                               'or fewer entries at a time. You attempted to '
-                               'query %d IDs.' % (max_results, len(search_ids)))
+        raise RequestError('Too many IDs queried. Please query %s '
+                           'or fewer entries at a time. You attempted to '
+                           'query %d IDs.' % (max_results, len(search_ids)))
 
     # Get the connection to redis
     r = get_redis_connection()
@@ -255,8 +254,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
 
                             # Unknown format
                             else:
-                                raise JSONRPCException(-32702, "Invalid format:"
-                                                               " %s." % format_)
+                                raise RequestError("Invalid format: %s." % format_)
 
 def store_uploaded_entry(**kwargs):
     """ Store an uploaded NMR-STAR file in the database."""
@@ -264,14 +262,14 @@ def store_uploaded_entry(**kwargs):
     uploaded_data = kwargs.get("data", None)
 
     if not uploaded_data:
-        raise JSONRPCException(-32704, "No data uploaded. Please post the "
-                                       "NMR-STAR file as the request body.")
+        raise RequestError("No data uploaded. Please post the "
+                           "NMR-STAR file as the request body.")
 
     try:
         parsed_star = bmrb.Entry.from_string(uploaded_data)
     except ValueError as e:
-        raise JSONRPCException(-32703, "Invalid uploaded NMR-STAR file."
-                                       " Exception: %s" % str(e))
+        raise RequestError("Invalid uploaded NMR-STAR file."
+                           " Exception: %s" % str(e))
 
     key = md5(uploaded_data).digest().encode("hex")
 
@@ -301,8 +299,8 @@ def panav_parser(panav_text):
 
     # There is an error
     if len(lines) < 3:
-        raise JSONRPCException(-32705, "PANAV failed to produce expected output."
-                                   " Output: %s" % panav_text)
+        raise ServerError("PANAV failed to produce expected output."
+                          " Output: %s" % panav_text)
 
     # Check for unusual output
     if "No reference" in lines[0]:
@@ -515,7 +513,7 @@ def get_enumerations(tag, term=None, cur=None):
     cur.execute('''select itemenumclosedflg,enumeratedflg,dictionaryseq from dict.adit_item_tbl where originaltag=%s''', [tag])
     query_res = cur.fetchall()
     if len(query_res) == 0:
-        raise JSONRPCException(-32604, "Invalid tag specified.")
+        raise RequestError("Invalid tag specified.")
 
     cur.execute('''select val from dict.enumerations where seq=%s order by val''', [query_res[0][2]])
     values = cur.fetchall()
@@ -548,7 +546,7 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom
     try:
         threshold = float(threshold)
     except ValueError:
-        JSONRPCException(-32705, "Invalid threshold.")
+        raise RequestError("Invalid threshold.")
 
     sql = insert_db(database, '''
 SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
@@ -927,7 +925,7 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
     # Make sure they aren't tring to inject (paramterized queries are safe while
     # this is not, but there is no way to parameterize a table name...)
     if '"' in table:
-        raise JSONRPCException(-32701, "Invalid 'from' parameter.")
+        raise RequestError("Invalid 'from' parameter.")
 
     # Errors connecting will be handled upstream
     if cur is None:
@@ -979,7 +977,7 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
         cur.execute(query, parameters)
         rows = cur.fetchall()
     except psycopg2.ProgrammingError:
-        raise JSONRPCException(-32701, "Invalid 'from' parameter.")
+        raise RequestError("Invalid 'from' parameter.")
 
     # Get the column names from the DB
     colnames = [desc[0] for desc in cur.description]
@@ -1012,8 +1010,8 @@ def process_STAR_query(params):
 
     # Make sure they have IDS
     if "ids" not in params:
-        raise JSONRPCException(-32602, 'You must specify one or more entry IDs '
-                               'with the "ids" parameter.')
+        raise RequestError('You must specify one or more entry IDs '
+                           'with the "ids" parameter.')
 
     # Set the keys to the empty list if not specified
     if 'keys' not in params:
@@ -1033,9 +1031,9 @@ def process_select(**params):
     schema = params.get("database", "macromolecules")
 
     if schema == "combined":
-        raise JSONRPCException(-32602, 'Merged database not yet available.')
+        raise RequestError('Merged database not yet available.')
     if schema not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
-        raise JSONRPCException(-32602, "Invalid database specified.")
+        raise RequestError("Invalid database specified.")
 
     # Okay, now we need to go through each query and get the results
     if not isinstance(params['query'], list):
@@ -1059,8 +1057,8 @@ def process_select(**params):
         if len(params['query']) > 1:
             each_query['select'].append("Entry_ID")
         if "from" not in each_query:
-            raise JSONRPCException(-32602, 'You must specify which table to '
-                                           'query with the "from" parameter.')
+            raise RequestError('You must specify which table to '
+                               'query with the "from" parameter.')
         if "hash" not in each_query:
             each_query['hash'] = True
 
@@ -1240,7 +1238,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     # There is no matching saveframe found for their search term
     # and search field
     if cur.rowcount == 0:
-        raise JSONRPCException(-32600, "No matching saveframe found.")
+        raise RequestError("No matching saveframe found.")
     sf_id, sf_framecode = cur.fetchone()
 
     # Create the NMR-STAR saveframe
