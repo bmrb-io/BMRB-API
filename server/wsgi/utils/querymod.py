@@ -39,13 +39,37 @@ from redis.sentinel import Sentinel
 import bmrb
 from jsonrpc.exceptions import JSONRPCDispatchException as JSONRPCException
 
-class ServerError(StandardError):
+class ServerError(Exception):
     """ Something is wrong with the server. """
-    pass
+    status_code = 500
 
-class RequestError(StandardError):
+    def __init__(self, message, status_code=None, payload=None):
+        Exception.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['error'] = self.message
+        return rv
+
+class RequestError(Exception):
     """ Something is wrong with the request. """
-    pass
+    status_code = 400
+
+    def __init__(self, message, status_code=None, payload=None):
+        Exception.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+        self.payload = payload
+
+    def to_dict(self):
+        rv = dict(self.payload or ())
+        rv['error'] = self.message
+        return rv
 
 
 # Load the configuration file
@@ -955,7 +979,6 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
         cur.execute(query, parameters)
         rows = cur.fetchall()
     except psycopg2.ProgrammingError:
-        print(cur.query)
         raise JSONRPCException(-32701, "Invalid 'from' parameter.")
 
     # Get the column names from the DB
