@@ -57,22 +57,23 @@ def no_params():
 
     return result
 
-@application.route('/list_entries/')
-@application.route('/list_entries/<entry_type>')
-def list_entries(entry_type="combined"):
+@application.route('/list_entries')
+def list_entries():
     """ Return a list of all valid BMRB entries."""
 
-    entries = querymod.list_entries(database=entry_type)
+    entries = querymod.list_entries(database=request.args.get('database', "combined"))
     return jsonify(entries)
 
 @application.route('/debug', methods=('GET', 'POST'))
 def debug():
     """ This method prints some debugging information."""
-    debug_str = "Secure: " + str(request.is_secure)
-    debug_str += "<br>URL: " + str(request.url)
-    debug_str += "<br>Method: " + str(request.method)
-    debug_str += "<br>Viewing from: " + str(request.remote_addr)
-    debug_str += "<br>Avail: %s" % dir(request)
+
+    result = {}
+    result['secure'] = request.is_secure
+    result['URL'] = request.url
+    result['method'] = request.method
+    result['remote_address'] = request.remote_addr
+    result['available'] = request
 
     red = querymod.get_redis_connection()
 
@@ -81,26 +82,20 @@ def debug():
         if update_string:
             update_time = datetime.fromtimestamp(float(update_string))
             update_string = update_time.strftime('%Y-%m-%d %H:%M:%S')
-        debug_str += "<br>Last %s DB update: %s" % (key, update_string)
+        result[key] = {'update':update_string}
 
-    return debug_str
+    return jsonify(result)
 
-@application.route('/chemical_shifts/')
-@application.route('/chemical_shifts/<atom_id>')
-@application.route('/chemical_shifts/<atom_id>/<database>')
-def chemical_shifts(atom_id=None, database="macromolecules"):
+@application.route('/chemical_shifts')
+def chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
-
-    # To enable changing URL syntax in the future to remove /<atom_id>/
-    if request.args.get('atom_id', None):
-        atom_id = request.args.get('atom_id', None)
 
     return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.get('shift', None),
                                                      threshold=request.args.get('threshold', .03),
                                                      atom_type=request.args.get('atom_type', None),
-                                                     atom_id=atom_id,
+                                                     atom_id=request.args.get('atom_id', None),
                                                      comp_id=request.args.get('comp_id', None),
-                                                     database=database))
+                                                     database=request.args.get('database', None)))
 
 @application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>/')
@@ -278,7 +273,6 @@ def get_software_suggestions(database="macromolecules"):
     return Response(querymod.suggest_new_software_links(database=database), mimetype="text/csv")
 
 @application.route('/instant')
-@application.route('/instant/')
 def get_instant():
     """ Do the instant search. """
 

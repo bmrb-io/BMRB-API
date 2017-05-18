@@ -15,7 +15,7 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
-_METHODS = ['list_entries/', 'chemical_shifts/', 'entry/', 'saveframe/', 'loop/',
+_METHODS = ['list_entries', 'chemical_shifts', 'entry/', 'saveframe/', 'loop/',
             'tag/', 'status', 'select', 'software/', 'validate/', 'instant',
             'enumerations', 'get_id_from_search/']
 
