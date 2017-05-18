@@ -1,6 +1,3 @@
 [submodule "server/PyNMRSTAR"]
 	path = server/wsgi/submodules/PyNMRSTAR
 	url = https://github.com/uwbmrb/PyNMRSTAR.git
-[submodule "server/wsgi/json-rpc"]
-	path = server/wsgi/submodules/json-rpc
-	url = https://github.com/pavlov99/json-rpc.git
