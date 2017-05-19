@@ -130,6 +130,15 @@ def locate_entry(entry_id, r_conn=None):
     else:
         return "macromolecules:entry:%s" % entry_id
 
+def check_valid(entry_id, r_conn=None):
+    """ Returns whether an entry_is is valid. """
+
+    # Update the expiration time if the entry is used
+    if r_conn is None:
+        r_conn = get_redis_connection()
+
+    return r_conn.exists(locate_entry(entry_id, r_conn=r_conn))
+
 def get_database_from_entry_id(entry_id):
     """ Returns the appropriate database to inspect based on ID."""
 

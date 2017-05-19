@@ -97,11 +97,14 @@ def chemical_shifts():
                                                      comp_id=request.args.get('comp_id', None),
                                                      database=request.args.get('database', None)))
 
-@application.route('/entry/', methods=('POST', 'GET'))
-@application.route('/entry/<entry_id>/')
-@application.route('/entry/<entry_id>/<format_>/')
-def get_entry(entry_id=None, format_="json"):
+
+@application.route('/entry', methods=('POST', 'GET'))
+@application.route('/entry/<entry_id>')
+def get_entry(entry_id=None):
     """ Returns an entry in the specified format."""
+
+    # Get the format they want the results in
+    format_ = request.args.get('format', "json")
 
     # If they are storing
     if request.method == "POST":
@@ -117,74 +120,59 @@ def get_entry(entry_id=None, format_="json"):
             else:
                 raise querymod.RequestError("You must specify the entry ID.")
 
-        # Get the entry
-        entry = querymod.get_entries(ids=entry_id, format=format_)
-
         # Make sure it is a valid entry
-        if not entry_id in entry:
+        if not querymod.check_valid(entry_id):
             raise querymod.RequestError("Entry '%s' does not exist in the "
                                         "public database." % entry_id,
                                         status_code=404)
 
-        # Bypass JSON encode/decode cycle
-        if format_ == "json":
-            return Response("""{"%s": %s}""" % (entry_id, entry[entry_id]),
-                            mimetype="application/json")
+        # See if they specified a saveframe and a loop
+        args = sum([1 if request.args.get('saveframe', None) else 0,
+                    1 if request.args.get('loop', None) else 0,
+                    1 if request.args.get('tag', None) else 0])
+        if args > 1:
+            raise querymod.RequestError("Request either loop(s), saveframe(s), "
+                                        "or tag(s) but not more than one "
+                                        "simultaneously.")
 
-        # Special case to return raw nmrstar
-        elif format_ == "rawnmrstar":
-            return Response(entry[entry_id], mimetype="text/nmrstar")
+        # See if they are requesting one or more saveframe
+        elif request.args.get('saveframe', None):
+            result = querymod.get_saveframes(ids=entry_id,
+                                             keys=request.args.getlist('saveframe'),
+                                             format=format_)
+            return jsonify(result)
 
-        # Special case for raw zlib
-        elif format_ == "zlib":
-            return Response(entry[entry_id], mimetype="application/zlib")
+        # See if they are requesting one or more loop
+        elif request.args.get('loop', None):
+            return jsonify(querymod.get_loops(ids=entry_id,
+                                              keys=request.args.getlist('loop'),
+                                              format=format_))
 
-        # Return the entry in any other format
-        return jsonify(entry)
+        # See if they want a tag
+        elif request.args.get('tag', None):
+            return jsonify(querymod.get_tags(ids=entry_id,
+                                             keys=request.args.getlist('tag')))
 
-@application.route('/saveframe/')
-@application.route('/saveframe/<entry_id>/')
-@application.route('/saveframe/<entry_id>/<saveframe_category>')
-@application.route('/saveframe/<entry_id>/<saveframe_category>/<format_>/')
-def get_saveframe(entry_id=None, saveframe_category=None, format_="json"):
-    """ Returns a saveframe in the specified format."""
+        # They want an entry
+        else:
+            # Get the entry
+            entry = querymod.get_entries(ids=entry_id, format=format_)
 
-    if not entry_id:
-        raise querymod.RequestError("You must specify the entry ID.")
-    if not saveframe_category:
-        raise querymod.RequestError("You must specify the saveframe category.")
+            # Bypass JSON encode/decode cycle
+            if format_ == "json":
+                return Response("""{"%s": %s}""" % (entry_id, entry[entry_id]),
+                                mimetype="application/json")
 
-    result = querymod.get_saveframes(ids=entry_id, keys=saveframe_category,
-                                     format=format_)
-    return jsonify(result)
+            # Special case to return raw nmrstar
+            elif format_ == "rawnmrstar":
+                return Response(entry[entry_id], mimetype="text/nmrstar")
 
-@application.route('/loop/')
-@application.route('/loop/<entry_id>/')
-@application.route('/loop/<entry_id>/<loop_category>')
-@application.route('/loop/<entry_id>/<loop_category>/<format_>/')
-def get_loop(entry_id=None, loop_category=None, format_="json"):
-    """ Returns a loop in in the specified format."""
+            # Special case for raw zlib
+            elif format_ == "zlib":
+                return Response(entry[entry_id], mimetype="application/zlib")
 
-    if not entry_id:
-        raise querymod.RequestError("You must specify the entry ID.")
-    if not loop_category:
-        raise querymod.RequestError("You must specify the loop category.")
-
-    return jsonify(querymod.get_loops(ids=entry_id, keys=loop_category,
-                                      format=format_))
-
-@application.route('/tag/')
-@application.route('/tag/<entry_id>/')
-@application.route('/tag/<entry_id>/<tag_name>')
-def get_tag(entry_id=None, tag_name=None):
-    """ Returns all values for the tag for the given entry."""
-
-    if not entry_id:
-        raise querymod.RequestError("You must specify the entry ID.")
-    if not tag_name:
-        raise querymod.RequestError("You must specify the tag name.")
-
-    return jsonify(querymod.get_tags(ids=entry_id, keys=tag_name))
+            # Return the entry in any other format
+            return jsonify(entry)
 
 
 @application.route('/get_id_from_search/')
