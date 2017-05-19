@@ -6,7 +6,6 @@ to the correct location and passes the results back."""
 
 import os
 import sys
-import logging
 import traceback
 from datetime import datetime
 logging.basicConfig()
@@ -41,7 +40,9 @@ def handle_other_errors(error):
     issues that could be security vulnerabilities)."""
 
     if querymod.check_local_ip(request.remote_addr):
-        return Response(traceback.format_exc(), mimetype="text/plain")
+        return Response("NOTE: You are seeing this error because your IP was "
+                        "recognized as a local IP:\n%s" %
+                        traceback.format_exc(), mimetype="text/plain")
     else:
         response = jsonify({"error": "Server error. Contact webmaster@bmrb.wisc.edu."})
         response.status_code = 500
@@ -73,7 +74,6 @@ def debug():
     result['URL'] = request.url
     result['method'] = request.method
     result['remote_address'] = request.remote_addr
-    result['available'] = dir(request)
 
     red = querymod.get_redis_connection()
 
