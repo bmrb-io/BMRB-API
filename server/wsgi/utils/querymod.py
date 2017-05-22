@@ -17,7 +17,7 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
 
 _METHODS = ['list_entries', 'chemical_shifts', 'entry',
             'status', 'select', 'software/', 'validate/', 'instant',
-            'enumerations', 'get_id_from_search/']
+            'enumerations', 'search/get_id_by_tag_value/']
 
 import os
 import json
@@ -191,13 +191,13 @@ def get_redis_connection(db=None):
 
     return r
 
-def get_all_entries_from_redis(format_="object", schema="macromolecules"):
+def get_all_entries_from_redis(format_="object", database="macromolecules"):
     """ Returns a generator that returns all the entries from a given
-    schema from Redis."""
+    database from Redis."""
 
     # Get the connection to redis
     r = get_redis_connection()
-    all_ids = list(r.lrange("%s:entry_list" % schema, 0, -1))
+    all_ids = list(r.lrange("%s:entry_list" % database, 0, -1))
 
     return get_valid_entries_from_redis(all_ids, format_=format_,
                                         max_results=float("Inf"))
@@ -423,15 +423,15 @@ def get_chemical_shifts(**kwargs):
 
     # Create the search dicationary
     wd = {}
-    schema = "macromolecules"
+    database = "macromolecules"
 
     # See if they specified a specific atom type
     if kwargs.get('atom_type', None):
         wd['Atom_ID'] = kwargs['atom_type'].replace("*", "%").upper()
 
-    # See if they specified a database (a schema)
+    # See if they specified a database
     if kwargs.get('database', None):
-        schema = kwargs['database']
+        database = kwargs['database']
 
     chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID",
                          "Atom_ID", "Atom_type", "Val", "Val_err",
@@ -439,13 +439,13 @@ def get_chemical_shifts(**kwargs):
 
     # See if the result is already in Redis
     r = get_redis_connection()
-    redis_cache_name = "cache:%s:assigned_chemical_shifts:%s" % (schema, wd.get('Atom_ID', 'all'))
+    redis_cache_name = "cache:%s:assigned_chemical_shifts:%s" % (database, wd.get('Atom_ID', 'all'))
     if r.exists(redis_cache_name):
         return json.loads(zlib.decompress(r.get(redis_cache_name)))
 
     # Perform the query
     query_result = select(chem_shift_fields, "Atom_chem_shift",
-                          as_hash=False, where_dict=wd, schema=schema)
+                          as_hash=False, where_dict=wd, database=database)
     r.set(redis_cache_name, zlib.compress(json.dumps(query_result)))
 
     return query_result
@@ -697,7 +697,7 @@ def build_fulltext_search():
     conn, cur = get_postgres_connection()
 
     # Metabolomics
-    for entry in get_all_entries_from_redis(schema="metabolomics"):
+    for entry in get_all_entries_from_redis(database="metabolomics"):
         print("Inserting %s" % entry[0]);
         ent_text = get_bmrb_as_text(entry[1])
         cur.execute('''
@@ -710,7 +710,7 @@ WHERE id=%s;''',
     conn.commit()
 
     # Macromolecules
-    for entry in get_all_entries_from_redis(schema="macromolecules"):
+    for entry in get_all_entries_from_redis(database="macromolecules"):
         print("Inserting %s" % entry[0]);
         ent_text = get_bmrb_as_text(entry[1])
         cur.execute('''
@@ -858,7 +858,7 @@ def wrap_it_up(item):
     SQL injection."""
     return AsIs('"' + item + '"')
 
-def select(fetch_list, table, where_dict=None, schema="macromolecules",
+def select(fetch_list, table, where_dict=None, database="macromolecules",
            modifiers=None, as_hash=True, cur=None):
     """ Performs a SELECT query constructed from the supplied arguments."""
 
@@ -886,14 +886,14 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
     if "count" in modifiers:
         # Build the 'select * from *' part of the query
         query += "count(" + "),count(".join(["%s"]*len(fetch_list))
-        query += ') from %s."%s"' % (schema, table)
+        query += ') from %s."%s"' % (database, table)
     else:
         if len(fetch_list) == 1 and fetch_list[0] == "*":
-            query += '* from %s."%s"' % (schema, table)
+            query += '* from %s."%s"' % (database, table)
         else:
             # Build the 'select * from *' part of the query
             query += ",".join(["%s"]*len(fetch_list))
-            query += ' from %s."%s"' % (schema, table)
+            query += ' from %s."%s"' % (database, table)
 
     if len(where_dict) > 0:
         query += " WHERE"
@@ -913,7 +913,7 @@ def select(fetch_list, table, where_dict=None, schema="macromolecules",
 #    if "count" not in modifiers:
 #        query += ' ORDER BY "Entry_ID"'
 #        # Order the parameters as ints if they are normal BMRB IDS
-#        if schema == "macromolecules":
+#        if database == "macromolecules":
 #            query += "::int "
 
     query += ';'
@@ -974,11 +974,11 @@ def process_select(**params):
     method with them."""
 
     # Get the database name
-    schema = params.get("database", "macromolecules")
+    database = params.get("database", "macromolecules")
 
-    if schema == "combined":
+    if database == "combined":
         raise RequestError('Merged database not yet available.')
-    if schema not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
+    if database not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
         raise RequestError("Invalid database specified.")
 
     # Okay, now we need to go through each query and get the results
@@ -1013,13 +1013,13 @@ def process_select(**params):
         if len(params['query']) > 1:
             # If there are multiple queries then add their results to the list
             cur_res = select(each_query['select'], each_query['from'],
-                             where_dict=each_query['where'], schema=schema,
+                             where_dict=each_query['where'], database=database,
                              modifiers=each_query['modifiers'], as_hash=False)
             result_list.append(cur_res)
         else:
             # If there is only one query just return it
             return select(each_query['select'], each_query['from'],
-                          where_dict=each_query['where'], schema=schema,
+                          where_dict=each_query['where'], database=database,
                           modifiers=each_query['modifiers'],
                           as_hash=each_query['hash'])
 
@@ -1114,9 +1114,9 @@ def get_printable_tags(category, cur=None):
 
     return tags_to_use, pointer_tags
 
-def create_saveframe_from_db(schema, category, entry_id, id_search_field,
+def create_saveframe_from_db(database, category, entry_id, id_search_field,
                              cur=None):
-    """ Builds a saveframe from the database. You specify the schema:
+    """ Builds a saveframe from the database. You specify the database:
     (metabolomics, macromolecules, chemcomps, combined), the category of the
     saveframe, the identifier of the saveframe, and the name of the column that
     we should search for the identifier (within the saveframe's table).
@@ -1142,7 +1142,7 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     tag_order = {x[0]:x[1] for x in cur.fetchall()}
 
     # Set the search path
-    cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':schema})
+    cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':database})
 
     # Check if we are allowed to print it
     cur.execute('''SELECT internalflag,printflag FROM dict.cat_grp
@@ -1153,12 +1153,12 @@ def create_saveframe_from_db(schema, category, entry_id, id_search_field,
     # Sorry, we won't print internal saveframes
     if internalflag == "Y":
         logging.warning("Something tried to format an internal saveframe: "
-                        "%s.%s", schema, category)
+                        "%s.%s", database, category)
         return None
     # Nor frames that don't get printed
     if printflag == "N":
         logging.warning("Something tried to format an no-print saveframe: "
-                        "%s.%s", schema, category)
+                        "%s.%s", database, category)
         return None
 
     # Get table name from category name

@@ -67,7 +67,7 @@ def no_params():
 def list_entries():
     """ Return a list of all valid BMRB entries."""
 
-    entries = querymod.list_entries(database=request.args.get('database', "combined"))
+    entries = querymod.list_entries(database=get_db("combined"))
     return jsonify(entries)
 
 @application.route('/debug', methods=('GET', 'POST'))
@@ -100,7 +100,7 @@ def chemical_shifts():
                                                      atom_type=request.args.get('atom_type', None),
                                                      atom_id=request.args.get('atom_id', None),
                                                      comp_id=request.args.get('comp_id', None),
-                                                     database=request.args.get('database', None)))
+                                                     database=get_db(None)))
 
 
 @application.route('/entry', methods=('POST', 'GET'))
@@ -180,14 +180,36 @@ def get_entry(entry_id=None):
             return jsonify(entry)
 
 
-@application.route('/search/tag_value')
-@application.route('/search/tag_value/<tag_name>/')
-@application.route('/search/tag_value/<tag_name>/<tag_value>')
+@application.route('/search/get_all_values_for_tag')
+@application.route('/search/get_all_values_for_tag/<tag_name>')
+def get_all_values_for_tag(tag_name=None):
+    """ Returns all entry numbers and corresponding tag values."""
+
+    database = get_db'macromolecules')
+
+    if not tag_name:
+        raise querymod.RequestError("You must specify the tag name.")
+
+    sp = tag_name.split(".")
+    if sp[0].startswith("_"):
+        sp[0] = sp[0][1:]
+    if len(sp) < 2:
+        raise querymod.RequestError("You must provide a full tag name with "
+                                    "saveframe included. For example: "
+                                    "Entry.Experimental_method_subtype")
+
+    result = querymod.select(['Entry_ID', sp[1]], sp[0], where_dict={sp[1]:"%"},
+                             database=database, as_hash=False)
+    return jsonify(dict(result['data']))
+
+@application.route('/search/get_id_by_tag_value')
+@application.route('/search/get_id_by_tag_value/<tag_name>/')
+@application.route('/search/get_id_by_tag_value/<tag_name>/<tag_value>')
 def get_id_from_search(tag_name=None, tag_value=None):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
 
-    schema = request.args.get('database', 'macromolecules')
+    database = get_db('macromolecules')
 
     if not tag_name:
         raise querymod.RequestError("You must specify the tag name.")
@@ -203,7 +225,7 @@ def get_id_from_search(tag_name=None, tag_value=None):
                                     "Entry.Experimental_method_subtype")
 
     result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
-                             modifiers=['lower'], schema=schema)
+                             modifiers=['lower'], database=database)
 
     return jsonify(result[result.keys()[0]])
 
@@ -258,7 +280,7 @@ def get_software_by_package(package_name=None):
         raise querymod.RequestError("You must specify the software package name.")
 
     return jsonify(querymod.get_software_entries(package_name,
-                                                 database=request.args.get('database', 'macromolecules')))
+                                                 database=get_db('macromolecules')))
 
 
 @application.route('/instant')
@@ -269,7 +291,7 @@ def get_instant():
         raise querymod.RequestError("You must specify the search term using ?term=search_term")
 
     return jsonify(querymod.get_instant_search(term=request.args.get('term'),
-                                               database=request.args.get('database', 'combined')))
+                                               database=get_db('combined')))
 
 @application.route('/status')
 def get_status():
@@ -287,3 +309,15 @@ def validate_entry(entry_id=None):
         raise querymod.RequestError("You must specify the entry ID.")
 
     return jsonify(querymod.get_chemical_shift_validation(ids=entry_id))
+
+
+# Helper methods
+def get_db(default="macromolecules"):
+    """ Make sure the DB specified is valid. """
+
+    database = request.args.get('database', default)
+
+    if db not in ["metabolomics", "macromolecules", "combined"]:
+        raise querymod.RequestError("Invalid database: %s." % db)
+
+    return database
