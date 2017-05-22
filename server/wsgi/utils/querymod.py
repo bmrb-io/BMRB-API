@@ -15,8 +15,8 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
-_METHODS = ['list_entries', 'chemical_shifts', 'entry/', 'saveframe/', 'loop/',
-            'tag/', 'status', 'select', 'software/', 'validate/', 'instant',
+_METHODS = ['list_entries', 'chemical_shifts', 'entry',
+            'status', 'select', 'software/', 'validate/', 'instant',
             'enumerations', 'get_id_from_search/']
 
 import os
@@ -1049,11 +1049,6 @@ def process_select(**params):
         params['query'] = [params['query']]
 
     result_list = []
-
-    select_example = """select distinct cast(T0."ID" as integer) as "Entry.ID"
-    from "Entry" T0 join "Citation" T1 on T0."ID"=T1."Entry_ID" join "Chem_comp"
-    T2 on T0."ID"=T2."Entry_ID" where T0."ID" ~* '1' and T1."Title" ~* 'T'
-    and T2."Entry_ID" ~* '1' order by cast(T0."ID" as integer)"""
 
     # Build the amalgamation of queries
     for each_query in params['query']:

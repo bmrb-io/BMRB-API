@@ -6,6 +6,7 @@ to the correct location and passes the results back."""
 
 import os
 import sys
+import logging
 import traceback
 from datetime import datetime
 logging.basicConfig()
@@ -22,6 +23,10 @@ from utils import querymod
 
 # Set up the flask application
 application = Flask(__name__)
+
+# Don't pretty-print JSON unless in debug mode
+if not querymod.configuration['debug']:
+    application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 # Set up error handling
 @application.errorhandler(querymod.ServerError)
@@ -126,7 +131,7 @@ def get_entry(entry_id=None):
                                         "public database." % entry_id,
                                         status_code=404)
 
-        # See if they specified a saveframe and a loop
+        # See if they specified more than one of [saveframe, loop, tag]
         args = sum([1 if request.args.get('saveframe', None) else 0,
                     1 if request.args.get('loop', None) else 0,
                     1 if request.args.get('tag', None) else 0])
@@ -242,8 +247,7 @@ def get_software_by_entry(entry_id=None):
 
 @application.route('/software/package/')
 @application.route('/software/package/<package_name>')
-@application.route('/software/package/<package_name>/<database>')
-def get_software_by_package(package_name=None, database="macromolcules"):
+def get_software_by_package(package_name=None):
     """ Returns the entries that used a particular software package. Search
     is done case-insensitive and is an x in y search rather than x == y
     search. """
@@ -251,7 +255,8 @@ def get_software_by_package(package_name=None, database="macromolcules"):
     if not package_name:
         raise querymod.RequestError("You must specify the software package name.")
 
-    return jsonify(querymod.get_software_entries(package_name, database=database))
+    return jsonify(querymod.get_software_entries(package_name,
+                                                 database=request.args.get('database', 'macromolecules')))
 
 @application.route('/software/name_suggestions')
 @application.route('/software/name_suggestions/<database>')
