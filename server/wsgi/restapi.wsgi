@@ -179,13 +179,13 @@ def get_entry(entry_id=None):
             # Return the entry in any other format
             return jsonify(entry)
 
-
+# TODO: Just custom SQL this
 @application.route('/search/get_all_values_for_tag')
 @application.route('/search/get_all_values_for_tag/<tag_name>')
 def get_all_values_for_tag(tag_name=None):
     """ Returns all entry numbers and corresponding tag values."""
 
-    database = get_db'macromolecules')
+    database = get_db('macromolecules')
 
     if not tag_name:
         raise querymod.RequestError("You must specify the tag name.")
@@ -317,7 +317,7 @@ def get_db(default="macromolecules"):
 
     database = request.args.get('database', default)
 
-    if db not in ["metabolomics", "macromolecules", "combined"]:
-        raise querymod.RequestError("Invalid database: %s." % db)
+    if database not in ["metabolomics", "macromolecules", "combined"]:
+        raise querymod.RequestError("Invalid database: %s." % database)
 
     return database
