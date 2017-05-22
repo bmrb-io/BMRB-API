@@ -180,13 +180,14 @@ def get_entry(entry_id=None):
             return jsonify(entry)
 
 
-@application.route('/get_id_from_search/')
-@application.route('/get_id_from_search/<tag_name>/')
-@application.route('/get_id_from_search/<tag_name>/<tag_value>')
-@application.route('/get_id_from_search/<tag_name>/<tag_value>/<schema>')
-def get_id_from_search(tag_name=None, tag_value=None, schema="macromolecules"):
+@application.route('/search/tag_value')
+@application.route('/search/tag_value/<tag_name>/')
+@application.route('/search/tag_value/<tag_name>/<tag_value>')
+def get_id_from_search(tag_name=None, tag_value=None):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
+
+    schema = request.args.get('database', 'macromolecules')
 
     if not tag_name:
         raise querymod.RequestError("You must specify the tag name.")
@@ -197,9 +198,10 @@ def get_id_from_search(tag_name=None, tag_value=None, schema="macromolecules"):
     if sp[0].startswith("_"):
         sp[0] = sp[0][1:]
     if len(sp) < 2:
-        raise querymod.RequestError("You must provide a full tag name with saveframe included. For example: Entry.Experimental_method_subtype")
+        raise querymod.RequestError("You must provide a full tag name with "
+                                    "saveframe included. For example: "
+                                    "Entry.Experimental_method_subtype")
 
-    # We don't know if this is an "ID" or "Entry_ID" saveframe...
     result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
                              modifiers=['lower'], schema=schema)
 
@@ -266,7 +268,8 @@ def get_instant():
     if not request.args.get('term', None):
         raise querymod.RequestError("You must specify the search term using ?term=search_term")
 
-    return jsonify(querymod.get_instant_search(term=request.args.get('term')))
+    return jsonify(querymod.get_instant_search(term=request.args.get('term'),
+                                               database=request.args.get('database', 'combined')))
 
 @application.route('/status')
 def get_status():
