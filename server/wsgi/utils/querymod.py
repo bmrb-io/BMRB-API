@@ -736,7 +736,7 @@ def get_bmrb_as_text(entry):
 
     return " ".join(res_strings)
 
-def get_instant_search(term):
+def get_instant_search(term, database):
     """ Does an instant search and returns results. """
 
     cur = get_postgres_connection(dictionary_cursor=True)[1]
@@ -746,20 +746,38 @@ SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
+    if database == "metabolomics":
+        instant_query_one = '''
+SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
+WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True'
+ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+    if database == "macromolecules":
+        instant_query_one = '''
+SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
+WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'False'
+ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+
     instant_query_two = '''
 SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.term %% %s AND tt.identical_term IS NULL
-    ORDER BY id, similarity(tt.term, %s) DESC) as y
-ORDER BY sml DESC LIMIT 75;'''
+    ORDER BY id, similarity(tt.term, %s) DESC) as y'''
+
+    if database == "metabolomics":
+        instant_query_two += " WHERE is_metab = 'True'"
+    if database == "macromolecules":
+        instant_query_two += " WHERE is_metab = 'False'"
+
+    instant_query_two += \
+''' ORDER BY sml DESC LIMIT 75;'''
 
     try:
         cur.execute(instant_query_one, [term, term, term])
