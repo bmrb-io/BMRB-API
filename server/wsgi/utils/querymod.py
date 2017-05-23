@@ -605,7 +605,7 @@ SET search_path=%s; SELECT "Software"."Name", "Software"."Version", task."Task" 
 FROM "Software"
    LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
    LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE "Software"."Entry_ID"=%s;'''), [database, entry_id])
+WHERE "Software"."Entry_ID"=%s;''', [database, entry_id])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
