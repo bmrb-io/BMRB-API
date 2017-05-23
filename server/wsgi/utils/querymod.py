@@ -100,15 +100,6 @@ def check_local_ip(ip):
 
     return False
 
-def insert_db(db, query):
-    """ Make sure they specified a valid DB and then insert it into the
-    query. """
-
-    if db not in ["metabolomics", "macromolecules", "combined"]:
-        raise RequestError("Invalid database: %s." % db)
-
-    return query.replace("DB_SCHEMA_MAGIC_STRING", db)
-
 def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
@@ -557,11 +548,11 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom
     except ValueError:
         raise RequestError("Invalid threshold.")
 
-    sql = insert_db(database, '''
-SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
-FROM DB_SCHEMA_MAGIC_STRING."Atom_chem_shift"
-WHERE ''')
-    args = []
+    sql = '''
+SET search_path=%s; SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
+FROM "Atom_chem_shift"
+WHERE '''
+    args = [database]
 
     # See if a specific atom type is needed
     if atom_type:
@@ -609,12 +600,12 @@ def get_entry_software(entry_id):
 
     cur = get_postgres_connection()[1]
 
-    cur.execute(insert_db(database, '''
-SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
-FROM DB_SCHEMA_MAGIC_STRING."Software"
-   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE "Software"."Entry_ID"=%s;'''), [entry_id])
+    cur.execute('''
+SET search_path=%s; SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+FROM "Software"
+   LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+WHERE "Software"."Entry_ID"=%s;'''), [database, entry_id])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
@@ -625,12 +616,12 @@ def get_software_entries(software_name, database="macromolecules"):
     cur = get_postgres_connection()[1]
 
     # Get the list of which tags should be used to order data
-    cur.execute(insert_db(database, '''
-SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version", vendor."Name" as "Vendor Name", vendor."Electronic_address" as "e-mail", task."Task" as "Task"
+    cur.execute('''
+SET search_path=%s; SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version", vendor."Name" as "Vendor Name", vendor."Electronic_address" as "e-mail", task."Task" as "Task"
 FROM DB_SCHEMA_MAGIC_STRING."Software"
    LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
    LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE lower("Software"."Name") like lower(%s);'''), ["%" + software_name + "%"])
+WHERE lower("Software"."Name") like lower(%s);''', [database, "%" + software_name + "%"])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
@@ -641,11 +632,11 @@ def get_software_summary(database="macromolecules"):
     cur = get_postgres_connection()[1]
 
     # Get the list of which tags should be used to order data
-    cur.execute(insert_db(database, '''
-SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+    cur.execute('''
+SET search_path=%s; SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
 FROM DB_SCHEMA_MAGIC_STRING."Software"
    LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";'''))
+   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''', [database])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
