@@ -179,8 +179,18 @@ def get_entry(entry_id=None):
             # Return the entry in any other format
             return jsonify(entry)
 
-# TODO: Just custom SQL this
-@application.route('/search/get_all_values_for_tag')
+@application.route('/search')
+@application.route('/search/')
+def print_search_options():
+    """ Returns a list of the search methods."""
+
+    result = ""
+    for method in ["get_all_values_for_tag", "get_id_by_tag_value"]:
+        result += '<a href="%s">%s</a><br>' % (method, method)
+
+    return result
+
+@application.route('/search/get_all_values_for_tag/')
 @application.route('/search/get_all_values_for_tag/<tag_name>')
 def get_all_values_for_tag(tag_name=None):
     """ Returns all entry numbers and corresponding tag values."""
@@ -188,7 +198,7 @@ def get_all_values_for_tag(tag_name=None):
     result = querymod.get_all_values_for_tag(tag_name, get_db('macromolecules'))
     return jsonify(result)
 
-@application.route('/search/get_id_by_tag_value')
+@application.route('/search/get_id_by_tag_value/')
 @application.route('/search/get_id_by_tag_value/<tag_name>/')
 @application.route('/search/get_id_by_tag_value/<tag_name>/<tag_value>')
 def get_id_from_search(tag_name=None, tag_value=None):
@@ -303,7 +313,10 @@ def get_db(default="macromolecules"):
 
     database = request.args.get('database', default)
 
-    if database not in ["metabolomics", "macromolecules", "combined"]:
+    if database == "combined":
+        raise queymod.RequestError("Combined database not implemented yet.")
+
+    if database not in ["metabolomics", "macromolecules"]:
         raise querymod.RequestError("Invalid database: %s." % database)
 
     return database

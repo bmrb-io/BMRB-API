@@ -15,9 +15,10 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
-_METHODS = ['list_entries', 'chemical_shifts', 'entry',
-            'status', 'select', 'software/', 'validate/', 'instant',
-            'enumerations', 'search/get_id_by_tag_value/']
+_METHODS = ['list_entries', 'chemical_shifts', 'entry/', 'status', 'select',
+            'software/', 'software/entry/', 'software/package/', 'validate/',
+            'instant', 'enumerations/', 'search/get_id_by_tag_value/',
+            'search/get_all_values_for_tag/']
 
 import os
 import json
@@ -152,6 +153,17 @@ def get_postgres_connection(user=configuration['postgres']['user'],
     cur = conn.cursor()
 
     return conn, cur
+
+def set_database(cursor, database):
+    """ Sets the search path to the database the query is for."""
+
+    if database == "combined":
+        raise RequestError("Combined database not implemented yet.")
+
+    if database not in ["metabolomics", "macromolecules"]:
+        raise RequestError("Invalid database: %s." % database)
+
+    cursor.execute('SET search_path=%s;', [database])
 
 def get_redis_connection(db=None):
     """ Figures out where the master redis instance is (and other paramaters
@@ -542,6 +554,7 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom
     """ Searches for a given chemical shift. """
 
     cur = get_postgres_connection()[1]
+    set_database(cur, database)
 
     try:
         threshold = float(threshold)
@@ -549,10 +562,10 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom
         raise RequestError("Invalid threshold.")
 
     sql = '''
-SET search_path=%s; SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
+SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
 FROM "Atom_chem_shift"
 WHERE '''
-    args = [database]
+    args = []
 
     # See if a specific atom type is needed
     if atom_type:
@@ -599,13 +612,14 @@ def get_entry_software(entry_id):
     database = get_database_from_entry_id(entry_id)
 
     cur = get_postgres_connection()[1]
+    set_database(cur, database)
 
     cur.execute('''
-SET search_path=%s; SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
 FROM "Software"
    LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
    LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE "Software"."Entry_ID"=%s;''', [database, entry_id])
+WHERE "Software"."Entry_ID"=%s;''', [entry_id])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
@@ -614,14 +628,15 @@ def get_software_entries(software_name, database="macromolecules"):
     """ Returns the entries assosciated with a given piece of software. """
 
     cur = get_postgres_connection()[1]
+    set_database(cur, database)
 
     # Get the list of which tags should be used to order data
     cur.execute('''
-SET search_path=%s; SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version", vendor."Name" as "Vendor Name", vendor."Electronic_address" as "e-mail", task."Task" as "Task"
-FROM DB_SCHEMA_MAGIC_STRING."Software"
-   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE lower("Software"."Name") like lower(%s);''', [database, "%" + software_name + "%"])
+SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version", vendor."Name" as "Vendor Name", vendor."Electronic_address" as "e-mail", task."Task" as "Task"
+FROM "Software"
+   LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
@@ -630,13 +645,14 @@ def get_software_summary(database="macromolecules"):
     """ Returns all software packages from the DB. """
 
     cur = get_postgres_connection()[1]
+    set_database(cur, database)
 
     # Get the list of which tags should be used to order data
     cur.execute('''
-SET search_path=%s; SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
-FROM DB_SCHEMA_MAGIC_STRING."Software"
-   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN DB_SCHEMA_MAGIC_STRING."Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''', [database])
+SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+FROM "Software"
+   LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
@@ -880,10 +896,11 @@ def get_all_values_for_tag(tag_name, database):
 
     params = get_category_and_tag(tag_name)
     cur = get_postgres_connection()[1]
-    query = '''SET search_path=%%s;SELECT "Entry_ID", array_agg(%%s) from "%s" GROUP BY "Entry_ID";'''
+    set_database(cur, database)
+    query = '''SELECT "Entry_ID", array_agg(%%s) from "%s" GROUP BY "Entry_ID";'''
     query = query % params[0]
     try:
-        cur.execute(query, [database, wrap_it_up(params[1])])
+        cur.execute(query, [wrap_it_up(params[1])])
     except psycopg2.ProgrammingError as e:
         sp = e.message.split('\n')
         if len(sp) > 3:
