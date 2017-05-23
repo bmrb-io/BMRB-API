@@ -849,6 +849,57 @@ def wrap_it_up(item):
     SQL injection."""
     return AsIs('"' + item + '"')
 
+def get_category_and_tag(tag_name):
+    """ Returns the tag category and the tag formatted as needed for DB
+    queries. Returns an error if an invalid tag is provided. """
+
+    if tag_name is None:
+        raise RequestError("You must specify the tag name.")
+
+    # Note - this is relied on in some queries to prevent SQL injection. Do
+    #  not remove it unless you update all functions that use this function.
+    if '"' in tag_name:
+        raise RequestError('Tags cannot contain a \'"\'.')
+
+    sp = tag_name.split(".")
+    if sp[0].startswith("_"):
+        sp[0] = sp[0][1:]
+    if len(sp) < 2:
+        raise RequestError("You must provide a full tag name with "
+                           "category included. For example: "
+                           "Entry.Experimental_method_subtype")
+
+    if len(sp) > 2:
+        raise RequestError("You provided an invalid tag. NMR-STAR tags only "
+                           "contain one period.")
+
+    return sp
+
+def get_all_values_for_tag(tag_name, database):
+    """ Returns all the values for a given tag by entry ID as a dictionary. """
+
+    params = get_category_and_tag(tag_name)
+    cur = get_postgres_connection()[1]
+    query = '''SET search_path=%%s;SELECT "Entry_ID", array_agg(%%s) from "%s" GROUP BY "Entry_ID";'''
+    query = query % params[0]
+    try:
+        cur.execute(query, [database, wrap_it_up(params[1])])
+    except psycopg2.ProgrammingError as e:
+        sp = e.message.split('\n')
+        if len(sp) > 3:
+            if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
+                raise RequestError("Tag not found. Did you mean the tag: '%s'?" %
+                                   sp[3].split('"')[1])
+
+        raise RequestError("Tag not found.")
+
+    # Turn the results into a dict
+    res = {}
+    for x in cur.fetchall():
+        res[x[0]] = x[1]
+
+    return res
+
 def select(fetch_list, table, where_dict=None, database="macromolecules",
            modifiers=None, as_hash=True, cur=None):
     """ Performs a SELECT query constructed from the supplied arguments."""

@@ -185,22 +185,8 @@ def get_entry(entry_id=None):
 def get_all_values_for_tag(tag_name=None):
     """ Returns all entry numbers and corresponding tag values."""
 
-    database = get_db('macromolecules')
-
-    if not tag_name:
-        raise querymod.RequestError("You must specify the tag name.")
-
-    sp = tag_name.split(".")
-    if sp[0].startswith("_"):
-        sp[0] = sp[0][1:]
-    if len(sp) < 2:
-        raise querymod.RequestError("You must provide a full tag name with "
-                                    "saveframe included. For example: "
-                                    "Entry.Experimental_method_subtype")
-
-    result = querymod.select(['Entry_ID', sp[1]], sp[0], where_dict={sp[1]:"%"},
-                             database=database, as_hash=False)
-    return jsonify(dict(result['data']))
+    result = querymod.get_all_values_for_tag(tag_name, get_db('macromolecules'))
+    return jsonify(result)
 
 @application.route('/search/get_id_by_tag_value')
 @application.route('/search/get_id_by_tag_value/<tag_name>/')
