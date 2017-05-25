@@ -313,10 +313,7 @@ def get_db(default="macromolecules"):
 
     database = request.args.get('database', default)
 
-    if database == "combined":
-        raise queymod.RequestError("Combined database not implemented yet.")
-
-    if database not in ["metabolomics", "macromolecules"]:
+    if database not in ["metabolomics", "macromolecules", "combined"]:
         raise querymod.RequestError("Invalid database: %s." % database)
 
     return database
