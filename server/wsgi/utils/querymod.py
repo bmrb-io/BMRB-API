@@ -96,7 +96,7 @@ def check_local_ip(ip):
     """ Checks if the given IP is a local user."""
 
     for local_address in configuration['local-ips']:
-        if local_address.startswith(ip):
+        if ip.startswith(local_address):
             return True
 
     return False
