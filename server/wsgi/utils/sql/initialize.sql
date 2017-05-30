@@ -7,12 +7,17 @@
 
 
 -- Update metabolomics and macromolecule entry tables to have "Entry_ID"
-ALTER TABLE macromolecules."Entry" ADD COLUMN "Entry_ID" text;
-UPDATE macromolecules."Entry" Set "Entry_ID" = "ID";
-ALTER TABLE metabolomics."Entry" ADD COLUMN "Entry_ID" text;
-UPDATE metabolomics."Entry" Set "Entry_ID" = "ID";
-
-
+DO $$
+BEGIN
+    BEGIN
+        ALTER TABLE macromolecules."Entry" ADD COLUMN "Entry_ID" text;
+        UPDATE macromolecules."Entry" Set "Entry_ID" = "ID";
+        ALTER TABLE metabolomics."Entry" ADD COLUMN "Entry_ID" text;
+        UPDATE metabolomics."Entry" Set "Entry_ID" = "ID";
+    EXCEPTION
+        WHEN duplicate_column THEN RAISE NOTICE '"Entry_ID" already exists in "Entry" table. Running this twice?';
+    END;
+END $$;
 
 
 -- Now start with the instant search...
