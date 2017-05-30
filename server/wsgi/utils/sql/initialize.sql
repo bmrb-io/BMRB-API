@@ -31,6 +31,33 @@ END
 $body$
 IMMUTABLE LANGUAGE plpgsql;
 
+
+--- This is for the additional information about metabolomics in the instant search
+-- 2.  Molecular Formula  3.  InCh 4.  SMILES 5.  Average Mass 6.  Molecular Weight 7.  Monoisotopic Mass
+
+DROP TABLE IF EXISTS web.metabolomics_summary_tmp;
+CREATE TABLE web.metabolomics_summary_tmp (
+    id varchar(12) PRIMARY KEY,
+    formula text,
+    inchi text,
+    smiles text,
+    average_mass numeric,
+    molecular_weight numeric,
+    monoisotopic_mass numeric);
+
+INSERT INTO web.metabolomics_summary_tmp (id, formula, inchi, smiles, average_mass, molecular_weight, monoisotopic_mass)
+  SELECT cc."Entry_ID", replace(cc."Formula", ' ', ''), cc."InCHi_code", sm."String", cc."Formula_weight"::numeric, cc."Formula_weight"::numeric, cc."Formula_mono_iso_wt_nat"::numeric
+  FROM metabolomics."Chem_comp" as cc
+  LEFT JOIN metabolomics."Chem_comp_SMILES" AS sm
+  ON sm."Entry_ID"=cc."Entry_ID"
+  WHERE sm."Type" = 'canonical';
+
+-- Move the new table into place
+ALTER TABLE IF EXISTS web.metabolomics_summary RENAME TO metabolomics_summary_old;
+ALTER TABLE web.metabolomics_summary_tmp RENAME TO metabolomics_summary;
+DROP TABLE IF EXISTS web.metabolomics_summary_old;
+
+
 -- Create terms table
 DROP TABLE IF EXISTS web.instant_extra_search_terms_tmp;
 CREATE TABLE web.instant_extra_search_terms_tmp (
