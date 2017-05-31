@@ -92,7 +92,11 @@ def no_params():
 def list_entries():
     """ Return a list of all valid BMRB entries."""
 
-    entries = querymod.list_entries(database=get_db("combined"))
+    entries = querymod.list_entries(database=get_db("combined",
+                                                    valid_list=['metabolomics',
+                                                                'macromolecules',
+                                                                'chemcomps',
+                                                                'combined']))
     return jsonify(entries)
 
 @application.route('/debug', methods=('GET', 'POST'))
@@ -125,7 +129,7 @@ def chemical_shifts():
                                                      atom_type=request.args.get('atom_type', None),
                                                      atom_id=request.args.get('atom_id', None),
                                                      comp_id=request.args.get('comp_id', None),
-                                                     database=get_db(None)))
+                                                     database=get_db("macromolecules")))
 
 
 @application.route('/entry/', methods=('POST', 'GET'))
@@ -333,12 +337,12 @@ def validate_entry(entry_id=None):
 
 
 # Helper methods
-def get_db(default="macromolecules"):
+def get_db(default="macromolecules", valid_list=["metabolomics", "macromolecules", "combined"]):
     """ Make sure the DB specified is valid. """
 
     database = request.args.get('database', default)
 
-    if database not in ["metabolomics", "macromolecules", "combined"]:
+    if database not in valid_list:
         raise querymod.RequestError("Invalid database: %s." % database)
 
     return database
