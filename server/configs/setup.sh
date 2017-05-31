@@ -2,8 +2,7 @@
 
 yum install redis python-pip python-redis mod_evasive apache-gzip java-1.8.0-openjdk-headless
 
-sudo pip install flask
-sudo pip install psycopg2
+sudo pip install -r requirements.txt
 
 # Configure redis installation
 systemctl enable redis
