@@ -21,13 +21,16 @@ _METHODS = ['list_entries', 'chemical_shifts', 'entry/', 'status', 'select',
             'search/get_all_values_for_tag/']
 
 import os
-import json
 import zlib
 import logging
 import subprocess
 from hashlib import md5
 from time import time as unixtime
 from tempfile import NamedTemporaryFile
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 import psycopg2
 from psycopg2.extensions import AsIs
