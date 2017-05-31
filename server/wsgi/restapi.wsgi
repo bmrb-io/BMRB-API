@@ -37,8 +37,8 @@ logHandler.setFormatter(formatter)
 application.logger.addHandler(logHandler)
 application.logger.setLevel(logging.INFO)
 
-# Don't pretty-print JSON unless in debug mode
-if not querymod.configuration['debug']:
+# Don't pretty-print JSON unless local user
+if not check_local_ip():
     application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 # Set up error handling
