@@ -6,10 +6,11 @@ to the correct location and passes the results back."""
 
 import os
 import sys
-import logging
 import traceback
 from datetime import datetime
-logging.basicConfig()
+import logging
+from logging import Formatter
+from logging.handlers import RotatingFileHandler
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -24,6 +25,18 @@ from utils import querymod
 # Set up the flask application
 application = Flask(__name__)
 
+# Figure out where to log
+log_file = os.path.join(local_dir, "logs", "restapi.log")
+if querymod.configuration.get('log_file', None):
+    log_file = querymod.configuration['log_file']
+
+# Set up the logger
+logHandler = RotatingFileHandler(log_file, maxBytes=1048576, backupCount=100)
+formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
+logHandler.setFormatter(formatter)
+application.logger.addHandler(logHandler)
+application.logger.setLevel(logging.INFO)
+
 # Don't pretty-print JSON unless in debug mode
 if not querymod.configuration['debug']:
     application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
@@ -34,15 +47,19 @@ if not querymod.configuration['debug']:
 def handle_our_errors(error):
     """ Handles exceptions we raised ourselves. """
 
+    application.logger.warning("Handled error raised: %s" % error.message)
+
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
 
 @application.errorhandler(Exception)
 def handle_other_errors(error):
-    """ Catches any other exceptions and formats thme. Only
+    """ Catches any other exceptions and formats them. Only
     displays the actual error to local clients (to prevent disclosing
     issues that could be security vulnerabilities)."""
+
+    application.logger.critical("Unhandled exception raised: %s" % traceback.format_exc())
 
     if querymod.check_local_ip(request.remote_addr):
         return Response("NOTE: You are seeing this error because your IP was "
@@ -52,6 +69,12 @@ def handle_other_errors(error):
         response = jsonify({"error": "Server error. Contact webmaster@bmrb.wisc.edu."})
         response.status_code = 500
         return response
+
+# Set up logging
+@application.before_request
+def log_request():
+    """ Log all requests. """
+    application.logger.info("%s %s %s '%s' '%s'" % (request.remote_addr, request.method, request.full_path, request.headers.get('Application', 'unknown').replace("'","\\'"), request.headers.get('User-Agent',None).replace("'","\\'")))
 
 @application.route('/')
 def no_params():
@@ -103,7 +126,7 @@ def chemical_shifts():
                                                      database=get_db(None)))
 
 
-@application.route('/entry', methods=('POST', 'GET'))
+@application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>')
 def get_entry(entry_id=None):
     """ Returns an entry in the specified format."""
