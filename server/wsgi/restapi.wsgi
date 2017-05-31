@@ -37,10 +37,6 @@ logHandler.setFormatter(formatter)
 application.logger.addHandler(logHandler)
 application.logger.setLevel(logging.INFO)
 
-# Don't pretty-print JSON unless local user
-if not check_local_ip():
-    application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
-
 # Set up error handling
 @application.errorhandler(querymod.ServerError)
 @application.errorhandler(querymod.RequestError)
@@ -75,6 +71,12 @@ def handle_other_errors(error):
 def log_request():
     """ Log all requests. """
     application.logger.info("%s %s %s '%s' '%s'" % (request.remote_addr, request.method, request.full_path, request.headers.get('Application', 'unknown').replace("'","\\'"), request.headers.get('User-Agent',None).replace("'","\\'")))
+
+    # Don't pretty-print JSON unless local user
+    if not check_local_ip():
+        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+    else:
+        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
 @application.route('/')
 def no_params():
