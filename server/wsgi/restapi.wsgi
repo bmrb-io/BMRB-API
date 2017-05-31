@@ -346,7 +346,7 @@ def get_db(default="macromolecules"):
 def check_local_ip():
     """ Checks if the given IP is a local user."""
 
-    for local_address in configuration['local-ips']:
+    for local_address in querymod.configuration['local-ips']:
         if request.remote_addr.startswith(local_address):
             return True
 
