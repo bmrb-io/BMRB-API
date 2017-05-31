@@ -474,14 +474,17 @@ def get_status(**kwargs):
     for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
         stats[key] = r.hgetall("%s:meta" % key)
         for skey in stats[key]:
-            stats[key][skey] = float(stats[key][skey])
+            if skey == "update_time":
+                stats[key][skey] = float(stats[key][skey])
+            else:
+                stats[key][skey] = int(stats[key][skey])
 
     pg = get_postgres_connection()[1]
     for key in ['metabolomics', 'macromolecules']:
         sql = '''SELECT reltuples FROM pg_class
                  WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
         pg.execute(sql)
-        stats[key]['num_chemical_shifts'] = pg.fetchone()[0]
+        stats[key]['num_chemical_shifts'] = int(pg.fetchone()[0])
 
     # Add the available methods
     stats['methods'] = _METHODS
