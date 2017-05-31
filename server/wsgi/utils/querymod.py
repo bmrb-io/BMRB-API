@@ -751,23 +751,38 @@ def get_instant_search(term, database):
 
     cur = get_postgres_connection(dictionary_cursor=True)[1]
 
-    instant_query_one = '''
-SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
-WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-
     if database == "metabolomics":
         instant_query_one = '''
-SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
-WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True'
-ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-    if database == "macromolecules":
+SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
+LEFT JOIN web.metabolomics_summary as ms
+ON instant_cache.id = ms.id
+WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
+ORDER BY instant_cache.id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+
+        instant_query_two = """
+SELECT set_limit(.5);
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight", NULL as "monoisotopic_mass" FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.identical_term @@ plainto_tsquery(%s)
+UNION
+SELECT * from (
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    LEFT JOIN web.metabolomics_summary as ms
+    ON instant_cache.id = ms.id
+    WHERE tt.term %% %s AND tt.identical_term IS NULL and ms.id IS NOT NULL
+    ORDER BY id, similarity(tt.term, %s) DESC) as y
+    WHERE is_metab = 'True'"""
+
+    elif database == "macromolecules":
         instant_query_one = '''
 SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'False'
 ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
-    instant_query_two = '''
+        instant_query_two = """
 SELECT set_limit(.5);
 SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
@@ -779,19 +794,36 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.term %% %s AND tt.identical_term IS NULL
-    ORDER BY id, similarity(tt.term, %s) DESC) as y'''
+    ORDER BY id, similarity(tt.term, %s) DESC) as y
+    WHERE is_metab = 'False'
+    ORDER BY sml DESC LIMIT 75;"""
 
-    if database == "metabolomics":
-        instant_query_two += " WHERE is_metab = 'True'"
-    if database == "macromolecules":
-        instant_query_two += " WHERE is_metab = 'False'"
+    else:
+        instant_query_one = '''
+SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
+WHERE tsv @@ plainto_tsquery(%s)
+ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
-    instant_query_two += \
-''' ORDER BY sml DESC LIMIT 75;'''
+        instant_query_two = """
+SELECT set_limit(.5);
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.identical_term @@ plainto_tsquery(%s)
+UNION
+SELECT * from (
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.term %% %s AND tt.identical_term IS NULL
+    ORDER BY id, similarity(tt.term, %s) DESC) as y
+    ORDER BY sml DESC LIMIT 75;"""
 
     try:
         cur.execute(instant_query_one, [term, term, term])
     except ProgrammingError:
+        if configuration['debug']:
+            raise
         return [{"label":"Instant search temporarily offline.", "value":"error",
                  "link":"/software/query/"}]
 
@@ -799,33 +831,59 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
     result = []
     ids = {}
     for item in cur.fetchall():
-        result.append({"citations": item['citations'],
-                       "authors": item['authors'],
-                       "link": item['link'],
-                       "value": item['id'],
-                       "sub_date": str(item['sub_date']),
-                       "label": "%s" % (item['title'])})
+        res = {"citations": item['citations'],
+               "authors": item['authors'],
+               "link": item['link'],
+               "value": item['id'],
+               "sub_date": str(item['sub_date']),
+               "label": "%s" % (item['title'])}
+
+        if database == "metabolomics":
+            res['formula'] = item['formula']
+            res['smiles'] = item['smiles']
+            res['inchi'] = item['inchi']
+            res['monoisotopic_mass'] = item['monoisotopic_mass']
+            res['average_mass'] = item['average_mass']
+            res['molecular_weight'] = item['molecular_weight']
+
+        result.append(res)
         ids[item['id']] = 1
 
+    if configuration['debug']:
+        debug = {'query1': cur.query}
 
     # Second query
     try:
         cur.execute(instant_query_two, [term, term, term, term])
     except ProgrammingError:
+        if configuration['debug']:
+            raise
         return [{"label":"Instant search temporarily offline.", "value":"error",
                  "link":"/software/query/"}]
 
     for item in cur.fetchall():
         if item['id'] not in ids:
-            result.append({"citations": item['citations'],
-                           "authors": item['authors'],
-                           "link": item['link'],
-                           "value": item['id'],
-                           "sub_date": str(item['sub_date']),
-                           "label": "%s" % (item['title']),
-                           "extra": {"term": item['term'],
-                                     "termname": item['termname']},
-                           "sml": "%s" % item['sml']})
+            res = {"citations": item['citations'],
+                   "authors": item['authors'],
+                   "link": item['link'],
+                   "value": item['id'],
+                   "sub_date": str(item['sub_date']),
+                   "label": "%s" % (item['title']),
+                   "extra": {"term": item['term'],
+                             "termname": item['termname']},
+                   "sml": "%s" % item['sml']}
+            if database == "metabolomics":
+                res['formula'] = item['formula']
+                res['smiles'] = item['smiles']
+                res['inchi'] = item['inchi']
+                res['monoisotopic_mass'] = item['monoisotopic_mass']
+                res['average_mass'] = item['average_mass']
+                res['molecular_weight'] = item['molecular_weight']
+
+            result.append(res)
+    if configuration['debug']:
+        debug['query2'] = cur.query
+        result.append({"debug": debug})
 
     return result
 
