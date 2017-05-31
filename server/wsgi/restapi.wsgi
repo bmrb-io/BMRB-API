@@ -61,7 +61,7 @@ def handle_other_errors(error):
 
     application.logger.critical("Unhandled exception raised: %s" % traceback.format_exc())
 
-    if querymod.check_local_ip(request.remote_addr):
+    if check_local_ip():
         return Response("NOTE: You are seeing this error because your IP was "
                         "recognized as a local IP:\n%s" %
                         traceback.format_exc(), mimetype="text/plain")
@@ -340,3 +340,12 @@ def get_db(default="macromolecules"):
         raise querymod.RequestError("Invalid database: %s." % database)
 
     return database
+
+def check_local_ip():
+    """ Checks if the given IP is a local user."""
+
+    for local_address in configuration['local-ips']:
+        if request.remote_addr.startswith(local_address):
+            return True
+
+    return False

@@ -92,15 +92,6 @@ _SUBMODULE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(_
 # Set up logging
 logging.basicConfig()
 
-def check_local_ip(ip):
-    """ Checks if the given IP is a local user."""
-
-    for local_address in configuration['local-ips']:
-        if ip.startswith(local_address):
-            return True
-
-    return False
-
 def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
