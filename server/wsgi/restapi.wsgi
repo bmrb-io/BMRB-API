@@ -76,7 +76,7 @@ def handle_other_errors(error):
 
     application.logger.critical("Unhandled exception raised on request %s %s"
                                 "\n\nValues: %s\n\n%s",
-                                request.method, request.full_path,
+                                request.method, request.url,
                                 request.values,
                                 traceback.format_exc())
 
