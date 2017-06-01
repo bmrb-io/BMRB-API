@@ -9,8 +9,11 @@ import sys
 import traceback
 from datetime import datetime
 import logging
-from logging import Formatter
 from logging.handlers import RotatingFileHandler, SMTPHandler
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -40,8 +43,8 @@ application.logger.setLevel(logging.INFO)
 if not querymod.configuration['debug']:
 
     if (querymod.configuration.get('smtp')
-        and querymod.configuration['smtp'].get('server')
-        and querymod.configuration['smtp'].get('admins')):
+            and querymod.configuration['smtp'].get('server')
+            and querymod.configuration['smtp'].get('admins')):
 
         mail_handler = SMTPHandler(mailhost=querymod.configuration['smtp']['server'],
                                    fromaddr='apierror@webapi.bmrb.wisc.edu',
@@ -50,8 +53,8 @@ if not querymod.configuration['debug']:
         mail_handler.setLevel(logging.ERROR)
         application.logger.addHandler(mail_handler)
     else:
-        logger.warning("Could not set up SMTP logger because the configuration"
-                       " was not specified.")
+        logging.warning("Could not set up SMTP logger because the configuration"
+                        " was not specified.")
 
 # Set up error handling
 @application.errorhandler(querymod.ServerError)
@@ -90,7 +93,12 @@ def handle_other_errors(error):
 @application.before_request
 def log_request():
     """ Log all requests. """
-    application.logger.info("%s %s %s '%s' '%s'", request.remote_addr, request.method, request.full_path, request.headers.get('Application', 'unknown').replace("'","\\'"), request.headers.get('User-Agent',None).replace("'","\\'"))
+    application.logger.info("%s %s %s '%s' '%s'", request.remote_addr,
+                            request.method, request.full_path,
+                            request.headers.get('Application',
+                                                'unknown').replace("'", "\\'"),
+                            request.headers.get('User-Agent',
+                                                None).replace("'", "\\'"))
 
     # Don't pretty-print JSON unless local user
     if not check_local_ip():
@@ -361,7 +369,8 @@ def validate_entry(entry_id=None):
 
 
 # Helper methods
-def get_db(default="macromolecules", valid_list=["metabolomics", "macromolecules", "combined"]):
+def get_db(default="macromolecules",
+           valid_list=["metabolomics", "macromolecules", "combined"]):
     """ Make sure the DB specified is valid. """
 
     database = request.args.get('database', default)

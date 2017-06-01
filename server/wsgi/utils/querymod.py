@@ -54,6 +54,7 @@ class ServerError(Exception):
         self.payload = payload
 
     def to_dict(self):
+        """ Converts the payload to a dictionary."""
         rv = dict(self.payload or ())
         rv['error'] = self.message
         return rv
@@ -70,6 +71,7 @@ class RequestError(Exception):
         self.payload = payload
 
     def to_dict(self):
+        """ Converts the payload to a dictionary."""
         rv = dict(self.payload or ())
         rv['error'] = self.message
         return rv
@@ -316,10 +318,10 @@ def panav_parser(panav_text):
         suspicious_line = 2
     # Normal output
     else:
-        result['offsets']['CO'] = float(lines[1].split(" ")[-1].replace("ppm",""))
-        result['offsets']['CA'] = float(lines[2].split(" ")[-1].replace("ppm",""))
-        result['offsets']['CB'] = float(lines[3].split(" ")[-1].replace("ppm",""))
-        result['offsets']['N'] = float(lines[4].split(" ")[-1].replace("ppm",""))
+        result['offsets']['CO'] = float(lines[1].split(" ")[-1].replace("ppm", ""))
+        result['offsets']['CA'] = float(lines[2].split(" ")[-1].replace("ppm", ""))
+        result['offsets']['CB'] = float(lines[3].split(" ")[-1].replace("ppm", ""))
+        result['offsets']['N'] = float(lines[4].split(" ")[-1].replace("ppm", ""))
 
     # Figure out how many deviant and suspicious shifts were detected
     num_deviants = int(lines[deviant_line].rstrip().split(" ")[-1])
@@ -337,7 +339,7 @@ def panav_parser(panav_text):
     for suspicious in lines[suspicious_line:suspicious_line+num_suspicious]:
         resnum, res, atom, shift = suspicious.strip().split(" ")
         result['suspicious'].append({"residue_number": resnum, "residue_name": res,
-                                   "atom": atom, "chemical_shift_value": shift})
+                                     "atom": atom, "chemical_shift_value": shift})
 
     # Return the result dictionary
     return result
@@ -366,9 +368,19 @@ def get_chemical_shift_validation(**kwargs):
             res = subprocess.check_output([avs_location, entry[0], "-nitrogen", "-fmean",
                                            "-aromatic", "-std", "-anomalous", "-suspicious",
                                            "-star_output", star_file.name],
-                                           stderr=subprocess.STDOUT)
+                                          stderr=subprocess.STDOUT)
 
-            error_loop = bmrb.Entry.from_string(res).get_loops_by_category("_AVS_analysis_r")[0].filter(["Assembly_ID", "Entity_assembly_ID", "Entity_ID", "Comp_index_ID", "Comp_ID", "Comp_overall_assignment_score", "Comp_typing_score", "Comp_SRO_score", "Comp_1H_shifts_analysis_status", "Comp_13C_shifts_analysis_status", "Comp_15N_shifts_analysis_status"])
+            tmp_ent = bmrb.Entry.from_string(res)
+            error_loop = tmp_ent.get_loops_by_category("_AVS_analysis_r")[0]
+            error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
+                                            "Entity_ID", "Comp_index_ID",
+                                            "Comp_ID",
+                                            "Comp_overall_assignment_score",
+                                            "Comp_typing_score",
+                                            "Comp_SRO_score",
+                                            "Comp_1H_shifts_analysis_status",
+                                            "Comp_13C_shifts_analysis_status",
+                                            "Comp_15N_shifts_analysis_status"])
             error_loop.category = "AVS_analysis"
 
             # Modify the chemical shift loops with the new data
@@ -395,7 +407,7 @@ def get_chemical_shift_validation(**kwargs):
                 try:
                     res = subprocess.check_output(["java", "-cp", panav_location,
                                                    "CLI", "-f", "star", "-i", chem_shifts.name],
-                                                   stderr=subprocess.STDOUT)
+                                                  stderr=subprocess.STDOUT)
                     # There is a -j option that produces a somewhat usable JSON...
                     result[entry[0]]["panav"][pos] = panav_parser(res)
                 except subprocess.CalledProcessError:
@@ -460,7 +472,7 @@ def get_tags(**kwargs):
 
     return result
 
-def get_status(**kwargs):
+def get_status():
     """ Return some statistics about the server."""
 
     r = get_redis_connection()
@@ -519,12 +531,12 @@ def get_enumerations(tag, term=None, cur=None):
         tag = "_" + tag
 
     # Get the list of which tags should be used to order data
-    cur.execute('''select itemenumclosedflg,enumeratedflg,dictionaryseq from dict.adit_item_tbl where originaltag=%s''', [tag])
+    cur.execute('''SELECT itemenumclosedflg,enumeratedflg,dictionaryseq FROM dict.adit_item_tbl WHERE originaltag=%s''', [tag])
     query_res = cur.fetchall()
     if len(query_res) == 0:
         raise RequestError("Invalid tag specified.")
 
-    cur.execute('''select val from dict.enumerations where seq=%s order by val''', [query_res[0][2]])
+    cur.execute('''SELECT val FROM dict.enumerations WHERE seq=%s ORDER BY val''', [query_res[0][2]])
     values = cur.fetchall()
 
     # Generate the result dictionary
@@ -547,7 +559,9 @@ def get_enumerations(tag, term=None, cur=None):
 
     return result
 
-def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None, atom_id=None, comp_id=None, database="macromolecules"):
+def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
+                             atom_id=None, comp_id=None,
+                             database="macromolecules"):
     """ Searches for a given chemical shift. """
 
     cur = get_postgres_connection()[1]
@@ -691,7 +705,7 @@ CREATE TABLE web.bmrb_csrosetta_entries (
     execute_values(pcur, '''
 INSERT INTO web.bmrb_csrosetta_entries(key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest)
 VALUES %s;''',
-              entries)
+                   entries)
 
     pconn.commit()
 
@@ -702,7 +716,7 @@ def build_fulltext_search():
 
     # Metabolomics
     for entry in get_all_entries_from_redis(database="metabolomics"):
-        print("Inserting %s" % entry[0]);
+        logging.debug("Inserting %s", entry[0])
         ent_text = get_bmrb_as_text(entry[1])
         cur.execute('''
 UPDATE web.instant_cache
@@ -715,7 +729,7 @@ WHERE id=%s;''',
 
     # Macromolecules
     for entry in get_all_entries_from_redis(database="macromolecules"):
-        print("Inserting %s" % entry[0]);
+        logging.debug("Inserting %s", entry[0])
         ent_text = get_bmrb_as_text(entry[1])
         cur.execute('''
 UPDATE web.instant_cache
@@ -723,7 +737,7 @@ SET
  full_tsv=to_tsvector(%s),
  full_text=%s
 WHERE id=%s;''',
-              [ent_text, ent_text, entry[0]])
+                    [ent_text, ent_text, entry[0]])
 
     conn.commit()
 
