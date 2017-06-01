@@ -525,17 +525,17 @@ WHERE ''')
 
     # See if a specific atom type is needed
     if atom_type:
-        sql += '''"Atom_chem_shift"."Atom_type"=%s AND '''
+        sql += '''"Atom_chem_shift"."Atom_type" LIKE %s AND '''
         args.append(atom_type.replace("*", "%").upper())
 
     # See if a specific atom is needed
     if atom_id:
-        sql += '''"Atom_chem_shift"."Atom_ID"=%s AND '''
+        sql += '''"Atom_chem_shift"."Atom_ID" LIKE %s AND '''
         args.append(atom_id.replace("*", "%").upper())
 
     # See if a specific residue is needed
     if comp_id:
-        sql += '''"Atom_chem_shift"."Comp_ID"=%s AND '''
+        sql += '''"Atom_chem_shift"."Comp_ID" LIKE %s AND '''
         args.append(comp_id.replace("*", "%").upper())
 
     # See if a peak is specified
