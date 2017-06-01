@@ -425,40 +425,6 @@ def list_entries(**kwargs):
 
     return entry_list
 
-def get_chemical_shifts(**kwargs):
-    """ Returns all of the chemical shifts matching the given atom type (if
-    specified) and database (if specified)."""
-
-
-    # Create the search dicationary
-    wd = {}
-    database = "macromolecules"
-
-    # See if they specified a specific atom type
-    if kwargs.get('atom_type', None):
-        wd['Atom_ID'] = kwargs['atom_type'].replace("*", "%").upper()
-
-    # See if they specified a database
-    if kwargs.get('database', None):
-        database = kwargs['database']
-
-    chem_shift_fields = ["Entry_ID", "Entity_ID", "Comp_index_ID", "Comp_ID",
-                         "Atom_ID", "Atom_type", "Val", "Val_err",
-                         "Ambiguity_code", "Assigned_chem_shift_list_ID"]
-
-    # See if the result is already in Redis
-    r = get_redis_connection()
-    redis_cache_name = "cache:%s:assigned_chemical_shifts:%s" % (database, wd.get('Atom_ID', 'all'))
-    if r.exists(redis_cache_name):
-        return json.loads(zlib.decompress(r.get(redis_cache_name)))
-
-    # Perform the query
-    query_result = select(chem_shift_fields, "Atom_chem_shift",
-                          as_hash=False, where_dict=wd, database=database)
-    r.set(redis_cache_name, zlib.compress(json.dumps(query_result)))
-
-    return query_result
-
 def get_tags(**kwargs):
     """ Returns results for the queried tags."""
 
@@ -580,17 +546,17 @@ WHERE '''
 
     # See if a specific atom type is needed
     if atom_type:
-        sql += '''"Atom_chem_shift"."Atom_type"=%s AND '''
+        sql += '''"Atom_chem_shift"."Atom_type" LIKE %s AND '''
         args.append(atom_type.replace("*", "%").upper())
 
     # See if a specific atom is needed
     if atom_id:
-        sql += '''"Atom_chem_shift"."Atom_ID"=%s AND '''
+        sql += '''"Atom_chem_shift"."Atom_ID" LIKE %s AND '''
         args.append(atom_id.replace("*", "%").upper())
 
     # See if a specific residue is needed
     if comp_id:
-        sql += '''"Atom_chem_shift"."Comp_ID"=%s AND '''
+        sql += '''"Atom_chem_shift"."Comp_ID" LIKE %s AND '''
         args.append(comp_id.replace("*", "%").upper())
 
     # See if a peak is specified
