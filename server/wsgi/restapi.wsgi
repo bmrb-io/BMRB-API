@@ -100,11 +100,11 @@ def log_request():
                             request.headers.get('User-Agent',
                                                 None).replace("'", "\\'"))
 
-    # Don't pretty-print JSON unless local user
-    if not check_local_ip():
-        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
-    else:
+    # Don't pretty-print JSON unless local user and in debug mode
+    if check_local_ip() and querymod.configuration['debug']:
         application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+    else:
+        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 @application.route('/')
 def no_params():
@@ -130,6 +130,9 @@ def list_entries():
 @application.route('/debug', methods=('GET', 'POST'))
 def debug():
     """ This method prints some debugging information."""
+
+    if not check_local_ip():
+        raise RequestError("You are not allowed to access this page.")
 
     # Raise an exception to test SMTP error notifications working
     if request.args.get("exception"):
