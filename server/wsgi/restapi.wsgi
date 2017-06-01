@@ -153,7 +153,7 @@ def debug():
     return jsonify(result)
 
 @application.route('/chemical_shifts')
-def chemical_shifts():
+def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
     return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.get('shift', None),
