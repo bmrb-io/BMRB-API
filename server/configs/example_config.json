@@ -20,6 +20,10 @@
         "database": "ets_db",
         "host": "ets_host"
     },
+    "smtp": {
+        "admins": ["example@example.com"],
+        "server": "smtp-server"
+    },
     "debug": false,
     "local-ips": ["127.0.0.1", "your.sub.net"]
 }

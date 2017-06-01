@@ -10,7 +10,7 @@ import traceback
 from datetime import datetime
 import logging
 from logging import Formatter
-from logging.handlers import RotatingFileHandler
+from logging.handlers import RotatingFileHandler, SMTPHandler
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -30,12 +30,28 @@ log_file = os.path.join(local_dir, "logs", "restapi.log")
 if querymod.configuration.get('log_file', None):
     log_file = querymod.configuration['log_file']
 
-# Set up the logger
+# Set up the loggers
 logHandler = RotatingFileHandler(log_file, maxBytes=1048576, backupCount=100)
 formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
 logHandler.setFormatter(formatter)
 application.logger.addHandler(logHandler)
 application.logger.setLevel(logging.INFO)
+
+if not querymod.configuration['debug']:
+
+    if (querymod.configuration.get('smtp')
+        and querymod.configuration['smtp'].get('server')
+        and querymod.configuration['smtp'].get('admins')):
+
+        mail_handler = SMTPHandler(mailhost=querymod.configuration['smtp']['server'],
+                                   fromaddr='apierror@webapi.bmrb.wisc.edu',
+                                   toaddrs=querymod.configuration['smtp']['admins'],
+                                   subject='BMRB API Error occured')
+        mail_handler.setLevel(logging.ERROR)
+        application.logger.addHandler(mail_handler)
+    else:
+        logger.warning("Could not set up SMTP logger because the configuration"
+                       " was not specified.")
 
 # Set up error handling
 @application.errorhandler(querymod.ServerError)
@@ -55,7 +71,11 @@ def handle_other_errors(error):
     displays the actual error to local clients (to prevent disclosing
     issues that could be security vulnerabilities)."""
 
-    application.logger.critical("Unhandled exception raised: %s" % traceback.format_exc())
+    application.logger.critical("Unhandled exception raised on request %s %s"
+                                "\n\nValues: %s\n\n%s",
+                                request.method, request.full_path,
+                                request.values,
+                                traceback.format_exc())
 
     if check_local_ip():
         return Response("NOTE: You are seeing this error because your IP was "
@@ -70,7 +90,7 @@ def handle_other_errors(error):
 @application.before_request
 def log_request():
     """ Log all requests. """
-    application.logger.info("%s %s %s '%s' '%s'" % (request.remote_addr, request.method, request.full_path, request.headers.get('Application', 'unknown').replace("'","\\'"), request.headers.get('User-Agent',None).replace("'","\\'")))
+    application.logger.info("%s %s %s '%s' '%s'", request.remote_addr, request.method, request.full_path, request.headers.get('Application', 'unknown').replace("'","\\'"), request.headers.get('User-Agent',None).replace("'","\\'"))
 
     # Don't pretty-print JSON unless local user
     if not check_local_ip():
@@ -102,6 +122,10 @@ def list_entries():
 @application.route('/debug', methods=('GET', 'POST'))
 def debug():
     """ This method prints some debugging information."""
+
+    # Raise an exception to test SMTP error notifications working
+    if request.args.get("exception"):
+        raise Exception("Unhandled exception test.")
 
     result = {}
     result['secure'] = request.is_secure
