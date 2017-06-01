@@ -123,18 +123,17 @@ returned, as well as the version number of the API.
 
 [Link](http://webapi.bmrb.wisc.edu/v2/status)
 
-#### /list_entries[?database=metabolomics|macromolecule|chemcomps]
+#### /list_entries[?database=`database`]
 
 Returns a list of all entries.
-[Here](http://webapi.bmrb.wisc.edu/v2/list_entries)
-is an example.
-Adding
-[/macromolecule/](http://webapi.bmrb.wisc.edu/v2/list_entries?database=macromolecule)
-or
-[/metabolomics/](http://webapi.bmrb.wisc.edu/v2/list_entries?database=metabolomics)
-or
-[/chemcomps/](http://webapi.bmrb.wisc.edu/v2/list_entries?database=chemcomps)
-at the end will only return the entries of that type.
+
+Example: [List all entries](http://webapi.bmrb.wisc.edu/v2/list_entries)
+
+Example: [List macromolecule entries](http://webapi.bmrb.wisc.edu/v2/list_entries?database=macromolecule)
+
+Example: [List metabolomics entries](http://webapi.bmrb.wisc.edu/v2/list_entries?database=metabolomics)
+
+Example: [List chemcomp entries](http://webapi.bmrb.wisc.edu/v2/list_entries?database=chemcomps)
 
 #### /entry/ - Store entry (POST)
 
