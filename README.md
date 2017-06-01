@@ -235,7 +235,7 @@ that can be used by JQuery's auto-complete.
 
 Example: [List of common NMR-STAR versions starting with 2](http://webapi.bmrb.wisc.edu/v2/enumerations/Entry.NMR_STAR_version?term=2)
 
-#### /instant?term=`search_term`[&database=`database`] (GET)
+#### /instant?term=**search_term**[&database=**database**] (GET)
 
 This URL powers the BMRB instant search tool. It queries all macromolecule and
 metabolomics entries based on a variety of commonly searched fields. It does exact
@@ -273,7 +273,7 @@ ID. (e.g. 15000 or bmse000001)
 this entry can be accessed at. Always use this value (appended to www.bmrb.wisc.edu)
 rather than constructing the URL yourself since some results returned link to non-entry
 summary pages. (For example, on-hold entries appear in the results if searched by ID.
-their link points to the "on hold entries" page at BMRB.)
+Their link points to the "on hold entries" page at BMRB.)
 * `authors` - The list of authors for this entry.
 
 If the search matched one of the "additional" search fields (any field other than
