@@ -55,9 +55,9 @@ class TestAPI(unittest.TestCase):
     def test_chemical_shifts(self):
         """ Make sure the chemical shift fetching method is working."""
 
-        shifts = self.session.get(url + "/chemical_shifts?atom_id=HB3&database=macromolecules").json()['data']
+        shifts = self.session.get(url + "/search/chemical_shifts?atom_id=HB3&database=macromolecules").json()['data']
         self.assertGreater(len(shifts), 440000)
-        shifts = self.session.get(url + "/chemical_shifts?atom_id=C8&database=metabolomics")
+        shifts = self.session.get(url + "/search/chemical_shifts?atom_id=C8&database=metabolomics")
         shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
 

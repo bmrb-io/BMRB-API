@@ -294,32 +294,6 @@ composition.)
 abundant naturally occuring isotope for each atom.
 * `smiles`: The canonical SMILES string for the compound.
 
-#### /search/get_id_by_tag_value/$tag_name/$tag_value[?database=$database] Get entries with tag matching value (GET)
-
-Returns a list of BMRB entry IDs which contain the specified `tag_value` for the
-value of at least one instance of tag `tag_name`. The search is done
-case-insensitively. You may optionally specify a database if you want
-to query the metabolomics database rather than the macromolecule one.
-
-Example: [All entries which used solid-state NMR](http://webapi.bmrb.wisc.edu/v2/search/get_id_by_tag_value/Entry.Experimental_method_subtype/solid-state)
-
-Note that you need the proper tag capitalization for this method. Use
-[the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
-
-#### /search/get_all_values_for_tag/$tag_name[?database=$database] Get all values for a given tag (GET)
-
-Returns a dictionary for the specified dictionary where the keys are entry IDs
-and the values are lists of all of the values of the given tag in each entry.
-This allows you to get all of the values of a given tag in the BMRB archive for
-a given database.
-
-Example: [The citation titles for all entries in the macromolecule database](http://webapi.bmrb.wisc.edu/v2/search/get_all_values_for_tag/Citation.Title)
-
-Example: [The compound names for all compounds in the metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/get_all_values_for_tag/Chem_comp.Name?database=metabolomics)
-
-Note that you need the proper tag capitalization for this method. Use
-[the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
-
 #### /search/chemical_shifts[?database=$database][...] Get assigned chemical shift list (GET)
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
@@ -350,6 +324,32 @@ Examples:
 * [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=HB*)
 * [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
 * [All asparagine C chemical shifts within .01 of 175.1 ppm](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
+
+#### /search/get_id_by_tag_value/$tag_name/$tag_value[?database=$database] Get entries with tag matching value (GET)
+
+Returns a list of BMRB entry IDs which contain the specified `tag_value` for the
+value of at least one instance of tag `tag_name`. The search is done
+case-insensitively. You may optionally specify a database if you want
+to query the metabolomics database rather than the macromolecule one.
+
+Example: [All entries which used solid-state NMR](http://webapi.bmrb.wisc.edu/v2/search/get_id_by_tag_value/Entry.Experimental_method_subtype/solid-state)
+
+Note that you need the proper tag capitalization for this method. Use
+[the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
+
+#### /search/get_all_values_for_tag/$tag_name[?database=$database] Get all values for a given tag (GET)
+
+Returns a dictionary for the specified dictionary where the keys are entry IDs
+and the values are lists of all of the values of the given tag in each entry.
+This allows you to get all of the values of a given tag in the BMRB archive for
+a given database.
+
+Example: [The citation titles for all entries in the macromolecule database](http://webapi.bmrb.wisc.edu/v2/search/get_all_values_for_tag/Citation.Title)
+
+Example: [The compound names for all compounds in the metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/get_all_values_for_tag/Chem_comp.Name?database=metabolomics)
+
+Note that you need the proper tag capitalization for this method. Use
+[the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
 
 #### /software/ Software summary (GET)
 
