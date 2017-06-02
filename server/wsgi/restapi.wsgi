@@ -40,44 +40,33 @@ if querymod.configuration.get('request_log', None):
 if querymod.configuration.get('application_log', None):
     log_file = querymod.configuration['application_log']
 
-# Used to log request messages separately
-class SingleLevelFilter(logging.Filter):
-    def __init__(self, passlevel, reject):
-        self.passlevel = passlevel
-        self.reject = reject
-
-    def filter(self, record):
-        if self.reject:
-            return (record.levelno != self.passlevel)
-        else:
-            return (record.levelno == self.passlevel)
-
-# Set up the formatters
-request_formatter = logging.Formatter('[%(asctime)s]: %(message)s')
+# Set up the standard logger
 app_formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
-json_formatter = jsonlogger.JsonFormatter()
-
-# Set up the filters
-info_only = SingleLevelFilter(logging.INFO, False)
-no_info = SingleLevelFilter(logging.INFO, True)
-
-# Set up the handlers
-request_log = RotatingFileHandler(request_log_file, maxBytes=1048576, backupCount=100)
-request_log.setFormatter(request_formatter)
-request_log.addFilter(info_only)
-
 application_log = RotatingFileHandler(application_log_file, maxBytes=1048576, backupCount=100)
 application_log.setFormatter(app_formatter)
-application_log.addFilter(no_info)
+application.logger.addHandler(application_log)
+application.logger.setLevel(logging.WARNING)
 
+# Set up the request loggers
+
+# Plain text logger
+request_formatter = logging.Formatter('[%(asctime)s]: %(message)s')
+request_log = RotatingFileHandler(request_log_file, maxBytes=1048576, backupCount=100)
+request_log.setFormatter(request_formatter)
+rlogger = logging.getLogger("rlogger")
+rlogger.setLevel(logging.INFO)
+rlogger.addHandler(request_log)
+rlogger.propagate = False
+
+# JSON logger
+json_formatter = jsonlogger.JsonFormatter()
 application_json = RotatingFileHandler(request_json_file, maxBytes=1048576, backupCount=100)
 application_json.setFormatter(json_formatter)
-application_json.addFilter(info_only)
+jlogger = logging.getLogger("jlogger")
+jlogger.setLevel(logging.INFO)
+jlogger.addHandler(application_json)
+jlogger.propagate = False
 
-application.logger.addHandler(request_log)
-application.logger.addHandler(application_log)
-application.logger.addHandler(application_json)
-application.logger.setLevel(logging.INFO)
 
 # Set up the SMTP handler
 if not querymod.configuration['debug']:
@@ -133,14 +122,16 @@ def handle_other_errors(error):
 @application.before_request
 def log_request():
     """ Log all requests. """
-    application.logger.info("%s %s %s '%s'", request.remote_addr,
-                            request.method, request.full_path,
-                            request.headers.get('Application', 'unknown').replace("'", "\\'"),
-                            extra={"User-Agent": request.headers.get('User-Agent'),
-                                   "Method": request.method,
-                                   "Application": request.headers.get('Application'),
-                                   "Path": request.full_path,
-                                   "IP": request.remote_addr})
+    rlogger.info("%s %s %s %s %s", request.remote_addr, request.method,
+                 request.full_path,
+                 request.headers.get('User-Agent','?').split()[0],
+                 request.headers.get('Application', 'unknown'))
+
+    jlogger.info({"user-agent": request.headers.get('User-Agent'),
+                  "method": request.method, "endpoint": request.endpoint,
+                  "application": request.headers.get('Application'),
+                  "path": request.full_path, "ip": request.remote_addr,
+                  "local": check_local_ip()})
 
     # Don't pretty-print JSON unless local user and in debug mode
     if check_local_ip() and querymod.configuration['debug']:
