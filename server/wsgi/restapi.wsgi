@@ -10,6 +10,7 @@ import traceback
 from datetime import datetime
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
+from pythonjsonlogger import jsonlogger
 try:
     import simplejson as json
 except ImportError:
@@ -28,18 +29,57 @@ from utils import querymod
 # Set up the flask application
 application = Flask(__name__)
 
-# Figure out where to log
-log_file = os.path.join(local_dir, "logs", "restapi.log")
-if querymod.configuration.get('log_file', None):
-    log_file = querymod.configuration['log_file']
+# Set up the logging
 
-# Set up the loggers
-logHandler = RotatingFileHandler(log_file, maxBytes=1048576, backupCount=100)
-formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
-logHandler.setFormatter(formatter)
-application.logger.addHandler(logHandler)
+# First figure out where to log
+request_log_file = os.path.join(local_dir, "logs", "requests.log")
+application_log_file = os.path.join(local_dir, "logs", "application.log")
+request_json_file = os.path.join(local_dir, "logs", "json_requests.log")
+if querymod.configuration.get('request_log', None):
+    request_log_file = querymod.configuration['request_log']
+if querymod.configuration.get('application_log', None):
+    log_file = querymod.configuration['application_log']
+
+# Used to log request messages separately
+class SingleLevelFilter(logging.Filter):
+    def __init__(self, passlevel, reject):
+        self.passlevel = passlevel
+        self.reject = reject
+
+    def filter(self, record):
+        if self.reject:
+            return (record.levelno != self.passlevel)
+        else:
+            return (record.levelno == self.passlevel)
+
+# Set up the formatters
+request_formatter = logging.Formatter('[%(asctime)s]: %(message)s')
+app_formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
+json_formatter = jsonlogger.JsonFormatter()
+
+# Set up the filters
+info_only = SingleLevelFilter(logging.INFO, False)
+no_info = SingleLevelFilter(logging.INFO, True)
+
+# Set up the handlers
+request_log = RotatingFileHandler(request_log_file, maxBytes=1048576, backupCount=100)
+request_log.setFormatter(request_formatter)
+request_log.addFilter(info_only)
+
+application_log = RotatingFileHandler(application_log_file, maxBytes=1048576, backupCount=100)
+application_log.setFormatter(app_formatter)
+application_log.addFilter(no_info)
+
+application_json = RotatingFileHandler(request_json_file, maxBytes=1048576, backupCount=100)
+application_json.setFormatter(json_formatter)
+application_json.addFilter(info_only)
+
+application.logger.addHandler(request_log)
+application.logger.addHandler(application_log)
+application.logger.addHandler(application_json)
 application.logger.setLevel(logging.INFO)
 
+# Set up the SMTP handler
 if not querymod.configuration['debug']:
 
     if (querymod.configuration.get('smtp')
@@ -50,7 +90,7 @@ if not querymod.configuration['debug']:
                                    fromaddr='apierror@webapi.bmrb.wisc.edu',
                                    toaddrs=querymod.configuration['smtp']['admins'],
                                    subject='BMRB API Error occured')
-        mail_handler.setLevel(logging.ERROR)
+        mail_handler.setLevel(logging.WARNING)
         application.logger.addHandler(mail_handler)
     else:
         logging.warning("Could not set up SMTP logger because the configuration"
@@ -62,7 +102,7 @@ if not querymod.configuration['debug']:
 def handle_our_errors(error):
     """ Handles exceptions we raised ourselves. """
 
-    application.logger.warning("Handled error raised: %s" % error.message)
+    application.logger.warning("Handled error raised in %s: %s", request.url, error.message)
 
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
@@ -93,12 +133,14 @@ def handle_other_errors(error):
 @application.before_request
 def log_request():
     """ Log all requests. """
-    application.logger.info("%s %s %s '%s' '%s'", request.remote_addr,
+    application.logger.info("%s %s %s '%s'", request.remote_addr,
                             request.method, request.full_path,
-                            request.headers.get('Application',
-                                                'unknown').replace("'", "\\'"),
-                            request.headers.get('User-Agent',
-                                                None).replace("'", "\\'"))
+                            request.headers.get('Application', 'unknown').replace("'", "\\'"),
+                            extra={"User-Agent": request.headers.get('User-Agent'),
+                                   "Method": request.method,
+                                   "Application": request.headers.get('Application'),
+                                   "Path": request.full_path,
+                                   "IP": request.remote_addr})
 
     # Don't pretty-print JSON unless local user and in debug mode
     if check_local_ip() and querymod.configuration['debug']:
