@@ -320,7 +320,7 @@ Example: [The compound names for all compounds in the metabolomics database](htt
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
 
-#### /chemical_shifts[?database=$database][...] Get assigned chemical shift list (GET)
+#### /search/chemical_shifts[?database=$database][...] Get assigned chemical shift list (GET)
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
 can omit the atom type to fetch all chemical shifts and you can use `*` as a
@@ -345,11 +345,11 @@ threshold for a shift.
 
 Examples:
 
-* [All chemical shifts](http://webapi.bmrb.wisc.edu/v2/chemical_shifts)
-* [All CA chemical shifts](http://webapi.bmrb.wisc.edu/v2/chemical_shifts?atom_id=CA)
-* [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/v2/chemical_shifts?atom_id=HB*)
-* [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v2/chemical_shifts?atom_id=C1&database=metabolomics)
-* [All asparagine C chemical shifts within .01 of 175.1 ppm](http://webapi.bmrb.wisc.edu/v2/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
+* [All chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts)
+* [All CA chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=CA)
+* [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=HB*)
+* [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
+* [All asparagine C chemical shifts within .01 of 175.1 ppm](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
 
 #### /software/ Software summary (GET)
 

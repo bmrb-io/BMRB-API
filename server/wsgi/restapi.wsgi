@@ -155,18 +155,6 @@ def debug():
 
     return jsonify(result)
 
-@application.route('/chemical_shifts')
-def get_chemical_shifts():
-    """ Return a list of all chemical shifts that match the selectors"""
-
-    return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.get('shift', None),
-                                                     threshold=request.args.get('threshold', .03),
-                                                     atom_type=request.args.get('atom_type', None),
-                                                     atom_id=request.args.get('atom_id', None),
-                                                     comp_id=request.args.get('comp_id', None),
-                                                     database=get_db("macromolecules")))
-
-
 @application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>')
 def get_entry(entry_id=None):
@@ -249,10 +237,22 @@ def print_search_options():
     """ Returns a list of the search methods."""
 
     result = ""
-    for method in ["get_all_values_for_tag", "get_id_by_tag_value"]:
+    for method in ["get_all_values_for_tag", "get_id_by_tag_value",
+                   "chemical_shifts"]:
         result += '<a href="%s">%s</a><br>' % (method, method)
 
     return result
+
+@application.route('/search/chemical_shifts')
+def get_chemical_shifts():
+    """ Return a list of all chemical shifts that match the selectors"""
+
+    return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.get('shift', None),
+                                                     threshold=request.args.get('threshold', .03),
+                                                     atom_type=request.args.get('atom_type', None),
+                                                     atom_id=request.args.get('atom_id', None),
+                                                     comp_id=request.args.get('comp_id', None),
+                                                     database=get_db("macromolecules")))
 
 @application.route('/search/get_all_values_for_tag/')
 @application.route('/search/get_all_values_for_tag/<tag_name>')

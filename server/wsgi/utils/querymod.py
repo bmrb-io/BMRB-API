@@ -15,10 +15,9 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
-_METHODS = ['list_entries', 'chemical_shifts', 'entry/', 'status', 'select',
+_METHODS = ['list_entries', 'entry/', 'status', 'select',
             'software/', 'software/entry/', 'software/package/', 'validate/',
-            'instant', 'enumerations/', 'search/get_id_by_tag_value/',
-            'search/get_all_values_for_tag/']
+            'instant', 'enumerations/', 'search/']
 
 import os
 import zlib
