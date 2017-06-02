@@ -35,10 +35,13 @@ application = Flask(__name__)
 request_log_file = os.path.join(local_dir, "logs", "requests.log")
 application_log_file = os.path.join(local_dir, "logs", "application.log")
 request_json_file = os.path.join(local_dir, "logs", "json_requests.log")
-if querymod.configuration.get('request_log', None):
-    request_log_file = querymod.configuration['request_log']
-if querymod.configuration.get('application_log', None):
-    log_file = querymod.configuration['application_log']
+if querymod.configuration.get('log'):
+    if querymod.configuration['log'].get('json'):
+        request_json_file = querymod.configuration['log']['json']
+    if querymod.configuration['log'].get('request'):
+        request_log_file = querymod.configuration['log']['request']
+    if querymod.configuration['log'].get('application'):
+        application_log_file = querymod.configuration['log']['application']
 
 # Set up the standard logger
 app_formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
@@ -176,15 +179,6 @@ def debug():
     result['URL'] = request.url
     result['method'] = request.method
     result['remote_address'] = request.remote_addr
-
-    red = querymod.get_redis_connection()
-
-    for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
-        update_string = red.hget("%s:meta" % key, 'update_time')
-        if update_string:
-            update_time = datetime.fromtimestamp(float(update_string))
-            update_string = update_time.strftime('%Y-%m-%d %H:%M:%S')
-        result[key] = {'update':update_string}
 
     return jsonify(result)
 
