@@ -164,25 +164,6 @@ def list_entries():
                                                                 'combined']))
     return jsonify(entries)
 
-@application.route('/debug', methods=('GET', 'POST'))
-def debug():
-    """ This method prints some debugging information."""
-
-    if not check_local_ip():
-        raise RequestError("You are not allowed to access this page.")
-
-    # Raise an exception to test SMTP error notifications working
-    if request.args.get("exception"):
-        raise Exception("Unhandled exception test.")
-
-    result = {}
-    result['secure'] = request.is_secure
-    result['URL'] = request.url
-    result['method'] = request.method
-    result['remote_address'] = request.remote_addr
-
-    return jsonify(result)
-
 @application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>')
 def get_entry(entry_id=None):
@@ -385,7 +366,18 @@ def get_instant():
 def get_status():
     """ Returns the server status."""
 
-    return jsonify(querymod.get_status())
+    status = querymod.get_status()
+
+    if check_local_ip():
+        # Raise an exception to test SMTP error notifications working
+        if request.args.get("exception"):
+            raise Exception("Unhandled exception test.")
+
+        status['URL'] = request.url
+        status['secure'] = request.is_secure
+        status['remote_address'] = request.remote_addr
+
+    return jsonify(status)
 
 # Queries that run commands
 @application.route('/validate/')
