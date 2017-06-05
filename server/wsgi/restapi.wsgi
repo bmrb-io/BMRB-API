@@ -6,6 +6,7 @@ to the correct location and passes the results back."""
 
 import os
 import sys
+import time
 import traceback
 from datetime import datetime
 import logging
@@ -134,7 +135,7 @@ def log_request():
                   "method": request.method, "endpoint": request.endpoint,
                   "application": request.headers.get('Application'),
                   "path": request.full_path, "ip": request.remote_addr,
-                  "local": check_local_ip()})
+                  "local": check_local_ip(), "time": time.time()})
 
     # Don't pretty-print JSON unless local user and in debug mode
     if check_local_ip() and querymod.configuration['debug']:
