@@ -114,7 +114,9 @@ databases are searched for those query types.
 
 ### Queries
 
-#### /status
+#### Status (GET)
+
+**/status**
 
 Returns the current status of the databases and server. This includes the number
 of entries in each database, the number of chemical shifts in each database, and
@@ -123,7 +125,9 @@ returned, as well as the version number of the API.
 
 [Link](http://webapi.bmrb.wisc.edu/v2/status)
 
-#### /list_entries[?database=$database] - List entries (GET)
+#### List entries (GET)
+
+**/list_entries[?database=$database]**
 
 Returns a list of all entries.
 
@@ -135,7 +139,9 @@ Example: [List metabolomics entries](http://webapi.bmrb.wisc.edu/v2/list_entries
 
 Example: [List chemcomp entries](http://webapi.bmrb.wisc.edu/v2/list_entries?database=chemcomps)
 
-#### /entry/ - Store entry (POST)
+#### Store entry (POST)
+
+**/entry/**
 
 When you access this URI you must also provide a NMR-STAR entry in text format
 as the body of the request. The entry will be parsed and stored in the database.
@@ -155,7 +161,9 @@ will reset the expiration.)
 access to the assigned `entry_id` you are provided. Therefore you should not
 share this key with anyone who you do not intend to share the data with.
 
-#### /entry/$entry_id[?format=$entry_format] - Retrieve entry (GET)
+#### Retrieve entry (GET)
+
+**/entry/$entry_id[?format=$entry_format]**
 
 By default returns the given BMRB entry in [JSON format](ENTRY.md#entry). If
 `entry_format` is specified then return in that format instead.
@@ -176,7 +184,9 @@ fetch entries as quickly as possible and it is not expected you will
 benefit from the moderately faster entry access considering the additional
 code complexity required. [Example](http://webapi.bmrb.wisc.edu/v2/entry/15000?format=zlib)
 
-#### /entry/$entry_id?saveframe=$saveframe_category[&format=$entry_format] Retrieve one or more saveframes (GET)
+#### Retrieve one or more saveframes (GET)
+
+**/entry/$entry_id?saveframe=$saveframe_category[&format=$entry_format]**
 
 Returns all saveframes of the given category for an entry in
 [JSON format](ENTRY.md#saveframe) by default. If `entry_format` is specified then
@@ -192,7 +202,9 @@ Example: [Querying for the entry information saveframe](http://webapi.bmrb.wisc.
 
 Example: [Querying for the entry information and citation saveframes](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe=entry_information&saveframe=citations)
 
-#### /entry/$entry_id?loop=$loop_category[&format=$entry_format] Retreive one or more loops (GET)
+#### Retreive one or more loops (GET)
+
+**/entry/$entry_id?loop=$loop_category[&format=$entry_format]**
 
 Returns all loops of a given category for a given entry in
 [JSON format](ENTRY.md#loop) by default. If `entry_format` is specified then
@@ -208,7 +220,9 @@ Example: [Query of the entry author loop](http://webapi.bmrb.wisc.edu/v2/entry/1
 
 Example: [Query of the entry author loop and the sample component loop](http://webapi.bmrb.wisc.edu/v2/entry/15000?loop=Entry_author&loop=Sample_component)
 
-#### /entry/`entry_id`?tag=`tag` Retreive one or more tags (GET)
+#### Retreive one or more tags (GET)
+
+**/entry/`entry_id`?tag=`tag`**
 
 Returns tags of the specified type(s) for a given entry.
 
@@ -216,7 +230,9 @@ Example: [Fetching the entry title](http://webapi.bmrb.wisc.edu/v2/entry/15000?t
 
 Example: [Fetching the entry title and citation title](http://webapi.bmrb.wisc.edu/v2/entry/15000?tag=Entry.Title&tag=Citation.Title)
 
-#### /enumerations/$tag_name[?term=$search_term] Get tag enumerations (GET)
+#### Get tag enumerations (GET)
+
+**/enumerations/$tag_name[?term=$search_term]**
 
 Returns a list of values suggested for the tag in the `values` key if there are
 saved enumerations for the tag. In the `type` key one of the following values will
@@ -235,7 +251,9 @@ that can be used by JQuery's auto-complete.
 
 Example: [List of common NMR-STAR versions starting with 2](http://webapi.bmrb.wisc.edu/v2/enumerations/Entry.NMR_STAR_version?term=2)
 
-#### /instant?term=$search_term[&database=$database] Instant search (GET)
+#### Instant search (GET)
+
+**/instant?term=$search_term[&database=$database]**
 
 This URL powers the BMRB instant search tool. It queries all macromolecule and
 metabolomics entries based on a variety of commonly searched fields. It does exact
@@ -294,7 +312,9 @@ composition.)
 abundant naturally occuring isotope for each atom.
 * `smiles`: The canonical SMILES string for the compound.
 
-#### /search/chemical_shifts[?database=$database][...] Get assigned chemical shift list (GET)
+#### Get assigned chemical shift list (GET)
+
+**/search/chemical_shifts[?database=$database][...]**
 
 Returns all of the chemical shifts in the BMRB for the specified atom type. You
 can omit the atom type to fetch all chemical shifts and you can use `*` as a
@@ -325,7 +345,9 @@ Examples:
 * [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
 * [All asparagine C chemical shifts within .01 of 175.1 ppm](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
 
-#### /search/get_id_by_tag_value/$tag_name/$tag_value[?database=$database] Get entries with tag matching value (GET)
+#### Get entries with tag matching value (GET)
+
+**/search/get_id_by_tag_value/$tag_name/$tag_value[?database=$database]**
 
 Returns a list of BMRB entry IDs which contain the specified `tag_value` for the
 value of at least one instance of tag `tag_name`. The search is done
@@ -337,7 +359,9 @@ Example: [All entries which used solid-state NMR](http://webapi.bmrb.wisc.edu/v2
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
 
-#### /search/get_all_values_for_tag/$tag_name[?database=$database] Get all values for a given tag (GET)
+#### Get all values for a given tag (GET)
+
+**/search/get_all_values_for_tag/$tag_name[?database=$database]**
 
 Returns a dictionary for the specified dictionary where the keys are entry IDs
 and the values are lists of all of the values of the given tag in each entry.
@@ -351,13 +375,17 @@ Example: [The compound names for all compounds in the metabolomics database](htt
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
 
-#### /software/ Software summary (GET)
+#### Software summary (GET)
+
+**/software/**
 
 Returns a summary of all software packages used in BMRB entries.
 
 Example: [All software packages used](http://webapi.bmrb.wisc.edu/v2/software/)
 
-#### /software/entry/$entry_id Software used in an entry (GET)
+#### Software used in an entry (GET)
+
+**/software/entry/$entry_id**
 
 Returns a list of all software packages used by a given entry. Each item in the
 list of software will be a list with the following four values in order:
@@ -369,7 +397,9 @@ list of software will be a list with the following four values in order:
 
 [Example for entry 15000](http://webapi.bmrb.wisc.edu/v2/software/entry/15000)
 
-#### /software/package/$software_package/[?database=$database] Which entries used a given software package (GET)
+#### Which entries used a given software package (GET)
+
+**/software/package/$software_package/[?database=$database]**
 
 Returns a list of all entries used by the specified software package. The search
 is done case-insensitive and does not require perfect matches. For example,
