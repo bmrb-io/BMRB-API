@@ -525,8 +525,8 @@ def get_enumerations(tag, term=None, cur=None):
     return result
 
 def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
-                             atom_id=None, comp_id=None,
-                             database="macromolecules"):
+                             atom_id=None, comp_id=None, ph=None,
+                             temperature=None, database="macromolecules"):
     """ Searches for a given chemical shift. """
 
     cur = get_postgres_connection()[1]
@@ -538,8 +538,12 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
         raise RequestError("Invalid threshold.")
 
     sql = '''
-SELECT "Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type","Val","Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
-FROM "Atom_chem_shift"
+SELECT cs."Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type",cs."Val",cs."Val_err","Ambiguity_code","Assigned_chem_shift_list_ID",ph."Val" as ph,temp."Val" as temperature
+FROM "Atom_chem_shift" as cs
+LEFT JOIN "Sample_condition_variable" AS ph
+ON ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH' AND ph."Val_units"='pH'
+LEFT JOIN "Sample_condition_variable" AS temp
+ON temp."Entry_ID"=cs."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
 WHERE '''
     args = []
 
@@ -568,12 +572,21 @@ WHERE '''
     if shift_val:
         sql += "("
         for val in shift_val:
-            sql += '''("Val"::float  < %s AND "Val"::float > %s) OR '''
+            sql += '''(cs."Val"::float  < %s AND cs."Val"::float > %s) OR '''
             range_low = float(val) - threshold
             range_high = float(val) + threshold
             args.append(range_high)
             args.append(range_low)
         sql += "1 = 2) AND "
+
+    if ph:
+        sql += ''' web.convert_to_float(ph."Val") < %s and web.convert_to_float(ph."Val") > % AND '''
+        args.append(float(ph) + .1)
+        args.append(float(ph) - .1)
+    elif temperature:
+        sql += ''' web.convert_to_float(temp."Val") < %s and web.convert_to_float(temp."Val") > % AND '''
+        args.append(float(temperature) + 5)
+        args.append(float(temperature) - 5)
 
     # Make sure the SQL query syntax works out
     sql += '''1=1'''
