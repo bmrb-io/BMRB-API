@@ -329,10 +329,14 @@ search parameters are combined with a logical AND.
 You may use `*` in `atom_id` and `comp_id` as a wildcard to match 0 or more
 characters.
 
-* `atom_type` The value for this tag is a standard IUPAC abbreviation for an element (i.e. H C P etc).
-* `atom_id` The chemical element of the atom.
-* `comp_id` The residue as a 3 letter code.
-* `shift` A specific chemical shift to search for. Uses a default threshold of .03
+* `atom_type` The value for this tag is a standard IUPAC abbreviation for an element (e.g. H,C,P).
+* `atom_id` The atom name (e.g. HB2, CB). You may specify this parameter multiple times
+and results that match any of the specified atom ids will be returned.
+* `comp_id` The residue as a 3 letter code. You may specify this parameter multiple times
+and results that match any of the specified residues will be returned.
+* `shift` A specific chemical shift to search for. Uses a default threshold of .03.
+You may specify this parameter multiple times and results that match any of the
+specified chemical shifts will be returned.
 * `threshold` Only has meaning in conjunction with `shift`. Specifies the search
 threshold for a shift.
 * `database` The database to search. Macromolecules or metabolomics.
@@ -344,6 +348,7 @@ Examples:
 * [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=HB*)
 * [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
 * [All asparagine C chemical shifts within .01 of 175.1 ppm](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
+* [All shifts within .03 of 103 or 130 in residue PHE or TRP](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?comp_id=TRP&comp_id=PHE&shift=103&shift=130)
 
 #### Get entries with tag matching value (GET)
 

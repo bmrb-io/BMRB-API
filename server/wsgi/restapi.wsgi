@@ -256,11 +256,14 @@ def print_search_options():
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
-    return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.get('shift', None),
+    if request.is_json:
+        return jsonify(request.get_json())
+
+    return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.getlist('shift', None),
                                                      threshold=request.args.get('threshold', .03),
                                                      atom_type=request.args.get('atom_type', None),
-                                                     atom_id=request.args.get('atom_id', None),
-                                                     comp_id=request.args.get('comp_id', None),
+                                                     atom_id=request.args.getlist('atom_id', None),
+                                                     comp_id=request.args.getlist('comp_id', None),
                                                      database=get_db("macromolecules")))
 
 @application.route('/search/get_all_values_for_tag/')

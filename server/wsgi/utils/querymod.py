@@ -545,29 +545,38 @@ WHERE '''
 
     # See if a specific atom type is needed
     if atom_type:
-        sql += '''"Atom_chem_shift"."Atom_type" LIKE %s AND '''
+        sql += '''"Atom_type" LIKE %s AND '''
         args.append(atom_type.replace("*", "%").upper())
 
     # See if a specific atom is needed
     if atom_id:
-        sql += '''"Atom_chem_shift"."Atom_ID" LIKE %s AND '''
-        args.append(atom_id.replace("*", "%").upper())
+        sql += "("
+        for atom in atom_id:
+            sql += '''"Atom_ID" LIKE %s OR '''
+            args.append(atom.replace("*", "%").upper())
+        sql += "1 = 2) AND "
 
     # See if a specific residue is needed
     if comp_id:
-        sql += '''"Atom_chem_shift"."Comp_ID" LIKE %s AND '''
-        args.append(comp_id.replace("*", "%").upper())
+        sql += "("
+        for comp in comp_id:
+            sql += '''"Comp_ID" LIKE %s OR '''
+            args.append(comp.replace("*", "%").upper())
+        sql += "1 = 2) AND "
 
     # See if a peak is specified
     if shift_val:
-        sql += '''"Atom_chem_shift"."Val"::float  < %s AND "Atom_chem_shift"."Val"::float  > %s AND '''
-        range_low = str(float(shift_val) - threshold)
-        range_high = str(float(shift_val) + threshold)
-        args.append(range_high)
-        args.append(range_low)
+        sql += "("
+        for val in shift_val:
+            sql += '''("Val"::float  < %s AND "Val"::float > %s) OR '''
+            range_low = float(val) - threshold
+            range_high = float(val) + threshold
+            args.append(range_high)
+            args.append(range_low)
+        sql += "1 = 2) AND "
 
     # Make sure the SQL query syntax works out
-    sql += "1=1"
+    sql += '''1=1'''
 
     # Do the query
     cur.execute(sql, args)

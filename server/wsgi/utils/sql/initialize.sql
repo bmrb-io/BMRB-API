@@ -19,6 +19,25 @@ BEGIN
     END;
 END $$;
 
+-- Put some indexes on the chemical shifts
+DO $$
+BEGIN
+    BEGIN
+        CREATE INDEX atom_type ON macromolecules."Atom_chem_shift" ("Atom_type");
+        CREATE INDEX atom_id ON macromolecules."Atom_chem_shift" ("Atom_ID");
+        CREATE INDEX comp_id ON macromolecules."Atom_chem_shift" ("Comp_ID");
+        CREATE INDEX val ON macromolecules."Atom_chem_shift" (CAST("Val" as float));
+        ANALYZE macromolecules."Atom_chem_shift";
+
+        CREATE INDEX atom_type ON metabolomics."Atom_chem_shift" ("Atom_type");
+        CREATE INDEX atom_id ON metabolomics."Atom_chem_shift" ("Atom_ID");
+        CREATE INDEX comp_id ON metabolomics."Atom_chem_shift" ("Comp_ID");
+        CREATE INDEX val ON metabolomics."Atom_chem_shift" (CAST("Val" as float));
+        ANALYZE metabolomics."Atom_chem_shift";
+    EXCEPTION
+        WHEN OTHERS THEN RAISE NOTICE 'Skipping chemical_shift index creation because at least one index already exists.';
+    END;
+END $$;
 
 -- Now start with the instant search...
 
