@@ -264,8 +264,7 @@ def get_chemical_shifts():
                                                      atom_type=request.args.get('atom_type', None),
                                                      atom_id=request.args.getlist('atom_id', None),
                                                      comp_id=request.args.getlist('comp_id', None),
-                                                     temperature=request.args.get('temperature', None),
-                                                     ph=request.args.get('ph', None),
+                                                     conditions=request.args.get('conditions', False),
                                                      database=get_db("macromolecules")))
 
 @application.route('/search/get_all_values_for_tag/')

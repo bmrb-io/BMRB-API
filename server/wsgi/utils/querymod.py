@@ -525,8 +525,8 @@ def get_enumerations(tag, term=None, cur=None):
     return result
 
 def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
-                             atom_id=None, comp_id=None, ph=None,
-                             temperature=None, database="macromolecules"):
+                             atom_id=None, comp_id=None, conditions=False,
+                             database="macromolecules"):
     """ Searches for a given chemical shift. """
 
     cur = get_postgres_connection()[1]
@@ -538,19 +538,28 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
         raise RequestError("Invalid threshold.")
 
     sql = '''
+SELECT cs."Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type",cs."Val",cs."Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
+FROM "Atom_chem_shift" as cs
+WHERE
+'''
+
+    if conditions:
+        sql = '''
 SELECT cs."Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type",cs."Val",cs."Val_err","Ambiguity_code","Assigned_chem_shift_list_ID",ph."Val" as ph,temp."Val" as temperature
 FROM "Atom_chem_shift" as cs
 LEFT JOIN "Sample_condition_variable" AS ph
 ON ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH' AND ph."Val_units"='pH'
 LEFT JOIN "Sample_condition_variable" AS temp
 ON temp."Entry_ID"=cs."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
-WHERE '''
+WHERE
+'''
+
     args = []
 
     # See if a specific atom type is needed
     if atom_type:
-        sql += '''"Atom_type" LIKE %s AND '''
-        args.append(atom_type.replace("*", "%").upper())
+        sql += '''"Atom_type" = %s AND '''
+        args.append(atom_type.upper())
 
     # See if a specific atom is needed
     if atom_id:
@@ -564,8 +573,8 @@ WHERE '''
     if comp_id:
         sql += "("
         for comp in comp_id:
-            sql += '''"Comp_ID" LIKE %s OR '''
-            args.append(comp.replace("*", "%").upper())
+            sql += '''"Comp_ID" = %s OR '''
+            args.append(comp.upper())
         sql += "1 = 2) AND "
 
     # See if a peak is specified
@@ -578,15 +587,6 @@ WHERE '''
             args.append(range_high)
             args.append(range_low)
         sql += "1 = 2) AND "
-
-    if ph:
-        sql += ''' web.convert_to_float(ph."Val") < %s and web.convert_to_float(ph."Val") > % AND '''
-        args.append(float(ph) + .1)
-        args.append(float(ph) - .1)
-    elif temperature:
-        sql += ''' web.convert_to_float(temp."Val") < %s and web.convert_to_float(temp."Val") > % AND '''
-        args.append(float(temperature) + 5)
-        args.append(float(temperature) - 5)
 
     # Make sure the SQL query syntax works out
     sql += '''1=1'''
@@ -601,6 +601,11 @@ WHERE '''
         result['debug'] = cur.query
 
     result['columns'] = ["Atom_chem_shift." + desc[0] for desc in cur.description]
+
+    if conditions:
+        result['columns'][-2] = 'Sample_conditions.pH'
+        result['columns'][-1] = 'Sample_conditions.Temperature_K'
+
     result['data'] = cur.fetchall()
     return result
 
