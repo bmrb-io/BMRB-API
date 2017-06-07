@@ -538,21 +538,30 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
         raise RequestError("Invalid threshold.")
 
     sql = '''
-SELECT cs."Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type",cs."Val",cs."Val_err","Ambiguity_code","Assigned_chem_shift_list_ID"
+SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer
 FROM "Atom_chem_shift" as cs
 WHERE
 '''
 
     if conditions:
         sql = '''
-SELECT cs."Entry_ID","Entity_ID","Comp_index_ID","Comp_ID","Atom_ID","Atom_type",cs."Val",cs."Val_err","Ambiguity_code","Assigned_chem_shift_list_ID",ph."Val" as ph,temp."Val" as temperature
+SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer,web.convert_to_numeric(ph."Val") as ph,web.convert_to_numeric(temp."Val") as temp
 FROM "Atom_chem_shift" as cs
+LEFT JOIN "Assigned_chem_shift_list" as csf
+ON csf."ID"=cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID"=cs."Entry_ID"
 LEFT JOIN "Sample_condition_variable" AS ph
-ON ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH' AND ph."Val_units"='pH'
+ON csf."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH'
 LEFT JOIN "Sample_condition_variable" AS temp
-ON temp."Entry_ID"=cs."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
+ON csf."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=cs."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
+
 WHERE
 '''
+
+    dela = '''
+temp."Val" as temperature
+
+    LEFT JOIN "Sample_condition_variable" AS temp
+ON temp."Entry_ID"=cs."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'''
 
     args = []
 

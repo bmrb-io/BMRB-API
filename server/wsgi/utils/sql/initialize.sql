@@ -19,18 +19,18 @@ BEGIN
     END;
 END $$;
 
--- Put some indexes on the chemical shifts
-
-CREATE OR REPLACE FUNCTION web.convert_to_float(text)
-  RETURNS float AS
+-- Used when fetching pH and temperature
+CREATE OR REPLACE FUNCTION web.convert_to_numeric(text)
+  RETURNS numeric AS
 $func$
 BEGIN
-    RETURN $1::float;
+    RETURN $1::numeric;
 EXCEPTION WHEN OTHERS THEN
    RETURN NULL;  -- NULL for other invalid input
 END
 $func$  LANGUAGE plpgsql IMMUTABLE;
 
+-- Put some indexes on the chemical shifts
 DO $$
 BEGIN
     BEGIN
@@ -39,14 +39,6 @@ BEGIN
         CREATE INDEX comp_id ON macromolecules."Atom_chem_shift" ("Comp_ID");
         CREATE INDEX val ON macromolecules."Atom_chem_shift" (CAST("Val" as float));
         ANALYZE macromolecules."Atom_chem_shift";
-
-        CREATE INDEX sc_val on macromolecules."Sample_condition_variable" ("Val");
-        CREATE INDEX sc_vu on macromolecules."Sample_condition_variable" ("Val_units");
-        CREATE INDEX sample_condition_val on macromolecules."Sample_condition_variable" (web.convert_to_float("Val"));
-
-        CREATE INDEX sc_val on metabolomics."Sample_condition_variable" ("Val");
-        CREATE INDEX sc_vu on metabolomics."Sample_condition_variable" ("Val_units");
-        CREATE INDEX sample_condition_val on metabolomics."Sample_condition_variable" (web.convert_to_float("Val"));
 
         CREATE INDEX atom_type ON metabolomics."Atom_chem_shift" ("Atom_type");
         CREATE INDEX atom_id ON metabolomics."Atom_chem_shift" ("Atom_ID");

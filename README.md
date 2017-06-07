@@ -340,6 +340,9 @@ specified chemical shifts will be returned.
 * `threshold` Only has meaning in conjunction with `shift`. Specifies the search
 threshold for a shift.
 * `database` The database to search. Macromolecules or metabolomics.
+* `conditions` Set this parameter to any value and two additional columns will be
+returned: the pH and the temperature in kelvin associated with the chemical shift.
+If those values are not available they will be returned as null.
 
 Examples:
 
