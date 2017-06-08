@@ -524,6 +524,74 @@ def get_enumerations(tag, term=None, cur=None):
 
     return result
 
+def multiple_peak_search(peaks, database="metabolomics"):
+    """ Parses the JSON request and does a search against multiple peaks."""
+
+    cur = get_postgres_connection()[1]
+    set_database(cur, database)
+
+    sql = '''
+SELECT "Entry_ID","Assigned_chem_shift_list_ID"::text,array_agg(DISTINCT "Val"::numeric)
+FROM "Atom_chem_shift"
+WHERE '''
+    terms = []
+
+    peaks = sorted([float(x) for x in peaks])
+
+    for peak in peaks:
+        sql += '''
+(("Val"::float < %s  AND "Val"::float > %s AND ("Atom_type" = 'C' OR "Atom_type" = 'N'))
+ OR
+ ("Val"::float < %s  AND "Val"::float > %s AND "Atom_type" = 'H')) OR '''
+        terms.append(peak + .2)
+        terms.append(peak - .2)
+        terms.append(peak + .01)
+        terms.append(peak - .01)
+
+    # End the OR
+    sql += '''
+1=2
+GROUP BY "Entry_ID","Assigned_chem_shift_list_ID"
+ORDER BY count(DISTINCT "Val") DESC;
+'''
+
+    # Do the query
+    cur.execute(sql, terms)
+
+    result = {"data":[]}
+
+    # Send query string if in debug mode
+    if configuration['debug']:
+        result['debug'] = cur.query
+
+    for entry in cur:
+        result['data'].append({'Entry_ID':entry[0],
+                               'Assigned_chem_shift_list_ID': entry[1],
+                               'Val': entry[2]})
+
+
+    def get_closest(myList, myNumber):
+        return min(myList, key=lambda x:abs(x-myNumber))
+
+    def get_sort_key(res):
+        """ Returns the sort key. """
+
+        closest_list = [get_closest([float(x) for x in res['Val']], peak) for peak in peaks]
+
+
+        # Add the difference of all the shifts
+        for x, item in enumerate(closest_list):
+            key = abs(float(peaks[x]) - float(item))
+
+        res['Combined_offset'] = round(key,3)
+
+        return (-len(res['Val']), key)
+
+    result['data'] = sorted(result['data'], key=get_sort_key)
+
+    #result['data'] = cur.fetchall()
+    return result
+
 def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
                              atom_id=None, comp_id=None, conditions=False,
                              database="macromolecules"):

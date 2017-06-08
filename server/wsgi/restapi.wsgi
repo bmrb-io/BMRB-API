@@ -252,12 +252,23 @@ def print_search_options():
 
     return result
 
+@application.route('/search/multiple_shift_search')
+def multiple_shift_search():
+    """ Finds entries that match at least some of the peaks. """
+
+    peaks = request.args.getlist('shift', None)
+    if not peaks:
+        raise querymod.RequestError("You must specify at least one shift to search for.")
+
+    return jsonify(querymod.multiple_peak_search(peaks,
+                                                 database=get_db("metabolomics")))
+
 @application.route('/search/chemical_shifts')
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
-    if request.is_json:
-        return jsonify(request.get_json())
+    #if request.is_json:
+        #return jsonify(request.get_json())
 
     return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.getlist('shift', None),
                                                      threshold=request.args.get('threshold', .03),
