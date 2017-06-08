@@ -24,6 +24,7 @@ import zlib
 import logging
 import subprocess
 from hashlib import md5
+from decimal import Decimal
 from time import time as unixtime
 from tempfile import NamedTemporaryFile
 try:
@@ -569,6 +570,8 @@ ORDER BY count(DISTINCT "Val") DESC;
                                'Assigned_chem_shift_list_ID': entry[1],
                                'Val': entry[2]})
 
+    # Convert the search to decimal
+    peaks = [Decimal(x) for x in peaks]
 
     def get_closest(myList, myNumber):
         return min(myList, key=lambda x:abs(x-myNumber))
@@ -576,16 +579,22 @@ ORDER BY count(DISTINCT "Val") DESC;
     def get_sort_key(res):
         """ Returns the sort key. """
 
-        closest_list = [get_closest([float(x) for x in res['Val']], peak) for peak in peaks]
-
+        key = 0
 
         # Add the difference of all the shifts
-        for x, item in enumerate(closest_list):
-            key = abs(float(peaks[x]) - float(item))
-
+        for x, item in enumerate(res['Val']):
+            key += abs(get_closest(peaks, item) - item)
         res['Combined_offset'] = round(key,3)
 
-        return (-len(res['Val']), key)
+        # Determine how many of the queried peaks were matched
+        num_match = 0
+        for peak in peaks:
+            closest = get_closest(res['Val'], peak)
+            if abs(peak-closest) < .2:
+                num_match += 1
+        res['Peaks_matched'] = num_match
+
+        return (-num_match, key, res['Entry_ID'])
 
     result['data'] = sorted(result['data'], key=get_sort_key)
 

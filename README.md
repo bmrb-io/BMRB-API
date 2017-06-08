@@ -353,6 +353,23 @@ Examples:
 * [All asparagine C chemical shifts within .01 of 175.1 ppm](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
 * [All shifts within .03 of 103 or 130 in residue PHE or TRP](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?comp_id=TRP&comp_id=PHE&shift=103&shift=130)
 
+#### Search for matching entries based on a lift of shifts (GET)
+
+**/search/multiple_shift_search?shift=x.x[&shift=x.x][...][&database=$database]**
+
+Returns all entries that contain at least one of the queried peaks, as well as
+the list of peaks that matched. Results returned as a list of matching entries along
+with the matching shifts, number of shifts matched, and total offset of shifts,
+sorted by number of peaks matched and total offset. Peaks are counted as a match
+if they are within .2 ppm for C and N and if they are within .01 ppm for H.
+
+Parameters:
+
+* `shift` Specify once for each shift you intend to query against.
+* `database` Which database to query. Metabolomics by default.
+
+Example: [Search for peaks 2.075, 3.11, and 39.31](http://webapi.bmrb.wisc.edu/v2/search/multiple_shift_search?shift=2.075&shift=3.11&shift=39.31)
+
 #### Get entries with tag matching value (GET)
 
 **/search/get_id_by_tag_value/$tag_name/$tag_value[?database=$database]**
