@@ -15,9 +15,9 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
-_METHODS = ['list_entries', 'entry/', 'status', 'select',
-            'software/', 'software/entry/', 'software/package/', 'validate/',
-            'instant', 'enumerations/', 'search/']
+_METHODS = ['list_entries', 'entry/', 'status', 'software/', 'software/entry/',
+            'software/package/', 'validate/', 'instant', 'enumerations/',
+            'search/']
 
 import os
 import zlib
@@ -143,7 +143,8 @@ def get_postgres_connection(user=configuration['postgres']['user'],
 
     # Errors connecting will be handled upstream
     if dictionary_cursor:
-        conn = psycopg2.connect(user=user, host=host, database=database, cursor_factory=DictCursor)
+        conn = psycopg2.connect(user=user, host=host, database=database,
+                                cursor_factory=DictCursor)
     else:
         conn = psycopg2.connect(user=user, host=host, database=database)
     cur = conn.cursor()
@@ -406,12 +407,14 @@ def get_chemical_shift_validation(**kwargs):
                 panav_location = os.path.join(_SUBMODULE_DIR, "panav/panav.jar")
                 try:
                     res = subprocess.check_output(["java", "-cp", panav_location,
-                                                   "CLI", "-f", "star", "-i", chem_shifts.name],
+                                                   "CLI", "-f", "star", "-i",
+                                                   chem_shifts.name],
                                                   stderr=subprocess.STDOUT)
                     # There is a -j option that produces a somewhat usable JSON...
                     result[entry[0]]["panav"][pos] = panav_parser(res)
                 except subprocess.CalledProcessError:
-                    result[entry[0]]["panav"][pos] = {"error": "PANAV failed on this entry."}
+                    result[entry[0]]["panav"][pos] = {"error":
+                                                      "PANAV failed on this entry."}
 
     # Return the result dictionary
     return result

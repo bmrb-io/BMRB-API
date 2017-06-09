@@ -386,6 +386,7 @@ def get_status():
         status['URL'] = request.url
         status['secure'] = request.is_secure
         status['remote_address'] = request.remote_addr
+        status['debug'] = querymod.configuration.get('debug')
 
     return jsonify(status)
 
