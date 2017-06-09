@@ -370,8 +370,8 @@ def get_chemical_shift_validation(**kwargs):
                                            "-star_output", star_file.name],
                                           stderr=subprocess.STDOUT)
 
-            tmp_ent = bmrb.Entry.from_string(res)
-            error_loop = tmp_ent.get_loops_by_category("_AVS_analysis_r")[0]
+            error_loop = bmrb.Entry.from_string(res)
+            error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
             error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
                                             "Entity_ID", "Comp_index_ID",
                                             "Comp_ID",
@@ -497,12 +497,19 @@ def get_enumerations(tag, term=None, cur=None):
         tag = "_" + tag
 
     # Get the list of which tags should be used to order data
-    cur.execute('''SELECT itemenumclosedflg,enumeratedflg,dictionaryseq FROM dict.adit_item_tbl WHERE originaltag=%s''', [tag])
+    cur.execute('''
+SELECT itemenumclosedflg,enumeratedflg,dictionaryseq
+ FROM dict.adit_item_tbl
+ WHERE originaltag=%s''', [tag])
     query_res = cur.fetchall()
     if len(query_res) == 0:
         raise RequestError("Invalid tag specified.")
 
-    cur.execute('''SELECT val FROM dict.enumerations WHERE seq=%s ORDER BY val''', [query_res[0][2]])
+    cur.execute('''
+SELECT val
+ FROM dict.enumerations
+ WHERE seq=%s
+ ORDER BY val''', [query_res[0][2]])
     values = cur.fetchall()
 
     # Generate the result dictionary
@@ -573,8 +580,9 @@ ORDER BY count(DISTINCT "Val") DESC;
     # Convert the search to decimal
     peaks = [Decimal(x) for x in peaks]
 
-    def get_closest(myList, myNumber):
-        return min(myList, key=lambda x:abs(x-myNumber))
+    def get_closest(collection, number):
+        """ Returns the closest number from a list of numbers. """
+        return min(collection, key=lambda x: abs(x-number))
 
     def get_sort_key(res):
         """ Returns the sort key. """
@@ -582,9 +590,9 @@ ORDER BY count(DISTINCT "Val") DESC;
         key = 0
 
         # Add the difference of all the shifts
-        for x, item in enumerate(res['Val']):
+        for item in res['Val']:
             key += abs(get_closest(peaks, item) - item)
-        res['Combined_offset'] = round(key,3)
+        res['Combined_offset'] = round(key, 3)
 
         # Determine how many of the queried peaks were matched
         num_match = 0
@@ -598,7 +606,6 @@ ORDER BY count(DISTINCT "Val") DESC;
 
     result['data'] = sorted(result['data'], key=get_sort_key)
 
-    #result['data'] = cur.fetchall()
     return result
 
 def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
@@ -633,12 +640,6 @@ ON csf."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entr
 
 WHERE
 '''
-
-    dela = '''
-temp."Val" as temperature
-
-    LEFT JOIN "Sample_condition_variable" AS temp
-ON temp."Entry_ID"=cs."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'''
 
     args = []
 
@@ -721,10 +722,12 @@ def get_software_entries(software_name, database="macromolecules"):
 
     # Get the list of which tags should be used to order data
     cur.execute('''
-SELECT "Software"."Entry_ID", "Software"."Name", "Software"."Version", vendor."Name" as "Vendor Name", vendor."Electronic_address" as "e-mail", task."Task" as "Task"
+SELECT "Software"."Entry_ID","Software"."Name","Software"."Version",vendor."Name" as "Vendor Name",vendor."Electronic_address" as "e-mail",task."Task" as "Task"
 FROM "Software"
-   LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+   LEFT JOIN "Vendor" as vendor
+   ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN "Task" as task
+   ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
 WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
 
     column_names = [desc[0] for desc in cur.description]
@@ -738,10 +741,12 @@ def get_software_summary(database="macromolecules"):
 
     # Get the list of which tags should be used to order data
     cur.execute('''
-SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+SELECT "Software"."Name","Software"."Version",task."Task" as "Task",vendor."Name" as "Vendor Name"
 FROM "Software"
-   LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
+   LEFT JOIN "Vendor" as vendor
+   ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN "Task" as task
+   ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
@@ -754,9 +759,11 @@ def do_sql_mods(conn=None, cur=None, sql_file=None):
         conn, cur = get_postgres_connection(user=configuration['postgres']['reload_user'])
 
     if sql_file is None:
-        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
+        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                "sql", "initialize.sql")
     else:
-        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", sql_file)
+        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                "sql", sql_file)
 
     cur.execute(open(sql_file, "r").read())
     conn.commit()
@@ -767,7 +774,9 @@ def create_csrosetta_table(csrosetta_sqlite_file):
     import sqlite3
 
     c = sqlite3.connect(csrosetta_sqlite_file).cursor()
-    entries = c.execute('SELECT key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest FROM entries;').fetchall()
+    entries = c.execute('''
+SELECT key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest
+  FROM entries;''').fetchall()
 
     pconn, pcur = get_postgres_connection()
     pcur.execute('''
@@ -839,18 +848,20 @@ def get_instant_search(term, database):
 
     if database == "metabolomics":
         instant_query_one = '''
-SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
-LEFT JOIN web.metabolomics_summary as ms
-ON instant_cache.id = ms.id
-WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
-ORDER BY instant_cache.id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass
+  FROM web.instant_cache
+    LEFT JOIN web.metabolomics_summary as ms
+    ON instant_cache.id = ms.id
+  WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
+  ORDER BY instant_cache.id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
         instant_query_two = """
 SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight", NULL as "monoisotopic_mass" FROM web.instant_cache
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight", NULL as "monoisotopic_mass"
+  FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
-    WHERE tt.identical_term @@ plainto_tsquery(%s)
+  WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT * from (
 SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
@@ -870,13 +881,15 @@ ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquer
 
         instant_query_two = """
 SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+  FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+  FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.term %% %s AND tt.identical_term IS NULL
@@ -892,13 +905,15 @@ ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquer
 
         instant_query_two = """
 SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+  FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab FROM web.instant_cache
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+  FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
     WHERE tt.term %% %s AND tt.identical_term IS NULL

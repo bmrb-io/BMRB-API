@@ -8,7 +8,6 @@ import os
 import sys
 import time
 import traceback
-from datetime import datetime
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
 from pythonjsonlogger import jsonlogger
@@ -128,7 +127,7 @@ def log_request():
     """ Log all requests. """
     rlogger.info("%s %s %s %s %s", request.remote_addr, request.method,
                  request.full_path,
-                 request.headers.get('User-Agent','?').split()[0],
+                 request.headers.get('User-Agent', '?').split()[0],
                  request.headers.get('Application', 'unknown'))
 
     jlogger.info({"user-agent": request.headers.get('User-Agent'),
@@ -138,10 +137,8 @@ def log_request():
                   "local": check_local_ip(), "time": time.time()})
 
     # Don't pretty-print JSON unless local user and in debug mode
-    if check_local_ip() and querymod.configuration['debug']:
-        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
-    else:
-        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+    application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (check_local_ip() and
+                                                         querymod.configuration['debug'])
 
 @application.route('/')
 def no_params():
@@ -247,7 +244,7 @@ def print_search_options():
 
     result = ""
     for method in ["get_all_values_for_tag", "get_id_by_tag_value",
-                   "chemical_shifts"]:
+                   "chemical_shifts", "multiple_shift_search"]:
         result += '<a href="%s">%s</a><br>' % (method, method)
 
     return result
@@ -267,16 +264,14 @@ def multiple_shift_search():
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
-    #if request.is_json:
-        #return jsonify(request.get_json())
-
-    return jsonify(querymod.chemical_shift_search_1d(shift_val=request.args.getlist('shift', None),
-                                                     threshold=request.args.get('threshold', .03),
-                                                     atom_type=request.args.get('atom_type', None),
-                                                     atom_id=request.args.getlist('atom_id', None),
-                                                     comp_id=request.args.getlist('comp_id', None),
-                                                     conditions=request.args.get('conditions', False),
-                                                     database=get_db("macromolecules")))
+    cs1d = querymod.chemical_shift_search_1d
+    return jsonify(cs1d(shift_val=request.args.getlist('shift', None),
+                        threshold=request.args.get('threshold', .03),
+                        atom_type=request.args.get('atom_type', None),
+                        atom_id=request.args.getlist('atom_id', None),
+                        comp_id=request.args.getlist('comp_id', None),
+                        conditions=request.args.get('conditions', False),
+                        database=get_db("macromolecules")))
 
 @application.route('/search/get_all_values_for_tag/')
 @application.route('/search/get_all_values_for_tag/<tag_name>')
