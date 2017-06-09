@@ -1246,24 +1246,6 @@ def process_select(**params):
 
     return result_list
 
-    # Synchronized list generation - in progress
-    common_ids = []
-    for pos, result in enumerate(result_list):
-        id_pos = params['query'][pos]['select'].index('Entry_ID')
-        common_ids.append([x[id_pos] for x in result])
-
-    # Determine the IDs that are in all results
-    common_ids = list(set.intersection(*map(set, common_ids)))
-
-    new_response = {}
-    for each_id in common_ids:
-        for pos, each_query in enumerate(params['query']):
-            for field in each_query['select']:
-                if each_query['from'] + "." + field not in new_response:
-                    new_response[each_query['from'] + "." + field] = []
-
-    return new_response
-
 def create_chemcomp_from_db(chemcomp, cur=None):
     """ Create a chem comp entry from the database."""
 
