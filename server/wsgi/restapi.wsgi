@@ -361,6 +361,12 @@ def get_software_by_package(package_name=None):
     return jsonify(querymod.get_software_entries(package_name,
                                                  database=get_db('macromolecules')))
 
+@application.route('/entry/<entry_id>/experiments')
+def get_metabolomics_data(entry_id):
+    """ Return the experiments available for a metabolomics entry. """
+
+    return jsonify(querymod.get_experiments(entry=entry_id))
+
 
 @application.route('/instant')
 def get_instant():

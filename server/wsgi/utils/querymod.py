@@ -844,6 +844,25 @@ def get_bmrb_as_text(entry):
 
     return " ".join(res_strings)
 
+def get_experiments(entry, database="metabolomics"):
+    """ Returns the experiments for this entry. """
+
+    cur = get_postgres_connection()[1]
+    set_database(cur, "metabolomics")
+
+    sql = '''
+SELECT me."Entry_ID", ns."Manufacturer",ns."Model",ns."Field_strength", ef."Experiment_ID", array_agg(ef."Name"), array_agg(ef."Type") FROM metabolomics."Experiment" as me
+  LEFT JOIN metabolomics."Experiment_file" as ef
+  ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
+  LEFT JOIN metabolomics."NMR_spectrometer" as ns
+  ON ns."Entry_ID" = me."Entry_ID" and ns."ID" = me."NMR_spectrometer_ID"
+  WHERE me."Entry_ID" = %s
+  GROUP BY me."Entry_ID", ef."Experiment_ID", ns."Manufacturer", ns."Model",ns."Field_strength"
+  ORDER BY me."Entry_ID" ASC, ef."Experiment_ID" ASC;'''
+
+    cur.execute(sql, [entry])
+    return cur.fetchall()
+
 def get_instant_search(term, database):
     """ Does an instant search and returns results. """
 
