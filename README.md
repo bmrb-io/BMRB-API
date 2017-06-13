@@ -222,13 +222,27 @@ Example: [Query of the entry author loop and the sample component loop](http://w
 
 #### Retreive one or more tags (GET)
 
-**/entry/`entry_id`?tag=`tag`**
+**/entry/$entry_id?tag=$tag**
 
 Returns tags of the specified type(s) for a given entry.
 
 Example: [Fetching the entry title](http://webapi.bmrb.wisc.edu/v2/entry/15000?tag=Entry.Title)
 
 Example: [Fetching the entry title and citation title](http://webapi.bmrb.wisc.edu/v2/entry/15000?tag=Entry.Title&tag=Citation.Title)
+
+#### Fetch information on the NMR experiments (GET)
+
+**/entry/$entry_id/experiments**
+
+Returns information about the NMR experiments for an entry.
+The information returned:
+
+* Data files available and their location
+* Sample component information
+* Sample experimental condition information
+* NMR spectrometer information
+
+Example: [Experiments for entry bmse000001](http://webapi.bmrb.wisc.edu/v2/entry/bmse000001/experiments)
 
 #### Get tag enumerations (GET)
 
