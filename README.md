@@ -112,6 +112,11 @@ Queries use the `macromolecules` database by default.
 Query types that work on an entry-basis do not need to specify a database as all
 databases are searched for those query types.
 
+#### Development Tips
+
+To have the JSON returned by any method pretty-printed (whitespace is added to
+make the JSON human-readable), just add prettyprint=true to your query.
+
 ### Queries
 
 #### Status (GET)

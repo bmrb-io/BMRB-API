@@ -138,7 +138,7 @@ def log_request():
 
     # Don't pretty-print JSON unless local user and in debug mode
     application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (check_local_ip() and
-                                                         querymod.configuration['debug'])
+                                                         querymod.configuration['debug']) or request.args.get("prettyprint") == "true"
 
 @application.route('/')
 def no_params():
