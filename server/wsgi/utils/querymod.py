@@ -888,7 +888,11 @@ FROM "Experiment" as me
                 ftype = "unknown"
                 description = row['type'][x]
             else:
-                url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], row['directory_path'][x], row['name'][x])
+                if row['type'][x] == "text/directory":
+                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], os.path.dirname(row['directory_path'][x]), row['name'][x])
+                else:
+                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], row['directory_path'][x], row['name'][x])
+
                 ftype = row['type'][x]
                 description = row['details'][x].replace('time-', 'Time-').replace('spectral image', 'Spectral image')
 

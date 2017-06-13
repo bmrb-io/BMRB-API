@@ -77,8 +77,10 @@ for you please contact us at <bmrbhelp@bmrb.wisc.edu> to get an exception.
 ### What we ask of you
 
 If using the API in an application you distribute to others, please include the
-HTTP header 'Application' whose value is the name of your application. This
-allows us to track API usage more accurately. Some examples:
+HTTP header 'Application' whose value is the name of your application, a space,
+and then the version number of your application. This allows us to track API usage
+more accurately and determine when we can end-of-life old API versions.
+Some examples:
 
 Python:
 ```python
@@ -111,6 +113,11 @@ Queries use the `macromolecules` database by default.
 
 Query types that work on an entry-basis do not need to specify a database as all
 databases are searched for those query types.
+
+#### Development Tips
+
+To have the JSON returned by any method pretty-printed (whitespace is added to
+make the JSON human-readable), just add prettyprint=true to your query.
 
 ### Queries
 
