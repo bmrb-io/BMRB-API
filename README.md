@@ -410,7 +410,7 @@ Example: [All software packages used](http://webapi.bmrb.wisc.edu/v2/software/)
 
 #### Software used in an entry (GET)
 
-**/software/entry/$entry_id**
+**/entry/$entry_id/software**
 
 Returns a list of all software packages used by a given entry. Each item in the
 list of software will be a list with the following four values in order:

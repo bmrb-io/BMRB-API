@@ -338,8 +338,7 @@ def get_software_summary():
     return jsonify(querymod.get_software_summary())
 
 # Software queries
-@application.route('/software/entry/')
-@application.route('/software/entry/<entry_id>/')
+@application.route('/entry/<entry_id>/software')
 def get_software_by_entry(entry_id=None):
     """ Returns the software used on a per-entry basis. """
 
