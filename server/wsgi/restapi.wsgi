@@ -6,11 +6,15 @@ to the correct location and passes the results back."""
 
 import os
 import sys
-import json
-import logging
+import time
 import traceback
-from datetime import datetime
-logging.basicConfig()
+import logging
+from logging.handlers import RotatingFileHandler, SMTPHandler
+from pythonjsonlogger import jsonlogger
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -18,57 +22,123 @@ os.chdir(local_dir)
 sys.path.append(local_dir)
 
 # Import flask
-from flask import Flask, request, Response
+from flask import Flask, request, Response, jsonify
 # Import the functions needed to service requests
 from utils import querymod
-# For catching exception
-from utils.jsonrpc.exceptions import JSONRPCDispatchException as JSONRPCException
 
 # Set up the flask application
 application = Flask(__name__)
 
-# Set up error handling
-@application.errorhandler(JSONRPCException)
-def handle_jsonrpc_error(error):
-    """ Catches JSON-RPC exceptions (ones we raise) and formats
-    them for the REST interface."""
+# Set up the logging
 
-    # Assume the client did something wrong with the 400 error
-    return return_json({"error":error.error.message}, code=400)
+# First figure out where to log
+request_log_file = os.path.join(local_dir, "logs", "requests.log")
+application_log_file = os.path.join(local_dir, "logs", "application.log")
+request_json_file = os.path.join(local_dir, "logs", "json_requests.log")
+if querymod.configuration.get('log'):
+    if querymod.configuration['log'].get('json'):
+        request_json_file = querymod.configuration['log']['json']
+    if querymod.configuration['log'].get('request'):
+        request_log_file = querymod.configuration['log']['request']
+    if querymod.configuration['log'].get('application'):
+        application_log_file = querymod.configuration['log']['application']
+
+# Set up the standard logger
+app_formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
+application_log = RotatingFileHandler(application_log_file, maxBytes=1048576, backupCount=100)
+application_log.setFormatter(app_formatter)
+application.logger.addHandler(application_log)
+application.logger.setLevel(logging.WARNING)
+
+# Set up the request loggers
+
+# Plain text logger
+request_formatter = logging.Formatter('[%(asctime)s]: %(message)s')
+request_log = RotatingFileHandler(request_log_file, maxBytes=1048576, backupCount=100)
+request_log.setFormatter(request_formatter)
+rlogger = logging.getLogger("rlogger")
+rlogger.setLevel(logging.INFO)
+rlogger.addHandler(request_log)
+rlogger.propagate = False
+
+# JSON logger
+json_formatter = jsonlogger.JsonFormatter()
+application_json = RotatingFileHandler(request_json_file, maxBytes=1048576, backupCount=100)
+application_json.setFormatter(json_formatter)
+jlogger = logging.getLogger("jlogger")
+jlogger.setLevel(logging.INFO)
+jlogger.addHandler(application_json)
+jlogger.propagate = False
+
+
+# Set up the SMTP handler
+if not querymod.configuration['debug']:
+
+    if (querymod.configuration.get('smtp')
+            and querymod.configuration['smtp'].get('server')
+            and querymod.configuration['smtp'].get('admins')):
+
+        mail_handler = SMTPHandler(mailhost=querymod.configuration['smtp']['server'],
+                                   fromaddr='apierror@webapi.bmrb.wisc.edu',
+                                   toaddrs=querymod.configuration['smtp']['admins'],
+                                   subject='BMRB API Error occured')
+        mail_handler.setLevel(logging.WARNING)
+        application.logger.addHandler(mail_handler)
+    else:
+        logging.warning("Could not set up SMTP logger because the configuration"
+                        " was not specified.")
+
+# Set up error handling
+@application.errorhandler(querymod.ServerError)
+@application.errorhandler(querymod.RequestError)
+def handle_our_errors(error):
+    """ Handles exceptions we raised ourselves. """
+
+    application.logger.warning("Handled error raised in %s: %s", request.url, error.message)
+
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
 
 @application.errorhandler(Exception)
 def handle_other_errors(error):
-    """ Catches any other exceptions and formats them for REST. Only
+    """ Catches any other exceptions and formats them. Only
     displays the actual error to local clients (to prevent disclosing
     issues that could be security vulnerabilities)."""
 
-    if querymod.check_local_ip(request.remote_addr):
-        return Response(traceback.format_exc(), mimetype="text/plain")
+    application.logger.critical("Unhandled exception raised on request %s %s"
+                                "\n\nValues: %s\n\n%s",
+                                request.method, request.url,
+                                request.values,
+                                traceback.format_exc())
+
+    if check_local_ip():
+        return Response("NOTE: You are seeing this error because your IP was "
+                        "recognized as a local IP:\n%s" %
+                        traceback.format_exc(), mimetype="text/plain")
     else:
-        msg = "Server error. Contact webmaster@bmrb.wisc.edu."
-        return return_json({"error": msg}, code=500)
+        response = jsonify({"error": "Server error. Contact webmaster@bmrb.wisc.edu."})
+        response.status_code = 500
+        return response
 
-def return_json(obj, encode=True, code=None):
-    """ Returns a flask Response object containing the JSON-encoded version of
-    the passed object. If encode is set to False than a Response with the string
-    version of the object is returned."""
+# Set up logging
+@application.before_request
+def log_request():
+    """ Log all requests. """
+    rlogger.info("%s %s %s %s %s", request.remote_addr, request.method,
+                 request.full_path,
+                 request.headers.get('User-Agent', '?').split()[0],
+                 request.headers.get('Application', 'unknown'))
 
-    # JSON encode if necessary
-    if encode:
-        obj = json.dumps(obj)
+    jlogger.info({"user-agent": request.headers.get('User-Agent'),
+                  "method": request.method, "endpoint": request.endpoint,
+                  "application": request.headers.get('Application'),
+                  "path": request.full_path, "ip": request.remote_addr,
+                  "local": check_local_ip(), "time": time.time()})
 
-    response = Response(response=obj, mimetype="application/json")
-
-    # Set an error code
-    if "error" in obj:
-        # Assume the user made the mistake
-        response.status_code = 400
-
-    # If a specific error code was provided send it rather than the default
-    if code:
-        response.status_code = code
-
-    return response
+    # Don't pretty-print JSON unless local user and in debug mode
+    application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (check_local_ip() and
+                                                         querymod.configuration['debug'])
 
 @application.route('/')
 def no_params():
@@ -80,172 +150,163 @@ def no_params():
 
     return result
 
-@application.route('/list_entries/')
-@application.route('/list_entries/<entry_type>')
-def list_entries(entry_type="combined"):
+@application.route('/list_entries')
+def list_entries():
     """ Return a list of all valid BMRB entries."""
 
-    entries = querymod.list_entries(database=entry_type)
-    return return_json(entries)
-
-@application.route('/debug', methods=('GET', 'POST'))
-def debug():
-    """ This method prints some debugging information."""
-    debug_str = "Secure: " + str(request.is_secure)
-    debug_str += "<br>URL: " + str(request.url)
-    debug_str += "<br>Method: " + str(request.method)
-    debug_str += "<br>Viewing from: " + str(request.remote_addr)
-    debug_str += "<br>Avail: %s" % dir(request)
-
-    red = querymod.get_redis_connection()
-
-    for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
-        update_string = red.hget("%s:meta" % key, 'update_time')
-        if update_string:
-            update_time = datetime.fromtimestamp(float(update_string))
-            update_string = update_time.strftime('%Y-%m-%d %H:%M:%S')
-        debug_str += "<br>Last %s DB update: %s" % (key, update_string)
-
-    return debug_str
-
-@application.route('/chemical_shifts/')
-@application.route('/chemical_shifts/<atom_id>')
-@application.route('/chemical_shifts/<atom_id>/<database>')
-def chemical_shifts(atom_id=None, database="macromolecules"):
-    """ Return a list of all chemical shifts that match the selectors"""
-
-    # To enable changing URL syntax in the future to remove /<atom_id>/
-    if request.args.get('atom_id', None):
-        atom_id = request.args.get('atom_id', None)
-
-    return return_json(querymod.chemical_shift_search_1d(shift_val=request.args.get('shift', None),
-                                                         threshold=request.args.get('threshold', .03),
-                                                         atom_type=request.args.get('atom_type', None),
-                                                         atom_id=atom_id,
-                                                         comp_id=request.args.get('comp_id', None),
-                                                         database=database))
+    entries = querymod.list_entries(database=get_db("combined",
+                                                    valid_list=['metabolomics',
+                                                                'macromolecules',
+                                                                'chemcomps',
+                                                                'combined']))
+    return jsonify(entries)
 
 @application.route('/entry/', methods=('POST', 'GET'))
-@application.route('/entry/<entry_id>/')
-@application.route('/entry/<entry_id>/<format_>/')
-def get_entry(entry_id=None, format_="json"):
+@application.route('/entry/<entry_id>')
+def get_entry(entry_id=None):
     """ Returns an entry in the specified format."""
+
+    # Get the format they want the results in
+    format_ = request.args.get('format', "json")
 
     # If they are storing
     if request.method == "POST":
-        return return_json(querymod.store_uploaded_entry(data=request.data))
+        return jsonify(querymod.store_uploaded_entry(data=request.data))
 
     # Loading
     else:
         if entry_id is None:
             # They are trying to send an entry using GET
             if request.args.get('data', None):
-                return return_json({"error":"Cannot access this page through GET."})
+                raise querymod.RequestError("Cannot access this page through GET.")
             # They didn't specify an entry ID
             else:
-                return return_json({"error":"You must specify the entry ID."})
-
-        # Get the entry
-        entry = querymod.get_entries(ids=entry_id, format=format_)
+                raise querymod.RequestError("You must specify the entry ID.")
 
         # Make sure it is a valid entry
-        if not entry_id in entry:
-            return return_json({"error": "Entry '%s' does not exist in the "
-                                        "public database." % entry_id},
-                               code=404)
+        if not querymod.check_valid(entry_id):
+            raise querymod.RequestError("Entry '%s' does not exist in the "
+                                        "public database." % entry_id,
+                                        status_code=404)
 
-        # Bypass JSON encode/decode cycle
-        if format_ == "json":
-            return return_json("""{"%s": %s}""" % (entry_id, entry[entry_id]),
-                               encode=False)
+        # See if they specified more than one of [saveframe, loop, tag]
+        args = sum([1 if request.args.get('saveframe', None) else 0,
+                    1 if request.args.get('loop', None) else 0,
+                    1 if request.args.get('tag', None) else 0])
+        if args > 1:
+            raise querymod.RequestError("Request either loop(s), saveframe(s), "
+                                        "or tag(s) but not more than one "
+                                        "simultaneously.")
 
-        # Special case to return raw nmrstar
-        elif format_ == "rawnmrstar":
-            return Response(entry[entry_id], mimetype="text/nmrstar")
+        # See if they are requesting one or more saveframe
+        elif request.args.get('saveframe', None):
+            result = querymod.get_saveframes(ids=entry_id,
+                                             keys=request.args.getlist('saveframe'),
+                                             format=format_)
+            return jsonify(result)
 
-        # Special case for raw zlib
-        elif format_ == "zlib":
-            return Response(entry[entry_id], mimetype="application/zlib")
+        # See if they are requesting one or more loop
+        elif request.args.get('loop', None):
+            return jsonify(querymod.get_loops(ids=entry_id,
+                                              keys=request.args.getlist('loop'),
+                                              format=format_))
 
-        # Return the entry in any other format
-        return return_json(entry)
+        # See if they want a tag
+        elif request.args.get('tag', None):
+            return jsonify(querymod.get_tags(ids=entry_id,
+                                             keys=request.args.getlist('tag')))
 
-@application.route('/saveframe/')
-@application.route('/saveframe/<entry_id>/')
-@application.route('/saveframe/<entry_id>/<saveframe_category>')
-@application.route('/saveframe/<entry_id>/<saveframe_category>/<format_>/')
-def get_saveframe(entry_id=None, saveframe_category=None, format_="json"):
-    """ Returns a saveframe in the specified format."""
+        # They want an entry
+        else:
+            # Get the entry
+            entry = querymod.get_entries(ids=entry_id, format=format_)
 
-    if not entry_id:
-        return return_json({"error":"You must specify the entry ID."})
-    if not saveframe_category:
-        return return_json({"error":"You must specify the saveframe category."})
+            # Bypass JSON encode/decode cycle
+            if format_ == "json":
+                return Response("""{"%s": %s}""" % (entry_id, entry[entry_id]),
+                                mimetype="application/json")
 
-    result = querymod.get_saveframes(ids=entry_id, keys=saveframe_category,
-                                     format=format_)
-    return return_json(result)
+            # Special case to return raw nmrstar
+            elif format_ == "rawnmrstar":
+                return Response(entry[entry_id], mimetype="text/nmrstar")
 
-@application.route('/loop/')
-@application.route('/loop/<entry_id>/')
-@application.route('/loop/<entry_id>/<loop_category>')
-@application.route('/loop/<entry_id>/<loop_category>/<format_>/')
-def get_loop(entry_id=None, loop_category=None, format_="json"):
-    """ Returns a loop in in the specified format."""
+            # Special case for raw zlib
+            elif format_ == "zlib":
+                return Response(entry[entry_id], mimetype="application/zlib")
 
-    if not entry_id:
-        return return_json({"error":"You must specify the entry ID."})
-    if not loop_category:
-        return return_json({"error":"You must specify the loop category."})
+            # Return the entry in any other format
+            return jsonify(entry)
 
-    return return_json(querymod.get_loops(ids=entry_id, keys=loop_category,
-                                          format=format_))
+@application.route('/search')
+@application.route('/search/')
+def print_search_options():
+    """ Returns a list of the search methods."""
 
-@application.route('/tag/')
-@application.route('/tag/<entry_id>/')
-@application.route('/tag/<entry_id>/<tag_name>')
-def get_tag(entry_id=None, tag_name=None):
-    """ Returns all values for the tag for the given entry."""
+    result = ""
+    for method in ["get_all_values_for_tag", "get_id_by_tag_value",
+                   "chemical_shifts", "multiple_shift_search"]:
+        result += '<a href="%s">%s</a><br>' % (method, method)
 
-    if not entry_id:
-        return return_json({"error":"You must specify the entry ID."})
-    if not tag_name:
-        return return_json({"error":"You must specify the tag name."})
+    return result
 
-    return return_json(querymod.get_tags(ids=entry_id, keys=tag_name))
+@application.route('/search/multiple_shift_search')
+def multiple_shift_search():
+    """ Finds entries that match at least some of the peaks. """
 
+    peaks = request.args.getlist('shift', None)
+    if not peaks:
+        raise querymod.RequestError("You must specify at least one shift to search for.")
 
-@application.route('/get_id_from_search/')
-@application.route('/get_id_from_search/<tag_name>/')
-@application.route('/get_id_from_search/<tag_name>/<tag_value>')
-@application.route('/get_id_from_search/<tag_name>/<tag_value>/<schema>')
-def get_id_from_search(tag_name=None, tag_value=None, schema="macromolecules"):
+    return jsonify(querymod.multiple_peak_search(peaks,
+                                                 database=get_db("metabolomics")))
+
+@application.route('/search/chemical_shifts')
+def get_chemical_shifts():
+    """ Return a list of all chemical shifts that match the selectors"""
+
+    cs1d = querymod.chemical_shift_search_1d
+    return jsonify(cs1d(shift_val=request.args.getlist('shift', None),
+                        threshold=request.args.get('threshold', .03),
+                        atom_type=request.args.get('atom_type', None),
+                        atom_id=request.args.getlist('atom_id', None),
+                        comp_id=request.args.getlist('comp_id', None),
+                        conditions=request.args.get('conditions', False),
+                        database=get_db("macromolecules")))
+
+@application.route('/search/get_all_values_for_tag/')
+@application.route('/search/get_all_values_for_tag/<tag_name>')
+def get_all_values_for_tag(tag_name=None):
+    """ Returns all entry numbers and corresponding tag values."""
+
+    result = querymod.get_all_values_for_tag(tag_name, get_db('macromolecules'))
+    return jsonify(result)
+
+@application.route('/search/get_id_by_tag_value/')
+@application.route('/search/get_id_by_tag_value/<tag_name>/')
+@application.route('/search/get_id_by_tag_value/<tag_name>/<tag_value>')
+def get_id_from_search(tag_name=None, tag_value=None):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
 
+    database = get_db('macromolecules')
+
     if not tag_name:
-        return return_json({"error":"You must specify the tag name."})
+        raise querymod.RequestError("You must specify the tag name.")
     if not tag_value:
-        return return_json({"error":"You must specify the tag value."})
+        raise querymod.RequestError("You must specify the tag value.")
 
     sp = tag_name.split(".")
     if sp[0].startswith("_"):
         sp[0] = sp[0][1:]
     if len(sp) < 2:
-        return return_json({"error": "You must provide a full tag name with saveframe included. For example: Entry.Experimental_method_subtype"})
+        raise querymod.RequestError("You must provide a full tag name with "
+                                    "saveframe included. For example: "
+                                    "Entry.Experimental_method_subtype")
 
-    # We don't know if this is an "ID" or "Entry_ID" saveframe...
-    try:
-        result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
-                                 modifiers=['lower'], schema=schema)
-    except JSONRPCException:
-        try:
-            result = querymod.select(['ID'], sp[0], where_dict={sp[1]:tag_value},
-                                     modifiers=['lower'], schema=schema)
-        except JSONRPCException:
-            return return_json({"error": "Either the saveframe or the tag was not found: %s" % tag_name})
+    result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
+                             modifiers=['lower'], database=database)
 
-    return return_json(result[result.keys()[0]])
+    return jsonify(result[result.keys()[0]])
 
 @application.route('/enumerations/')
 @application.route('/enumerations/<tag_name>')
@@ -253,10 +314,10 @@ def get_enumerations(tag_name=None):
     """ Returns all enumerations for a given tag."""
 
     if not tag_name:
-        return return_json({"error":"You must specify the tag name."})
+        raise querymod.RequestError("You must specify the tag name.")
 
-    return return_json(querymod.get_enumerations(tag=tag_name,
-                                                 term=request.args.get('term')))
+    return jsonify(querymod.get_enumerations(tag=tag_name,
+                                             term=request.args.get('term')))
 
 @application.route('/select', methods=('GET', 'POST'))
 def select():
@@ -264,64 +325,75 @@ def select():
 
     # Check for GET request
     if request.method == "GET":
-        return return_json({"error":"Cannot access this page through GET."})
+        raise querymod.RequestError("Cannot access this page through GET.")
 
     data = json.loads(request.get_data(cache=False, as_text=True))
 
-    return return_json(querymod.process_select(**data))
+    return jsonify(querymod.process_select(**data))
 
 @application.route('/software/')
 def get_software_summary():
     """ Returns a summary of all software used in all entries. """
 
-    return return_json(querymod.get_software_summary())
+    return jsonify(querymod.get_software_summary())
 
 # Software queries
-@application.route('/software/entry/')
-@application.route('/software/entry/<entry_id>/')
+@application.route('/entry/<entry_id>/software')
 def get_software_by_entry(entry_id=None):
     """ Returns the software used on a per-entry basis. """
 
     if not entry_id:
-        return return_json({"error":"You must specify the entry ID."})
+        raise querymod.RequestError("You must specify the entry ID.")
 
-    return return_json(querymod.get_entry_software(entry_id))
+    return jsonify(querymod.get_entry_software(entry_id))
 
 @application.route('/software/package/')
 @application.route('/software/package/<package_name>')
-@application.route('/software/package/<package_name>/<database>')
-def get_software_by_package(package_name=None, database="macromolcules"):
+def get_software_by_package(package_name=None):
     """ Returns the entries that used a particular software package. Search
     is done case-insensitive and is an x in y search rather than x == y
     search. """
 
     if not package_name:
-        return return_json({"error":"You must specify the software package name."})
+        raise querymod.RequestError("You must specify the software package name.")
 
-    return return_json(querymod.get_software_entries(package_name, database=database))
+    return jsonify(querymod.get_software_entries(package_name,
+                                                 database=get_db('macromolecules')))
 
-@application.route('/software/name_suggestions')
-@application.route('/software/name_suggestions/<database>')
-def get_software_suggestions(database="macromolecules"):
-    """ Returns new software name suggestions. """
+@application.route('/entry/<entry_id>/experiments')
+def get_metabolomics_data(entry_id):
+    """ Return the experiments available for a metabolomics entry. """
 
-    return Response(querymod.suggest_new_software_links(database=database), mimetype="text/csv")
+    return jsonify(querymod.get_experiments(entry=entry_id))
+
 
 @application.route('/instant')
-@application.route('/instant/')
 def get_instant():
     """ Do the instant search. """
 
     if not request.args.get('term', None):
-        return return_json({"error":"You must specify the search term using ?term=search_term"})
+        raise querymod.RequestError("You must specify the search term using ?term=search_term")
 
-    return return_json(querymod.get_instant_search(term=request.args.get('term')))
+    return jsonify(querymod.get_instant_search(term=request.args.get('term'),
+                                               database=get_db('combined')))
 
 @application.route('/status')
 def get_status():
     """ Returns the server status."""
 
-    return return_json(querymod.get_status())
+    status = querymod.get_status()
+
+    if check_local_ip():
+        # Raise an exception to test SMTP error notifications working
+        if request.args.get("exception"):
+            raise Exception("Unhandled exception test.")
+
+        status['URL'] = request.url
+        status['secure'] = request.is_secure
+        status['remote_address'] = request.remote_addr
+        status['debug'] = querymod.configuration.get('debug')
+
+    return jsonify(status)
 
 # Queries that run commands
 @application.route('/validate/')
@@ -330,6 +402,28 @@ def validate_entry(entry_id=None):
     """ Returns the validation report for the given entry. """
 
     if not entry_id:
-        return return_json({"error":"You must specify the entry ID."})
+        raise querymod.RequestError("You must specify the entry ID.")
 
-    return return_json(querymod.get_chemical_shift_validation(ids=entry_id))
+    return jsonify(querymod.get_chemical_shift_validation(ids=entry_id))
+
+
+# Helper methods
+def get_db(default="macromolecules",
+           valid_list=["metabolomics", "macromolecules", "combined"]):
+    """ Make sure the DB specified is valid. """
+
+    database = request.args.get('database', default)
+
+    if database not in valid_list:
+        raise querymod.RequestError("Invalid database: %s." % database)
+
+    return database
+
+def check_local_ip():
+    """ Checks if the given IP is a local user."""
+
+    for local_address in querymod.configuration['local-ips']:
+        if request.remote_addr.startswith(local_address):
+            return True
+
+    return False

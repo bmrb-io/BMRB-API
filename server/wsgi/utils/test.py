@@ -12,50 +12,30 @@ import test_reference
 
 url = 'http://localhost'
 
-# A helper function used for the tests
-def send_jsonrpc_request(method, params=None):
-
-    if params is None:
-        params = {}
-
-    request = {
-        "method": method,
-        "jsonrpc": "2.0",
-        "params": params,
-        "id": "test"
-    }
-
-    r = requests.post(url + "/jsonrpc", json=request)
-
-    try:
-        return r.json()
-    except ValueError as e:
-        print("You triggered an enhandled server error: " + repr(e))
-        print("Response:\n" + r.text)
-
 # We will use this for our tests
 class TestAPI(unittest.TestCase):
 
     def setUp(self):
-        pass
+        self.session = requests.Session()
+        self.session.headers.update({"Application": "BMRB_API_TEST"})
 
     def test_redis_is_populated(self):
         """ Make sure that the entry lists are populated"""
 
         # metabolomics
-        entries = requests.get(url + "/rest/list_entries/metabolomics").json()
+        entries = self.session.get(url + "/list_entries?database=metabolomics").json()
         self.assertGreater(len(entries), 1000)
         # chemcomps
-        entries = requests.get(url + "/rest/list_entries/chemcomps").json()
+        entries = self.session.get(url + "/list_entries?database=chemcomps").json()
         self.assertGreater(len(entries), 21000)
         # macromolecules
-        entries = requests.get(url + "/rest/list_entries/macromolecules").json()
+        entries = self.session.get(url + "/list_entries?database=macromolecules").json()
         self.assertGreater(len(entries), 10000)
 
     def test_redis_is_up_to_date(self):
         """ Make sure the last update has been within one week """
 
-        stats = requests.get(url + "/rest/status").json()
+        stats = self.session.get(url + "/status").json()
         for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
             self.assertLess(time.time() - stats[key]['update_time'], 604800)
             self.assertLess(time.time() - stats[key]['update_time'], 604800)
@@ -75,29 +55,29 @@ class TestAPI(unittest.TestCase):
     def test_chemical_shifts(self):
         """ Make sure the chemical shift fetching method is working."""
 
-        shifts = requests.get(url + "/rest/chemical_shifts/HB3").json()['data']
+        shifts = self.session.get(url + "/search/chemical_shifts?atom_id=HB3&database=macromolecules").json()['data']
         self.assertGreater(len(shifts), 440000)
-        shifts = requests.get(url + "/rest/chemical_shifts/C8/metabolomics")
+        shifts = self.session.get(url + "/search/chemical_shifts?atom_id=C8&database=metabolomics")
         shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
 
     def test_enumerations(self):
         """ Test that the enumerations is working."""
 
-        enums = requests.get(url + "/rest/enumerations/_Entry.Experimental_method").json()['values']
+        enums = self.session.get(url + "/enumerations/_Entry.Experimental_method").json()['values']
         self.assertEquals(enums, ["NMR", "Theoretical"])
 
     def test_store_entry(self):
         """ See if we can store an entry in the DB and then retrieve it."""
 
         star_test = str(querymod.bmrb.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
-        response = requests.post(url + "/rest/entry/", data=star_test).json()
+        response = self.session.post(url + "/entry/", data=star_test).json()
 
         # Check the response key length
         self.assertEqual(len(response['entry_id']), 32)
 
         # See if we can fetch the entry
-        response2 = requests.get(url + "/rest/entry/%s/nmrstar" % response['entry_id'],
+        response2 = self.session.get(url + "/entry/%s?format=nmrstar" % response['entry_id'],
                                  data=star_test).json()
 
         # Make sure the returned entry equals the submitted entry
@@ -123,39 +103,6 @@ class TestAPI(unittest.TestCase):
             ligand_expo_ent = querymod.bmrb.Entry.from_string(ligand_expo_ent)
 
             self.assertEquals(local, ligand_expo_ent)
-
-
-    # Tests for the JSON-RPC queries
-    def test_jsonrpc_tag(self):
-        for test in test_reference.tag_test:
-            response = send_jsonrpc_request(test[0], test[1])
-            self.assertEquals(response, test[2])
-
-    def test_jsonrpc_loop(self):
-        for test in test_reference.loop_test:
-            response = send_jsonrpc_request(test[0], test[1])
-            self.assertEquals(response, test[2])
-
-    def test_jsonrpc_saveframe(self):
-        for test in test_reference.saveframe_test:
-            response = send_jsonrpc_request(test[0], test[1])
-            self.assertEquals(response, test[2])
-
-    def test_jsonrpc_entry(self):
-        for test in test_reference.entry_test:
-            response = send_jsonrpc_request(test[0], test[1])
-            self.assertEquals(response, test[2])
-
-    def test_jsonrpc_status(self):
-        for test in test_reference.status_test:
-            response = send_jsonrpc_request(test[0], test[1])
-            self.assertEquals(response['result'].keys(), test[2])
-
-    def test_jsonrpc_select(self):
-        for test in test_reference.select_test:
-            response = send_jsonrpc_request(test[0], test[1])
-            self.assertEquals(response, test[2])
-
 
 # Set up the tests
 def run_test(conf_url=querymod.configuration.get('url', None)):
