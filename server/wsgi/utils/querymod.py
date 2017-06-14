@@ -15,8 +15,9 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
-_METHODS = ['list_entries', 'entry/', 'status', 'software/', 'software/entry/',
-            'software/package/', 'validate/', 'instant', 'enumerations/',
+_METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
+            'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/software', 'status',
+            'software/', 'software/package/', 'instant', 'enumerations/',
             'search/']
 
 import os

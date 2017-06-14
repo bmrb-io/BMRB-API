@@ -396,8 +396,7 @@ def get_status():
     return jsonify(status)
 
 # Queries that run commands
-@application.route('/validate/')
-@application.route('/validate/<entry_id>')
+@application.route('/entry/<entry_id>/validate')
 def validate_entry(entry_id=None):
     """ Returns the validation report for the given entry. """
 
