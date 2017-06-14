@@ -362,7 +362,7 @@ def get_software_by_package(package_name=None):
 
 @application.route('/entry/<entry_id>/experiments')
 def get_metabolomics_data(entry_id):
-    """ Return the experiments available for a metabolomics entry. """
+    """ Return the experiments available for an entry. """
 
     return jsonify(querymod.get_experiments(entry=entry_id))
 

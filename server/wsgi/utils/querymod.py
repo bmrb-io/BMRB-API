@@ -844,11 +844,11 @@ def get_bmrb_as_text(entry):
 
     return " ".join(res_strings)
 
-def get_experiments(entry, database="metabolomics"):
+def get_experiments(entry):
     """ Returns the experiments for this entry. """
 
     cur = get_postgres_connection(dictionary_cursor=True)[1]
-    set_database(cur, "metabolomics")
+    set_database(cur, get_database_from_entry_id(entry))
 
     # First get the sample components
     sql = '''
@@ -860,7 +860,7 @@ def get_experiments(entry, database="metabolomics"):
 
     # Then get all of the other information
     sql = '''
-SELECT me."Entry_ID", me."Sample_ID", ef."Experiment_ID", ns."Manufacturer",ns."Model",me."Name" as experiment_name, ns."Field_strength", array_agg(ef."Name") as name, array_agg(ef."Type") as type, array_agg(ef."Directory_path") as directory_path, array_agg(ef."Details") as details, ph."Val" as ph, temp."Val" as temp
+SELECT me."Entry_ID", me."Sample_ID", me."ID", ns."Manufacturer",ns."Model",me."Name" as experiment_name, ns."Field_strength", array_agg(ef."Name") as name, array_agg(ef."Type") as type, array_agg(ef."Directory_path") as directory_path, array_agg(ef."Details") as details, ph."Val" as ph, temp."Val" as temp
 FROM "Experiment" as me
   LEFT JOIN "Experiment_file" as ef
   ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
@@ -873,37 +873,38 @@ FROM "Experiment" as me
   ON me."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=me."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
 
   WHERE me."Entry_ID" = %s
-  GROUP BY me."Entry_ID", me."Name", ef."Experiment_ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val", temp."Val", me."Sample_ID"
-  ORDER BY me."Entry_ID" ASC, ef."Experiment_ID" ASC;'''
+  GROUP BY me."Entry_ID", me."Name", me."ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val", temp."Val", me."Sample_ID"
+  ORDER BY me."Entry_ID" ASC, me."ID" ASC;'''
     cur.execute(sql, [entry])
 
     results = []
     for row in cur:
 
         data = []
-        for x, item in enumerate(row['directory_path']):
+        if row['name'][0]:
+            for x, item in enumerate(row['directory_path']):
 
-            if not item:
-                url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/%s" % row['name'][x]
-                ftype = "unknown"
-                description = row['type'][x]
-            else:
-                if row['type'][x] == "text/directory":
-                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], os.path.dirname(row['directory_path'][x]), row['name'][x])
+                if not item:
+                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/%s" % row['name'][x]
+                    ftype = "unknown"
+                    description = row['type'][x]
                 else:
-                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], row['directory_path'][x], row['name'][x])
+                    if row['type'][x] == "text/directory":
+                        url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], os.path.dirname(row['directory_path'][x]), row['name'][x])
+                    else:
+                        url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], row['directory_path'][x], row['name'][x])
 
-                ftype = row['type'][x]
-                description = row['details'][x].replace('time-', 'Time-').replace('spectral image', 'Spectral image')
+                    ftype = row['type'][x]
+                    description = row['details'][x].replace('time-', 'Time-').replace('spectral image', 'Spectral image')
 
-            if url.endswith("*"):
-                url = url[:-1]
+                if url.endswith("*"):
+                    url = url[:-1]
 
-            data.append({'type':ftype, 'description': description,
-                         'url':url})
+                data.append({'type':ftype, 'description': description,
+                                 'url':url})
 
         tmp_res = {'Name': row['experiment_name'],
-                   'Experiment_ID': row['Experiment_ID'],
+                   'Experiment_ID': row['ID'],
                    'Sample_condition_variable': {'ph': row['ph'],
                                                  'temperature': row['temp']},
                    'NMR_spectrometer': {'Manufacturer': row['Manufacturer'],
@@ -924,7 +925,7 @@ FROM "Experiment" as me
         results.append(tmp_res)
 
     if configuration['debug']:
-        results[0]['debug'] = cur.query
+        results.append(cur.query)
 
     return results
 
