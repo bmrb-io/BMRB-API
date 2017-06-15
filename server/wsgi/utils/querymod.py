@@ -18,7 +18,8 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/software', 'status',
             'software/', 'software/package/', 'instant', 'enumerations/',
-            'search/']
+            'search/', 'search/chemical_shifts', 'search/multiple_shift_search',
+            'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/']
 
 import os
 import zlib
