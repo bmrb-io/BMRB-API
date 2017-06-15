@@ -1214,10 +1214,10 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
             if need_and:
                 query += " AND"
             if "lower" in modifiers:
-                query += " LOWER(%s) LIKE LOWER(%s)"
+                query += " regexp_replace(LOWER(%s),'\n','') LIKE LOWER(%s)"
             else:
-                query += " %s LIKE %s"
-            parameters.extend([wrap_it_up(key), where_dict[key]])
+                query += " regexp_replace(%s,'\n','') LIKE %s"
+            parameters.extend([wrap_it_up(key), where_dict[key].replace("*", "%")])
             need_and = True
 
 # TODO: build ordering in based on dictionary
