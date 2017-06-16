@@ -323,8 +323,8 @@ SELECT * FROM (
 
 -- Molprobity table
 
-drop table if exists web.molprobity_oneline;
-drop table if exists web.molprobity_residue;
+DROP TABLE IF EXISTS web.molprobity_oneline;
+DROP TABLE IF EXISTS web.molprobity_residue;
 
 CREATE table web.molprobity_oneline (
 fullpdbname text,
@@ -361,10 +361,10 @@ entry_id text,
 structure_val_oneline_list_id integer,
 macromolecule_types text);
 
-copy web.molprobity_oneline from '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
-copy web.molprobity_oneline from '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
-copy web.molprobity_oneline from '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
-create index on web.molprobity_oneline (pdb, model);
+CREATE INDEX ON web.molprobity_oneline (pdb, model);
+\copy web.molprobity_oneline FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
+\copy web.molprobity_oneline FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
+\copy web.molprobity_oneline FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
 
 CREATE table web.molprobity_residue (
 filename text,
@@ -427,5 +427,6 @@ entry_id text,
 structure_validation_residue_list_id integer
 );
 
-copy web.molprobity_residue from '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
-create index on web.molprobity_residue (pdb, model);
+CREATE INDEX ON web.molprobity_residue (pdb, model);
+\copy web.molprobity_residue FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
+
