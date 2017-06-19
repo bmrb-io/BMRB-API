@@ -7,7 +7,7 @@ CREATE table web.molprobity_oneline (
 fullpdbname text,
 pdb varchar(4),
 model integer,
-hydrogenitions text,
+hydrogenations text,
 molprobity_flips text,
 backbone_trim_state text,
 assembly_id text,
@@ -36,12 +36,27 @@ numsuite_outlier integer,
 numsuite integer,
 entry_id text,
 structure_val_oneline_list_id integer,
-macromolecule_types text);
+macromolecule_types text,
 
-CREATE INDEX ON web.molprobity_oneline (pdb, model);
-\copy web.molprobity_oneline FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
-\copy web.molprobity_oneline FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
-\copy web.molprobity_oneline FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
+    PRIMARY KEY (pdb, model, hydrogenations, molprobity_flips, backbone_trim_state)
+);
+
+CREATE TEMP TABLE tmp_table
+AS
+SELECT *
+FROM web.molprobity_oneline
+WITH NO DATA;
+
+\copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
+\copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinebuild.out.csv' DELIMITER ':' CSV;
+\copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
+
+INSERT INTO web.molprobity_oneline
+SELECT DISTINCT ON (pdb, model, hydrogenations, molprobity_flips, backbone_trim_state) *
+FROM tmp_table
+ORDER BY pdb, model, hydrogenations, molprobity_flips, backbone_trim_state;
+
+DROP TABLE tmp_table;
 
 CREATE table web.molprobity_residue (
 filename text,
@@ -101,9 +116,27 @@ disulfide_chi1prime text,
 outlier_count_separate_geometry integer,
 outlier_count integer,
 entry_id text,
-structure_validation_residue_list_id integer
+structure_validation_residue_list_id integer --,
+
+    --PRIMARY KEY (pdb, model, pdb_residue_no, hydrogen_positions, molprobity_flips, cyrange_core_flag)
 );
 
-CREATE INDEX ON web.molprobity_residue (pdb, model);
+-- This is probably way too slow. We'll have to deal with duplicates upstream for now
+/*
+CREATE TEMP TABLE tmp_table
+AS
+SELECT *
+FROM web.molprobity_residue
+WITH NO DATA;
+
 \copy web.molprobity_residue FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
 
+INSERT INTO web.molprobity_residue
+SELECT DISTINCT ON (pdb, model, hydrogen_positions, molprobity_flips, cyrange_core_flag) *
+FROM tmp_table
+ORDER BY pdb, model, hydrogen_positions, molprobity_flips, cyrange_core_flag;
+
+DROP TABLE tmp_table;*/
+
+\copy web.molprobity_residue FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
+CREATE INDEX ON web.molprobity_residue (pdb);

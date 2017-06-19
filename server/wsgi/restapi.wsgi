@@ -237,6 +237,24 @@ def get_entry(entry_id=None):
             # Return the entry in any other format
             return jsonify(entry)
 
+@application.route('/molprobity/')
+@application.route('/molprobity/<pdb_id>')
+@application.route('/molprobity/<pdb_id>/oneline')
+def return_molprobity_oneline(pdb_id=None):
+    """Returns the molprobity data for a PDB ID. """
+
+    if not pdb_id:
+        raise querymod.RequestError("You must specify the PDB ID.")
+
+    return jsonify(querymod.get_molprobity_data(pdb_id))
+
+@application.route('/molprobity/<pdb_id>/residue')
+def return_molprobity_residue(pdb_id):
+    """Returns the molprobity residue data for a PDB ID. """
+
+    return jsonify(querymod.get_molprobity_data(pdb_id,
+                                                residues=request.args.getlist('res')))
+
 @application.route('/search')
 @application.route('/search/')
 def print_search_options():

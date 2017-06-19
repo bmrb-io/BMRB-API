@@ -701,6 +701,33 @@ WHERE
     result['data'] = cur.fetchall()
     return result
 
+def get_molprobity_data(pdb_id, residues=None):
+    """ Returns the molprobity data."""
+
+    pdb_id = pdb_id.lower()
+    cur = get_postgres_connection()[1]
+
+    if residues is None:
+        sql = '''SELECT * FROM web.molprobity_oneline where pdb = %s'''
+        terms = [pdb_id]
+    else:
+        sql = '''SELECT * FROM web.molprobity_residue where pdb = %s'''
+        terms = [pdb_id]
+        for item in residues:
+            sql += " AND pdb_residue_no = %s"
+            terms.append(item)
+        sql += " ORDER BY model, pdb_residue_no"
+
+    cur.execute(sql, terms)
+
+    res = {"columns": [desc[0] for desc in cur.description],
+           "data": cur.fetchall()}
+
+    if configuration['debug']:
+        res['debug'] = cur.query
+
+    return res
+
 def get_entry_software(entry_id):
     """ Returns the software used for a given entry. """
 

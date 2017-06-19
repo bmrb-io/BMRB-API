@@ -421,6 +421,8 @@ Example: [The compound names for all compounds in the metabolomics database](htt
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
 
+### Software
+
 #### Software summary (GET)
 
 **/software/**
@@ -454,3 +456,21 @@ is done case-insensitive and does not require perfect matches. For example,
 You may optionally specify which database to use.
 
 Example: [Entries using SPARKY](http://webapi.bmrb.wisc.edu/v2/software/package/sparky?database=macromolecules)
+
+### Molprobity
+
+#### Get one-line molprobity results for a PDB ID (GET)
+
+**/molprobity/$pdb_id/oneline**
+
+Returns the full one-line molprobity results for the given PDB ID.
+
+Example: [PDB 2DOG]
+
+#### Get residue molprobity results for a PDB ID (GET)
+
+**/molprobity/$pdb_id/residue[?res=$residue][&res=$residue][...]**
+
+Returns the full molprobity residue results for the given PDB ID. You may optionally
+specify a list of residues to only get results for those residues.
+
