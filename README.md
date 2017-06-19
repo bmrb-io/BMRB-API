@@ -465,7 +465,7 @@ Example: [Entries using SPARKY](http://webapi.bmrb.wisc.edu/v2/software/package/
 
 Returns the full one-line molprobity results for the given PDB ID.
 
-Example: [PDB 2DOG]
+Example: [PDB 2DOG](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/oneline)
 
 #### Get residue molprobity results for a PDB ID (GET)
 
@@ -474,3 +474,4 @@ Example: [PDB 2DOG]
 Returns the full molprobity residue results for the given PDB ID. You may optionally
 specify a list of residues to only get results for those residues.
 
+Example: [PDB 2DOG residues 10,11,12](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/residue?res=10&res=11&res=12)
