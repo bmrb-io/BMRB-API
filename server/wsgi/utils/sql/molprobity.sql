@@ -1,9 +1,10 @@
--- Molprobity table
+-- Molprobity schema
 
-DROP TABLE IF EXISTS web.molprobity_oneline;
-DROP TABLE IF EXISTS web.molprobity_residue;
+CREATE SCHEMA IF NOT EXISTS molprobity;
 
-CREATE table web.molprobity_oneline (
+
+DROP TABLE IF EXISTS molprobity.oneline_tmp;
+CREATE table molprobity.oneline_tmp (
 fullpdbname text,
 pdb varchar(4),
 model integer,
@@ -41,24 +42,33 @@ macromolecule_types text,
     PRIMARY KEY (pdb, model, hydrogenations, molprobity_flips, backbone_trim_state)
 );
 
+-- Temp table with duplicates
 CREATE TEMP TABLE tmp_table
 AS
 SELECT *
-FROM web.molprobity_oneline
+FROM molprobity.oneline_tmp
 WITH NO DATA;
 
+-- Load data
 \copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
 \copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinebuild.out.csv' DELIMITER ':' CSV;
 \copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
 
-INSERT INTO web.molprobity_oneline
+-- Populate real table with duplicates excluded
+INSERT INTO molprobity.oneline_tmp
 SELECT DISTINCT ON (pdb, model, hydrogenations, molprobity_flips, backbone_trim_state) *
 FROM tmp_table
 ORDER BY pdb, model, hydrogenations, molprobity_flips, backbone_trim_state;
 
+-- Move the new table into place
+ALTER TABLE IF EXISTS molprobity.oneline RENAME TO oneline_old;
+ALTER TABLE molprobity.oneline_tmp RENAME TO oneline;
+DROP TABLE IF EXISTS molprobity.oneline_old;
 DROP TABLE tmp_table;
 
-CREATE table web.molprobity_residue (
+-- Residue table
+DROP TABLE IF EXISTS molprobity.residue_tmp;
+CREATE table molprobity.residue_tmp (
 filename text,
 pdb text,
 model integer,
@@ -119,5 +129,14 @@ entry_id text,
 structure_validation_residue_list_id integer
 );
 
-\copy web.molprobity_residue FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
-CREATE INDEX ON web.molprobity_residue (pdb);
+\copy molprobity.residue_tmp FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
+CREATE INDEX ON molprobity.residue_tmp (pdb);
+
+-- Move the new table into place
+ALTER TABLE IF EXISTS molprobity.residue RENAME TO residue_old;
+ALTER TABLE molprobity.residue_tmp RENAME TO residue;
+DROP TABLE IF EXISTS molprobity.residue_old;
+
+-- Set up permissions
+GRANT USAGE ON SCHEMA molprobity TO web;
+GRANT SELECT ON ALL TABLES IN SCHEMA molprobity TO web;

@@ -477,7 +477,6 @@ specify a list of residues to only get results for those residues.
 Parameters:
 
 * `r` Specify the residue to query. May be specified multiple times to get the
-results for multiple residues. You cannot use a `-` or `,` to specify residues
-at this time.
+results for multiple residues.
 
-Example: [PDB 2DOG residues 10,11,12](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/residue?r=10&r=11&r=12)
+Example: [PDB 2DOG residues 10-13](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/residue?r=10&r=11&r=12&r=13)
