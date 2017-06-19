@@ -116,27 +116,8 @@ disulfide_chi1prime text,
 outlier_count_separate_geometry integer,
 outlier_count integer,
 entry_id text,
-structure_validation_residue_list_id integer --,
-
-    --PRIMARY KEY (pdb, model, pdb_residue_no, hydrogen_positions, molprobity_flips, cyrange_core_flag)
+structure_validation_residue_list_id integer
 );
-
--- This is probably way too slow. We'll have to deal with duplicates upstream for now
-/*
-CREATE TEMP TABLE tmp_table
-AS
-SELECT *
-FROM web.molprobity_residue
-WITH NO DATA;
-
-\copy web.molprobity_residue FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
-
-INSERT INTO web.molprobity_residue
-SELECT DISTINCT ON (pdb, model, hydrogen_positions, molprobity_flips, cyrange_core_flag) *
-FROM tmp_table
-ORDER BY pdb, model, hydrogen_positions, molprobity_flips, cyrange_core_flag;
-
-DROP TABLE tmp_table;*/
 
 \copy web.molprobity_residue FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
 CREATE INDEX ON web.molprobity_residue (pdb);
