@@ -469,9 +469,15 @@ Example: [PDB 2DOG](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/oneline)
 
 #### Get residue molprobity results for a PDB ID (GET)
 
-**/molprobity/$pdb_id/residue[?res=$residue][&res=$residue][...]**
+**/molprobity/$pdb_id/residue[?r=$residue][&r=$residue][...]**
 
 Returns the full molprobity residue results for the given PDB ID. You may optionally
 specify a list of residues to only get results for those residues.
 
-Example: [PDB 2DOG residues 10,11,12](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/residue?res=10&res=11&res=12)
+Parameters:
+
+* `r` Specify the residue to query. May be specified multiple times to get the
+results for multiple residues. You cannot use a `-` or `,` to specify residues
+at this time.
+
+Example: [PDB 2DOG residues 10,11,12](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/residue?r=10&r=11&r=12)

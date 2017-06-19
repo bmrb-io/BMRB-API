@@ -253,7 +253,7 @@ def return_molprobity_residue(pdb_id):
     """Returns the molprobity residue data for a PDB ID. """
 
     return jsonify(querymod.get_molprobity_data(pdb_id,
-                                                residues=request.args.getlist('res')))
+                                                residues=request.args.getlist('r')))
 
 @application.route('/search')
 @application.route('/search/')
