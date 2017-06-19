@@ -20,7 +20,7 @@ _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'software/', 'software/package/', 'instant', 'enumerations/',
             'search/', 'search/chemical_shifts', 'search/multiple_shift_search',
             'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
-            '/molprobity/PDB_ID/oneline', '/molprobity/PDB_ID/residue']
+            'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
 import os
 import zlib
