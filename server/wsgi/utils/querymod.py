@@ -712,12 +712,12 @@ def get_molprobity_data(pdb_id, residues=None):
         sql = '''SELECT * FROM web.molprobity_oneline where pdb = %s'''
         terms = [pdb_id]
     else:
-        sql = '''SELECT * FROM web.molprobity_residue where pdb = %s'''
+        sql = '''SELECT * FROM web.molprobity_residue where pdb = %s AND ('''
         terms = [pdb_id]
         for item in residues:
-            sql += " AND pdb_residue_no = %s"
+            sql += " pdb_residue_no = %s OR "
             terms.append(item)
-        sql += " ORDER BY model, pdb_residue_no"
+        sql += " 1=2) ORDER BY model, pdb_residue_no"
 
     cur.execute(sql, terms)
 
