@@ -457,21 +457,21 @@ You may optionally specify which database to use.
 
 Example: [Entries using SPARKY](http://webapi.bmrb.wisc.edu/v2/software/package/sparky?database=macromolecules)
 
-### Molprobity
+### MolProbity
 
-#### Get one-line molprobity results for a PDB ID (GET)
+#### Get one-line MolProbity results for a PDB ID (GET)
 
 **/molprobity/$pdb_id/oneline**
 
-Returns the full one-line molprobity results for the given PDB ID.
+Returns the full one-line MolProbity results for the given PDB ID.
 
 Example: [PDB 2DOG](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/oneline)
 
-#### Get residue molprobity results for a PDB ID (GET)
+#### Get residue MolProbity results for a PDB ID (GET)
 
 **/molprobity/$pdb_id/residue[?r=$residue][&r=$residue][...]**
 
-Returns the full molprobity residue results for the given PDB ID. You may optionally
+Returns the full MolProbity residue results for the given PDB ID. You may optionally
 specify a list of residues to only get results for those residues.
 
 Parameters:
