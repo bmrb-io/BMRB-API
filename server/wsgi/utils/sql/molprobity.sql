@@ -129,6 +129,9 @@ entry_id text,
 structure_validation_residue_list_id integer
 );
 
+/* To remove duplicates:
+LC_ALL=C sort -u -i everything.csv > everything_unique.csv
+*/
 \copy molprobity.residue_tmp FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
 CREATE INDEX ON molprobity.residue_tmp (pdb);
 
