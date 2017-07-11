@@ -112,6 +112,18 @@ UNION
 SELECT DISTINCT "ID", 'PDB structure', "Assigned_PDB_ID", to_tsvector("Assigned_PDB_ID") FROM macromolecules."Entry"
 UNION
 SELECT DISTINCT "Entry_ID", 'Matching PDB', "Database_accession_code", to_tsvector("Database_accession_code") FROM macromolecules."Related_entries" WHERE "Database_name"='PDB' AND "Relationship"='BMRB Entry Tracking System'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', '10.13018/BMR' || "Entry_ID", to_tsvector('10.13018/BMR' || "Entry_ID") FROM macromolecules."Entry"
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', '10.13018/' || UPPER("Entry_ID"), to_tsvector('10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmse%'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', '10.13018/' || UPPER("Entry_ID"), to_tsvector('10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmst%'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/BMR' || "Entry_ID", to_tsvector('DOI:10.13018/BMR' || "Entry_ID") FROM macromolecules."Entry"
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/' || UPPER("Entry_ID"), to_tsvector('DOI:10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmse%'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/' || UPPER("Entry_ID"), to_tsvector('DOI:10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmst%'
 
 -- This is here and below to make exact matches show up prior to fuzzy matches, but still allow fuzzy matches
 UNION
