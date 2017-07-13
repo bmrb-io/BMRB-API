@@ -20,11 +20,13 @@ _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'software/', 'software/package/', 'instant', 'enumerations/',
             'search/', 'search/chemical_shifts', 'search/multiple_shift_search',
             'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
+            'search/fasta/',
             'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
 import os
 import zlib
 import logging
+import textwrap
 import subprocess
 from hashlib import md5
 from decimal import Decimal
@@ -80,22 +82,22 @@ class RequestError(Exception):
         return rv
 
 
+_QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
+
 # Load the configuration file
-config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "..", "..", "..", "..", "api_config.json")
+config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "..", "api_config.json")
 configuration = json.loads(open(config_loc, "r").read())
 
 # Load local configuration overrides
-config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "..", "..", "..", "api_config.json")
+config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "api_config.json")
 if os.path.isfile(config_loc):
     config_overrides = json.loads(open(config_loc, "r").read())
     for config_param in config_overrides:
         configuration[config_param] = config_overrides[config_param]
 
 # Determine submodules folder
-_SUBMODULE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
-                              "submodules")
+_SUBMODULE_DIR = os.path.join(os.path.dirname(_QUERYMOD_DIR), "submodules")
+_FASTA_LOCATION = os.path.join(_SUBMODULE_DIR, "fasta36", "bin", "fasta36")
 
 # Set up logging
 logging.basicConfig()
@@ -873,6 +875,65 @@ def get_bmrb_as_text(entry):
                 res_strings.update(row)
 
     return " ".join(res_strings)
+
+def fasta_search(query, a_type="polymer", e_val=None):
+    """Performs a FASTA search on the specified query in the BMRB database."""
+
+    # Make sure the type is valid
+    if a_type not in ["polymer", "rna", "dna"]:
+        raise RequestError("Invalid search type: %s" % a_type)
+    a_type = {'polymer': 'polypeptide(L)', 'rna': 'polyribonucleotide',
+              'dna': 'polydeoxyribonucleotide'}[a_type]
+
+    if not os.path.isfile(_FASTA_LOCATION):
+        raise ServerError("Unable to perform FASTA search. Server improperly installed.")
+
+    cur = get_postgres_connection()[1]
+    set_database(cur, "macromolecules")
+    cur.execute('''SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",regexp_replace(entity."Polymer_seq_one_letter_code", E'[\\n\\r]+', '', 'g' ), replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
+    FROM "Entity" as entity
+    LEFT JOIN "Entry" as entry
+    ON entity."Entry_ID" = entry."Entry_ID"
+    WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [a_type])
+
+    sequences = cur.fetchall()
+    wrapper = textwrap.TextWrapper(width=80, expand_tabs=False,
+                                   replace_whitespace=False,
+                                   drop_whitespace=False, break_on_hyphens=False)
+    seq_strings = [">%s\n%s\n" % (x[0], "\n".join(wrapper.wrap(x[3]))) for x in sequences]
+
+    # Use temporary files to store the FASTA search string and FASTA DB
+    with NamedTemporaryFile(dir="/dev/shm") as fasta_file,\
+            NamedTemporaryFile(dir="/dev/shm") as sequence_file:
+        fasta_file.file.write(">query\n%s" % query.upper())
+        fasta_file.flush()
+
+        sequence_file.file.write("".join(seq_strings))
+        sequence_file.flush()
+
+        # Set up the FASTA arguments
+        fargs = [_FASTA_LOCATION, "-m", "8"]
+        if e_val:
+            fargs.extend(["-E", e_val])
+        fargs.extend([fasta_file.name, sequence_file.name])
+
+        # Run FASTA
+        res = subprocess.check_output(fargs, stderr=subprocess.STDOUT)
+
+    # Combine the results
+    results = []
+    for line in res.split("\n"):
+        cols = line.split()
+        if len(cols) == 12:
+            matching_row = sequences[int(cols[1])-1]
+            results.append({'entry_id': matching_row[1], 'entity_id': matching_row[2],
+                            'entry_title': matching_row[4], 'percent_id': Decimal(cols[2]),
+                            'alignment_length': int(cols[3]), 'mismatches': int(cols[4]),
+                            'gap_openings': int(cols[5]), 'q.start': int(cols[6]),
+                            'q.end': int(cols[7]), 's.start': int(cols[8]), 's.end': int(cols[9]),
+                            'e-value': Decimal(cols[10]), 'bit_score': Decimal(cols[11])})
+
+    return results
 
 def get_experiments(entry):
     """ Returns the experiments for this entry. """

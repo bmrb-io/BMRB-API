@@ -262,7 +262,8 @@ def print_search_options():
 
     result = ""
     for method in ["get_all_values_for_tag", "get_id_by_tag_value",
-                   "chemical_shifts", "multiple_shift_search"]:
+                   "chemical_shifts", "multiple_shift_search",
+                   "fasta"]:
         result += '<a href="%s">%s</a><br>' % (method, method)
 
     return result
@@ -325,6 +326,18 @@ def get_id_from_search(tag_name=None, tag_value=None):
                              modifiers=['lower'], database=database)
 
     return jsonify(result[result.keys()[0]])
+
+@application.route('/search/fasta/')
+@application.route('/search/fasta/<query>')
+def fasta_search(query=None):
+    """Performs a FASTA search on the specified query in the BMRB database."""
+
+    if not query:
+        raise querymod.RequestError("You must specify a sequence.")
+
+    return jsonify(querymod.fasta_search(query,
+                                         a_type=request.args.get('type','polymer'),
+                                         e_val=request.args.get('e_val')))
 
 @application.route('/enumerations/')
 @application.route('/enumerations/<tag_name>')

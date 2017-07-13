@@ -9,3 +9,7 @@ systemctl enable redis
 systemctl start redis
 systemctl enable redis-sentinel
 systemctl start redis-sentinel
+
+# Build FASTA
+cd ../wsgi/submodules/fasta36/src
+make -f ../make/Makefile.linux_sse2 all
