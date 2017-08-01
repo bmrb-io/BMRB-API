@@ -223,7 +223,7 @@ GROUP BY entry."ID",entry."Title", entry."Submission_date";
 INSERT INTO web.instant_cache_tmp
 SELECT
  entry."ID",
- web.clean_title(entry."Title"),
+ web.clean_title(chem_comp."Name"),
  array_agg(DISTINCT web.clean_title(citation."Title")),
  array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.',
 '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.',
@@ -237,8 +237,10 @@ LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
 LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
+LEFT JOIN metabolomics."Chem_comp" AS chem_comp
+  ON entry."ID"=chem_comp."Entry_ID"
 WHERE entry."ID" like 'bmse%'
-GROUP BY entry."ID",entry."Title", entry."Submission_date";
+GROUP BY entry."ID",chem_comp."Name", entry."Submission_date";
 
 -- Metabolomics bmst
 INSERT INTO web.instant_cache_tmp
