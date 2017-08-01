@@ -547,18 +547,23 @@ def multiple_peak_search(peaks, database="metabolomics"):
     set_database(cur, database)
 
     sql = '''
-SELECT "Entry_ID","Assigned_chem_shift_list_ID"::text,array_agg(DISTINCT "Val"::numeric)
-FROM "Atom_chem_shift"
+SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,array_agg(DISTINCT atom_shift."Val"::numeric),ent.title,ent.link
+FROM "Atom_chem_shift" as atom_shift
+LEFT JOIN web.instant_cache as ent
+ON ent.id = atom_shift."Entry_ID"
 WHERE '''
     terms = []
 
-    peaks = sorted([float(x) for x in peaks])
+    try:
+        peaks = sorted([float(x) for x in peaks])
+    except ValueError:
+        raise RequestError("Invalid peak specified. All peaks must be numbers.")
 
     for peak in peaks:
         sql += '''
-(("Val"::float < %s  AND "Val"::float > %s AND ("Atom_type" = 'C' OR "Atom_type" = 'N'))
+((atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND (atom_shift."Atom_type" = 'C' OR atom_shift."Atom_type" = 'N'))
  OR
- ("Val"::float < %s  AND "Val"::float > %s AND "Atom_type" = 'H')) OR '''
+ (atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'H')) OR '''
         terms.append(peak + .2)
         terms.append(peak - .2)
         terms.append(peak + .01)
@@ -567,8 +572,8 @@ WHERE '''
     # End the OR
     sql += '''
 1=2
-GROUP BY "Entry_ID","Assigned_chem_shift_list_ID"
-ORDER BY count(DISTINCT "Val") DESC;
+GROUP BY atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID",ent.title,ent.link
+ORDER BY count(DISTINCT atom_shift."Val") DESC;
 '''
 
     # Do the query
@@ -583,7 +588,9 @@ ORDER BY count(DISTINCT "Val") DESC;
     for entry in cur:
         result['data'].append({'Entry_ID':entry[0],
                                'Assigned_chem_shift_list_ID': entry[1],
-                               'Val': entry[2]})
+                               'Val': entry[2],
+                               'Title': entry[3].replace("\n",""),
+                               'Link': entry[4]})
 
     # Convert the search to decimal
     peaks = [Decimal(x) for x in peaks]
