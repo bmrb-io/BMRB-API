@@ -237,6 +237,24 @@ def get_entry(entry_id=None):
             # Return the entry in any other format
             return jsonify(entry)
 
+@application.route('/molprobity/')
+@application.route('/molprobity/<pdb_id>')
+@application.route('/molprobity/<pdb_id>/oneline')
+def return_molprobity_oneline(pdb_id=None):
+    """Returns the molprobity data for a PDB ID. """
+
+    if not pdb_id:
+        raise querymod.RequestError("You must specify the PDB ID.")
+
+    return jsonify(querymod.get_molprobity_data(pdb_id))
+
+@application.route('/molprobity/<pdb_id>/residue')
+def return_molprobity_residue(pdb_id):
+    """Returns the molprobity residue data for a PDB ID. """
+
+    return jsonify(querymod.get_molprobity_data(pdb_id,
+                                                residues=request.args.getlist('r')))
+
 @application.route('/search')
 @application.route('/search/')
 def print_search_options():
@@ -244,7 +262,8 @@ def print_search_options():
 
     result = ""
     for method in ["get_all_values_for_tag", "get_id_by_tag_value",
-                   "chemical_shifts", "multiple_shift_search"]:
+                   "chemical_shifts", "multiple_shift_search",
+                   "fasta"]:
         result += '<a href="%s">%s</a><br>' % (method, method)
 
     return result
@@ -253,7 +272,12 @@ def print_search_options():
 def multiple_shift_search():
     """ Finds entries that match at least some of the peaks. """
 
-    peaks = request.args.getlist('shift', None)
+    peaks = request.args.getlist('shift')
+    if not peaks:
+        peaks = request.args.getlist('s')
+    else:
+        peaks.extend(list(request.args.getlist('s')))
+
     if not peaks:
         raise querymod.RequestError("You must specify at least one shift to search for.")
 
@@ -265,11 +289,11 @@ def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
     cs1d = querymod.chemical_shift_search_1d
-    return jsonify(cs1d(shift_val=request.args.getlist('shift', None),
+    return jsonify(cs1d(shift_val=request.args.getlist('shift'),
                         threshold=request.args.get('threshold', .03),
                         atom_type=request.args.get('atom_type', None),
-                        atom_id=request.args.getlist('atom_id', None),
-                        comp_id=request.args.getlist('comp_id', None),
+                        atom_id=request.args.getlist('atom_id'),
+                        comp_id=request.args.getlist('comp_id'),
                         conditions=request.args.get('conditions', False),
                         database=get_db("macromolecules")))
 
@@ -307,6 +331,18 @@ def get_id_from_search(tag_name=None, tag_value=None):
                              modifiers=['lower'], database=database)
 
     return jsonify(result[result.keys()[0]])
+
+@application.route('/search/fasta/')
+@application.route('/search/fasta/<query>')
+def fasta_search(query=None):
+    """Performs a FASTA search on the specified query in the BMRB database."""
+
+    if not query:
+        raise querymod.RequestError("You must specify a sequence.")
+
+    return jsonify(querymod.fasta_search(query,
+                                         a_type=request.args.get('type','polymer'),
+                                         e_val=request.args.get('e_val')))
 
 @application.route('/enumerations/')
 @application.route('/enumerations/<tag_name>')
@@ -362,7 +398,7 @@ def get_software_by_package(package_name=None):
 
 @application.route('/entry/<entry_id>/experiments')
 def get_metabolomics_data(entry_id):
-    """ Return the experiments available for a metabolomics entry. """
+    """ Return the experiments available for an entry. """
 
     return jsonify(querymod.get_experiments(entry=entry_id))
 
@@ -396,8 +432,7 @@ def get_status():
     return jsonify(status)
 
 # Queries that run commands
-@application.route('/validate/')
-@application.route('/validate/<entry_id>')
+@application.route('/entry/<entry_id>/validate')
 def validate_entry(entry_id=None):
     """ Returns the validation report for the given entry. """
 

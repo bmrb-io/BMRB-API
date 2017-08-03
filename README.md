@@ -374,6 +374,20 @@ Examples:
 * [All asparagine C chemical shifts within .01 of 175.1 ppm](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
 * [All shifts within .03 of 103 or 130 in residue PHE or TRP](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?comp_id=TRP&comp_id=PHE&shift=103&shift=130)
 
+#### Perform a FASTA search (GET)
+
+**/serach/fasta/$sequence[?type=rna|dna|polymer][&e_val=$expectation_val]**
+
+Returns a list of FASTA matches from the BMRB database for the given query
+string.
+
+Parameters:
+
+* `type` - Leave blank for polymer. Optionally specify as `dna` or `rna` for DNA
+or RNA searches.
+* `e_val` - Expectation value. Optionally specify to set the FASTA expectation
+value.
+
 #### Search for matching entries based on a lift of shifts (GET)
 
 **/search/multiple_shift_search?shift=x.x[&shift=x.x][...][&database=$database]**
@@ -384,9 +398,11 @@ with the matching shifts, number of shifts matched, and total offset of shifts,
 sorted by number of peaks matched and total offset. Peaks are counted as a match
 if they are within .2 ppm for C and N and if they are within .01 ppm for H.
 
+The titles and links to the matched entries are also returned.
+
 Parameters:
 
-* `shift` Specify once for each shift you intend to query against.
+* `shift` or `s` Specify once for each shift you intend to query against.
 * `database` Which database to query. Metabolomics by default.
 
 Example: [Search for peaks 2.075, 3.11, and 39.31](http://webapi.bmrb.wisc.edu/v2/search/multiple_shift_search?shift=2.075&shift=3.11&shift=39.31)
@@ -421,6 +437,8 @@ Example: [The compound names for all compounds in the metabolomics database](htt
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
 
+### Software
+
 #### Software summary (GET)
 
 **/software/**
@@ -454,3 +472,27 @@ is done case-insensitive and does not require perfect matches. For example,
 You may optionally specify which database to use.
 
 Example: [Entries using SPARKY](http://webapi.bmrb.wisc.edu/v2/software/package/sparky?database=macromolecules)
+
+### MolProbity
+
+#### Get one-line MolProbity results for a PDB ID (GET)
+
+**/molprobity/$pdb_id/oneline**
+
+Returns the full one-line MolProbity results for the given PDB ID.
+
+Example: [PDB 2DOG](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/oneline)
+
+#### Get residue MolProbity results for a PDB ID (GET)
+
+**/molprobity/$pdb_id/residue[?r=$residue][&r=$residue][...]**
+
+Returns the full MolProbity residue results for the given PDB ID. You may optionally
+specify a list of residues to only get results for those residues.
+
+Parameters:
+
+* `r` Specify the residue to query. May be specified multiple times to get the
+results for multiple residues.
+
+Example: [PDB 2DOG residues 10-13](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/residue?r=10&r=11&r=12&r=13)

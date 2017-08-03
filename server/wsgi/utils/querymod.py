@@ -15,13 +15,18 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'list_entries', 'select', 'configuration', 'get_enumerations',
            'store_uploaded_entry']
 
-_METHODS = ['list_entries', 'entry/', 'status', 'software/', 'software/entry/',
-            'software/package/', 'validate/', 'instant', 'enumerations/',
-            'search/']
+_METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
+            'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/software', 'status',
+            'software/', 'software/package/', 'instant', 'enumerations/',
+            'search/', 'search/chemical_shifts', 'search/multiple_shift_search',
+            'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
+            'search/fasta/',
+            'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
 import os
 import zlib
 import logging
+import textwrap
 import subprocess
 from hashlib import md5
 from decimal import Decimal
@@ -77,22 +82,22 @@ class RequestError(Exception):
         return rv
 
 
+_QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
+
 # Load the configuration file
-config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "..", "..", "..", "..", "api_config.json")
+config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "..", "api_config.json")
 configuration = json.loads(open(config_loc, "r").read())
 
 # Load local configuration overrides
-config_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "..", "..", "..", "api_config.json")
+config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "api_config.json")
 if os.path.isfile(config_loc):
     config_overrides = json.loads(open(config_loc, "r").read())
     for config_param in config_overrides:
         configuration[config_param] = config_overrides[config_param]
 
 # Determine submodules folder
-_SUBMODULE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
-                              "submodules")
+_SUBMODULE_DIR = os.path.join(os.path.dirname(_QUERYMOD_DIR), "submodules")
+_FASTA_LOCATION = os.path.join(_SUBMODULE_DIR, "fasta36", "bin", "fasta36")
 
 # Set up logging
 logging.basicConfig()
@@ -542,18 +547,27 @@ def multiple_peak_search(peaks, database="metabolomics"):
     set_database(cur, database)
 
     sql = '''
-SELECT "Entry_ID","Assigned_chem_shift_list_ID"::text,array_agg(DISTINCT "Val"::numeric)
-FROM "Atom_chem_shift"
+SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,array_agg(DISTINCT atom_shift."Val"::numeric),ent.title,ent.link
+FROM "Atom_chem_shift" as atom_shift
+LEFT JOIN web.instant_cache as ent
+ON ent.id = atom_shift."Entry_ID"
 WHERE '''
     terms = []
 
-    peaks = sorted([float(x) for x in peaks])
+    fpeaks = []
+    try:
+        for peak in peaks:
+            fpeaks.append(float(peak))
+    except ValueError:
+        raise RequestError("Invalid peak specified. All peaks must be numbers. Invalid peak: '%s'" % peak)
+
+    peaks = sorted(fpeaks)
 
     for peak in peaks:
         sql += '''
-(("Val"::float < %s  AND "Val"::float > %s AND ("Atom_type" = 'C' OR "Atom_type" = 'N'))
+((atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND (atom_shift."Atom_type" = 'C' OR atom_shift."Atom_type" = 'N'))
  OR
- ("Val"::float < %s  AND "Val"::float > %s AND "Atom_type" = 'H')) OR '''
+ (atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'H')) OR '''
         terms.append(peak + .2)
         terms.append(peak - .2)
         terms.append(peak + .01)
@@ -562,8 +576,8 @@ WHERE '''
     # End the OR
     sql += '''
 1=2
-GROUP BY "Entry_ID","Assigned_chem_shift_list_ID"
-ORDER BY count(DISTINCT "Val") DESC;
+GROUP BY atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID",ent.title,ent.link
+ORDER BY count(DISTINCT atom_shift."Val") DESC;
 '''
 
     # Do the query
@@ -578,7 +592,9 @@ ORDER BY count(DISTINCT "Val") DESC;
     for entry in cur:
         result['data'].append({'Entry_ID':entry[0],
                                'Assigned_chem_shift_list_ID': entry[1],
-                               'Val': entry[2]})
+                               'Val': entry[2],
+                               'Title': entry[3].replace("\n",""),
+                               'Link': entry[4]})
 
     # Convert the search to decimal
     peaks = [Decimal(x) for x in peaks]
@@ -698,6 +714,33 @@ WHERE
 
     result['data'] = cur.fetchall()
     return result
+
+def get_molprobity_data(pdb_id, residues=None):
+    """ Returns the molprobity data."""
+
+    pdb_id = pdb_id.lower()
+    cur = get_postgres_connection()[1]
+
+    if residues is None:
+        sql = '''SELECT * FROM molprobity.oneline where pdb = %s'''
+        terms = [pdb_id]
+    else:
+        sql = '''SELECT * FROM molprobity.residue where pdb = %s AND ('''
+        terms = [pdb_id]
+        for item in residues:
+            sql += " pdb_residue_no = %s OR "
+            terms.append(item)
+        sql += " 1=2) ORDER BY model, pdb_residue_no"
+
+    cur.execute(sql, terms)
+
+    res = {"columns": [desc[0] for desc in cur.description],
+           "data": cur.fetchall()}
+
+    if configuration['debug']:
+        res['debug'] = cur.query
+
+    return res
 
 def get_entry_software(entry_id):
     """ Returns the software used for a given entry. """
@@ -844,11 +887,70 @@ def get_bmrb_as_text(entry):
 
     return " ".join(res_strings)
 
-def get_experiments(entry, database="metabolomics"):
+def fasta_search(query, a_type="polymer", e_val=None):
+    """Performs a FASTA search on the specified query in the BMRB database."""
+
+    # Make sure the type is valid
+    if a_type not in ["polymer", "rna", "dna"]:
+        raise RequestError("Invalid search type: %s" % a_type)
+    a_type = {'polymer': 'polypeptide(L)', 'rna': 'polyribonucleotide',
+              'dna': 'polydeoxyribonucleotide'}[a_type]
+
+    if not os.path.isfile(_FASTA_LOCATION):
+        raise ServerError("Unable to perform FASTA search. Server improperly installed.")
+
+    cur = get_postgres_connection()[1]
+    set_database(cur, "macromolecules")
+    cur.execute('''SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",regexp_replace(entity."Polymer_seq_one_letter_code", E'[\\n\\r]+', '', 'g' ), replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
+    FROM "Entity" as entity
+    LEFT JOIN "Entry" as entry
+    ON entity."Entry_ID" = entry."Entry_ID"
+    WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [a_type])
+
+    sequences = cur.fetchall()
+    wrapper = textwrap.TextWrapper(width=80, expand_tabs=False,
+                                   replace_whitespace=False,
+                                   drop_whitespace=False, break_on_hyphens=False)
+    seq_strings = [">%s\n%s\n" % (x[0], "\n".join(wrapper.wrap(x[3]))) for x in sequences]
+
+    # Use temporary files to store the FASTA search string and FASTA DB
+    with NamedTemporaryFile(dir="/dev/shm") as fasta_file,\
+            NamedTemporaryFile(dir="/dev/shm") as sequence_file:
+        fasta_file.file.write(">query\n%s" % query.upper())
+        fasta_file.flush()
+
+        sequence_file.file.write("".join(seq_strings))
+        sequence_file.flush()
+
+        # Set up the FASTA arguments
+        fargs = [_FASTA_LOCATION, "-m", "8"]
+        if e_val:
+            fargs.extend(["-E", e_val])
+        fargs.extend([fasta_file.name, sequence_file.name])
+
+        # Run FASTA
+        res = subprocess.check_output(fargs, stderr=subprocess.STDOUT)
+
+    # Combine the results
+    results = []
+    for line in res.split("\n"):
+        cols = line.split()
+        if len(cols) == 12:
+            matching_row = sequences[int(cols[1])-1]
+            results.append({'entry_id': matching_row[1], 'entity_id': matching_row[2],
+                            'entry_title': matching_row[4], 'percent_id': Decimal(cols[2]),
+                            'alignment_length': int(cols[3]), 'mismatches': int(cols[4]),
+                            'gap_openings': int(cols[5]), 'q.start': int(cols[6]),
+                            'q.end': int(cols[7]), 's.start': int(cols[8]), 's.end': int(cols[9]),
+                            'e-value': Decimal(cols[10]), 'bit_score': Decimal(cols[11])})
+
+    return results
+
+def get_experiments(entry):
     """ Returns the experiments for this entry. """
 
     cur = get_postgres_connection(dictionary_cursor=True)[1]
-    set_database(cur, "metabolomics")
+    set_database(cur, get_database_from_entry_id(entry))
 
     # First get the sample components
     sql = '''
@@ -860,7 +962,7 @@ def get_experiments(entry, database="metabolomics"):
 
     # Then get all of the other information
     sql = '''
-SELECT me."Entry_ID", me."Sample_ID", ef."Experiment_ID", ns."Manufacturer",ns."Model",me."Name" as experiment_name, ns."Field_strength", array_agg(ef."Name") as name, array_agg(ef."Type") as type, array_agg(ef."Directory_path") as directory_path, array_agg(ef."Details") as details, ph."Val" as ph, temp."Val" as temp
+SELECT me."Entry_ID", me."Sample_ID", me."ID", ns."Manufacturer",ns."Model",me."Name" as experiment_name, ns."Field_strength", array_agg(ef."Name") as name, array_agg(ef."Type") as type, array_agg(ef."Directory_path") as directory_path, array_agg(ef."Details") as details, ph."Val" as ph, temp."Val" as temp
 FROM "Experiment" as me
   LEFT JOIN "Experiment_file" as ef
   ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
@@ -873,37 +975,38 @@ FROM "Experiment" as me
   ON me."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=me."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
 
   WHERE me."Entry_ID" = %s
-  GROUP BY me."Entry_ID", me."Name", ef."Experiment_ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val", temp."Val", me."Sample_ID"
-  ORDER BY me."Entry_ID" ASC, ef."Experiment_ID" ASC;'''
+  GROUP BY me."Entry_ID", me."Name", me."ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val", temp."Val", me."Sample_ID"
+  ORDER BY me."Entry_ID" ASC, me."ID" ASC;'''
     cur.execute(sql, [entry])
 
     results = []
     for row in cur:
 
         data = []
-        for x, item in enumerate(row['directory_path']):
+        if row['name'][0]:
+            for x, item in enumerate(row['directory_path']):
 
-            if not item:
-                url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/%s" % row['name'][x]
-                ftype = "unknown"
-                description = row['type'][x]
-            else:
-                if row['type'][x] == "text/directory":
-                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], os.path.dirname(row['directory_path'][x]), row['name'][x])
+                if not item:
+                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/%s" % row['name'][x]
+                    ftype = "unknown"
+                    description = row['type'][x]
                 else:
-                    url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], row['directory_path'][x], row['name'][x])
+                    if row['type'][x] == "text/directory":
+                        url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], os.path.dirname(row['directory_path'][x]), row['name'][x])
+                    else:
+                        url = "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], row['directory_path'][x], row['name'][x])
 
-                ftype = row['type'][x]
-                description = row['details'][x].replace('time-', 'Time-').replace('spectral image', 'Spectral image')
+                    ftype = row['type'][x]
+                    description = row['details'][x].replace('time-', 'Time-').replace('spectral image', 'Spectral image')
 
-            if url.endswith("*"):
-                url = url[:-1]
+                if url.endswith("*"):
+                    url = url[:-1]
 
-            data.append({'type':ftype, 'description': description,
-                         'url':url})
+                data.append({'type':ftype, 'description': description,
+                                 'url':url})
 
         tmp_res = {'Name': row['experiment_name'],
-                   'Experiment_ID': row['Experiment_ID'],
+                   'Experiment_ID': row['ID'],
                    'Sample_condition_variable': {'ph': row['ph'],
                                                  'temperature': row['temp']},
                    'NMR_spectrometer': {'Manufacturer': row['Manufacturer'],
@@ -924,7 +1027,7 @@ FROM "Experiment" as me
         results.append(tmp_res)
 
     if configuration['debug']:
-        results[0]['debug'] = cur.query
+        results.append(cur.query)
 
     return results
 
@@ -1211,10 +1314,10 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
             if need_and:
                 query += " AND"
             if "lower" in modifiers:
-                query += " LOWER(%s) LIKE LOWER(%s)"
+                query += " regexp_replace(LOWER(%s),'\n','') LIKE LOWER(%s)"
             else:
-                query += " %s LIKE %s"
-            parameters.extend([wrap_it_up(key), where_dict[key]])
+                query += " regexp_replace(%s,'\n','') LIKE %s"
+            parameters.extend([wrap_it_up(key), where_dict[key].replace("*", "%")])
             need_and = True
 
 # TODO: build ordering in based on dictionary

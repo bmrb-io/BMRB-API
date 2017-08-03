@@ -112,6 +112,18 @@ UNION
 SELECT DISTINCT "ID", 'PDB structure', "Assigned_PDB_ID", to_tsvector("Assigned_PDB_ID") FROM macromolecules."Entry"
 UNION
 SELECT DISTINCT "Entry_ID", 'Matching PDB', "Database_accession_code", to_tsvector("Database_accession_code") FROM macromolecules."Related_entries" WHERE "Database_name"='PDB' AND "Relationship"='BMRB Entry Tracking System'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', '10.13018/BMR' || "Entry_ID", to_tsvector('10.13018/BMR' || "Entry_ID") FROM macromolecules."Entry"
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', '10.13018/' || UPPER("Entry_ID"), to_tsvector('10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmse%'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', '10.13018/' || UPPER("Entry_ID"), to_tsvector('10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmst%'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/BMR' || "Entry_ID", to_tsvector('DOI:10.13018/BMR' || "Entry_ID") FROM macromolecules."Entry"
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/' || UPPER("Entry_ID"), to_tsvector('DOI:10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmse%'
+UNION
+SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/' || UPPER("Entry_ID"), to_tsvector('DOI:10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmst%'
 
 -- This is here and below to make exact matches show up prior to fuzzy matches, but still allow fuzzy matches
 UNION
@@ -211,7 +223,7 @@ GROUP BY entry."ID",entry."Title", entry."Submission_date";
 INSERT INTO web.instant_cache_tmp
 SELECT
  entry."ID",
- web.clean_title(entry."Title"),
+ web.clean_title(chem_comp."Name"),
  array_agg(DISTINCT web.clean_title(citation."Title")),
  array_agg(DISTINCT REPLACE(Replace(citation_author."Given_name", '.',
 '') || ' ' || COALESCE(Replace(citation_author."Middle_initials", '.',
@@ -225,8 +237,10 @@ LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
 LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
+LEFT JOIN metabolomics."Chem_comp" AS chem_comp
+  ON entry."ID"=chem_comp."Entry_ID"
 WHERE entry."ID" like 'bmse%'
-GROUP BY entry."ID",entry."Title", entry."Submission_date";
+GROUP BY entry."ID",chem_comp."Name", entry."Submission_date";
 
 -- Metabolomics bmst
 INSERT INTO web.instant_cache_tmp
@@ -319,4 +333,3 @@ SELECT * FROM (
     WHERE tt.term % 'caffeine'
     ORDER BY id DESC, similarity(tt.term, 'caffeine') DESC) AS two) AS three;
 */
-

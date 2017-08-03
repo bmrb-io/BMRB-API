@@ -59,7 +59,7 @@ if options.metabolomics and options.macromolecules and options.chemcomps:
 
 # Load the metabolomics data
 if options.metabolomics:
-    entries = querymod.select(["Entry_ID"], "Release", schema="metabolomics")
+    entries = querymod.select(["Entry_ID"], "Release", database="metabolomics")
     entries = sorted(set(entries["Release.Entry_ID"]))
     for entry in entries:
         aent = (entry, "/share/subedit/metabolomics/%s/%s.str" % (entry, entry))
@@ -84,7 +84,7 @@ if options.macromolecules:
 
 # Load the chemcomps
 if options.chemcomps:
-    comp_ids = querymod.select(["BMRB_code"], "Entity", schema="chemcomps")
+    comp_ids = querymod.select(["BMRB_code"], "Entity", database="chemcomps")
     comp_ids = comp_ids['Entity.BMRB_code']
     chemcomps = ["chemcomp_" + x for x in comp_ids]
     to_process['chemcomps'].extend([[x, None] for x in chemcomps])
