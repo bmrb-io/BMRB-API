@@ -554,10 +554,14 @@ ON ent.id = atom_shift."Entry_ID"
 WHERE '''
     terms = []
 
+    fpeaks = []
     try:
-        peaks = sorted([float(x) for x in peaks])
+        for peak in peaks:
+            fpeaks.append(float(peak))
     except ValueError:
-        raise RequestError("Invalid peak specified. All peaks must be numbers.")
+        raise RequestError("Invalid peak specified. All peaks must be numbers. Invalid peak: '%s'" % peak)
+
+    peaks = sorted(fpeaks)
 
     for peak in peaks:
         sql += '''
