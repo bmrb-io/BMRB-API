@@ -402,7 +402,7 @@ The titles and links to the matched entries are also returned.
 
 Parameters:
 
-* `shift` Specify once for each shift you intend to query against.
+* `shift` or `s` Specify once for each shift you intend to query against.
 * `database` Which database to query. Metabolomics by default.
 
 Example: [Search for peaks 2.075, 3.11, and 39.31](http://webapi.bmrb.wisc.edu/v2/search/multiple_shift_search?shift=2.075&shift=3.11&shift=39.31)

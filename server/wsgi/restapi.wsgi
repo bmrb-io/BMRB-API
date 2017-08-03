@@ -272,11 +272,11 @@ def print_search_options():
 def multiple_shift_search():
     """ Finds entries that match at least some of the peaks. """
 
-    peaks = request.args.getlist('shift', None)
+    peaks = request.args.getlist('shift')
     if not peaks:
-        peaks = request.args.getlist('s', None)
+        peaks = request.args.getlist('s')
     else:
-        peaks.extend(request.args.getlist('s', []))
+        peaks.extend(list(request.args.getlist('s')))
 
     if not peaks:
         raise querymod.RequestError("You must specify at least one shift to search for.")
@@ -289,11 +289,11 @@ def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
     cs1d = querymod.chemical_shift_search_1d
-    return jsonify(cs1d(shift_val=request.args.getlist('shift', None),
+    return jsonify(cs1d(shift_val=request.args.getlist('shift'),
                         threshold=request.args.get('threshold', .03),
                         atom_type=request.args.get('atom_type', None),
-                        atom_id=request.args.getlist('atom_id', None),
-                        comp_id=request.args.getlist('comp_id', None),
+                        atom_id=request.args.getlist('atom_id'),
+                        comp_id=request.args.getlist('comp_id'),
                         conditions=request.args.get('conditions', False),
                         database=get_db("macromolecules")))
 
