@@ -274,6 +274,11 @@ def multiple_shift_search():
 
     peaks = request.args.getlist('shift', None)
     if not peaks:
+        peaks = request.args.getlist('s', None)
+    else:
+        peaks.extend(request.args.getlist('s', []))
+
+    if not peaks:
         raise querymod.RequestError("You must specify at least one shift to search for.")
 
     return jsonify(querymod.multiple_peak_search(peaks,
