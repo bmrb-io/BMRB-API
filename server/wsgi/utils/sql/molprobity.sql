@@ -3,6 +3,10 @@
 -- Activate once psql>=9.3
 --CREATE SCHEMA IF NOT EXISTS molprobity;
 
+-- create tablespace webapi location '/websites/webapi/postgres_tables';
+-- grant create on tablespace webapi to bmrb;
+-- revoke create on tablespace webapi from web;
+
 DROP TABLE IF EXISTS molprobity.oneline_tmp;
 CREATE table molprobity.oneline_tmp (
 fullpdbname text,
@@ -40,7 +44,7 @@ structure_val_oneline_list_id integer,
 macromolecule_types text,
 
     PRIMARY KEY (pdb, model, hydrogenations, molprobity_flips, backbone_trim_state)
-);
+) TABLESPACE webapi;
 
 -- Temp table with duplicates
 CREATE TEMP TABLE tmp_table
@@ -127,13 +131,13 @@ outlier_count_separate_geometry integer,
 outlier_count integer,
 entry_id text,
 structure_validation_residue_list_id integer
-);
+) TABLESPACE webapi;
 
 /* To remove duplicates:
 LC_ALL=C sort -u -i everything.csv > everything_unique.csv
 */
 \copy molprobity.residue_tmp FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
-CREATE INDEX ON molprobity.residue_tmp (pdb);
+CREATE INDEX ON molprobity.residue_tmp (pdb) TABLESPACE webapi;
 
 -- Move the new table into place
 ALTER TABLE IF EXISTS molprobity.residue RENAME TO residue_old;

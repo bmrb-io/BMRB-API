@@ -347,12 +347,13 @@ In addition, the following parameters can be provided using the
 limit the set of results to those that match the search parameters. All provided
 search parameters are combined with a logical AND.
 
-You may use `*` in `atom_id` and `comp_id` as a wildcard to match 0 or more
-characters.
+
 
 * `atom_type` The value for this tag is a standard IUPAC abbreviation for an element (e.g. H,C,P).
 * `atom_id` The atom name (e.g. HB2, CB). You may specify this parameter multiple times
-and results that match any of the specified atom ids will be returned.
+and results that match any of the specified atom ids will be returned. You may use
+`*` as a wildcard to match 0 or more characters. (e.g. HB* to get all HBx hydrogens.
+Don't use H* or C* - instead use atom_type=H or atom_type=C as they will be much faster.)
 * `comp_id` The residue as a 3 letter code. You may specify this parameter multiple times
 and results that match any of the specified residues will be returned.
 * `shift` A specific chemical shift to search for. Uses a default threshold of .03.
