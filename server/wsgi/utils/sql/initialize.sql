@@ -216,7 +216,7 @@ FROM macromolecules."Entry" as entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
 LEFT JOIN macromolecules."Citation_author" AS citation_author
-  ON entry."ID"=citation_author."Entry_ID"
+  ON entry."ID"=citation_author."Entry_ID" AND citation_author."Citation_ID" = '1'
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
 -- Metabolomics bmse
