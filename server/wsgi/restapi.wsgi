@@ -402,6 +402,27 @@ def get_metabolomics_data(entry_id):
 
     return jsonify(querymod.get_experiments(entry=entry_id))
 
+@application.route('/entry/<entry_id>/citation')
+def get_citation(entry_id):
+    """ Return the citation information for an entry in the requested format. """
+
+    format_ = request.args.get('format', "python")
+    if format_ == "json-ld":
+        format_ = "python"
+
+    # Get the citation
+    citation = querymod.get_citation(entry_id, format_=format_)
+
+    # Bibtex
+    if format_ == "bibtex":
+        return Response(citation, mimetype="application/x-bibtex",
+                        headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
+    elif format_ == "text":
+        return Response(citation, mimetype="text/plain")
+    # JSON+LD
+    else:
+        return jsonify(citation)
+
 
 @application.route('/instant')
 def get_instant():

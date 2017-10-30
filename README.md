@@ -237,6 +237,25 @@ Example: [Fetching the entry title](http://webapi.bmrb.wisc.edu/v2/entry/15000?t
 
 Example: [Fetching the entry title and citation title](http://webapi.bmrb.wisc.edu/v2/entry/15000?tag=Entry.Title&tag=Citation.Title)
 
+#### Fetch the citation information for the entry (GET)
+
+**/entry/$entry_id/citation**
+
+Returns the citation information for the entry. Citation information
+is available in three formats. The default format is JSON-LD. To use one
+of the other formats, specify one of the following values for the `format`
+tag:
+
+* `json-ld` - Schema.org JSON-LD format.
+* `bibtex` - BibTeX format.
+* `text` - Text citation format.
+
+Examples:
+
+* [JSON-LD](http://webapi.bmrb.wisc.edu/v2/entry/15000/citation?format=json-ld)
+* [BibTeX](http://webapi.bmrb.wisc.edu/v2/entry/15000/citation?format=bibtex)
+* [Text](http://webapi.bmrb.wisc.edu/v2/entry/15000/citation?format=text)
+
 #### Fetch information on the NMR experiments (GET)
 
 **/entry/$entry_id/experiments**
