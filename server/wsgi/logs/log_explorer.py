@@ -28,19 +28,19 @@ for line in open("tmp.json","r"):
         print(te)
 
 #    if "instant" in d['path'] and d["local"] != True:
-        #key = unquote(unquote(d['path'].replace("+", " "))).lower()
-        #key = key[14:]
-        #sw.add(key)
+#        key = unquote(unquote(d['path'].replace("+", " "))).lower()
+#        key = key[14:].strip()
+#        sw.add(key)
 
 
 #ss = sorted(sw)
 #with open("terms.csv", "w") as terms:
-    #for key in ss:
-        #writeit = True
-        #cp = set(ss)
-        #cp.remove(key)
-        #for tk in cp:
-            #if tk.startswith(key):
-                #writeit = False
-        #if writeit:
-            #terms.write(key + "\n")
+#    for key in ss:
+#        writeit = True
+#        cp = set(ss)
+#        cp.remove(key)
+#        for tk in cp:
+#            if tk.startswith(key):
+#                writeit = False
+#        if writeit:
+#            terms.write(key + "\n")
