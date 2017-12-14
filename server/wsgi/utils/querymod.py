@@ -388,7 +388,8 @@ def get_citation(entry_id, format_="python"):
                 volume = ""
             citation_volume_issue = "%s%s" % (volume, issue)
             citation_year = get_tag(citation_frame, "Year")
-            citation_pagination = get_tag(citation_frame, "Page_first") + "-" + get_tag(citation_frame, "Page_last")
+            citation_pagination = "%s-%s" % (get_tag(citation_frame, "Page_first"),
+                                             get_tag(citation_frame, "Page_last"))
             citation_title = get_tag(citation_frame, "Title").strip()
 
             # Authors
@@ -401,11 +402,15 @@ def get_citation(entry_id, format_="python"):
             # Citations
             doi = get_tag(citation_frame, "DOI")
             if doi and doi != ".":
-                citations.append({"@type":"ScholarlyArticle", "@id":"https://doi.org/" + doi, "headline":get_tag(citation_frame, "Title"), "datePublished":get_tag(citation_frame, "Year")})
+                citations.append({"@type":"ScholarlyArticle",
+                                  "@id":"https://doi.org/" + doi,
+                                  "headline":get_tag(citation_frame, "Title"),
+                                  "datePublished":get_tag(citation_frame, "Year")})
 
     # Figure out last update day, version, and original release
     orig_release, last_update, version = None, None, 1
-    for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number", "Date"]):
+    for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number",
+                                                                  "Date"]):
         if row[0] == "1":
             orig_release = row[1]
         if int(row[0]) >= version:
