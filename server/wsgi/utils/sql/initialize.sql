@@ -78,7 +78,7 @@ CREATE TABLE web.metabolomics_summary_tmp (
     monoisotopic_mass numeric);
 
 INSERT INTO web.metabolomics_summary_tmp (id, formula, inchi, smiles, average_mass, molecular_weight, monoisotopic_mass)
-  SELECT cc."Entry_ID", replace(cc."Formula", ' ', ''), cc."InCHi_code", sm."String", cc."Formula_weight"::numeric, cc."Formula_weight"::numeric, cc."Formula_mono_iso_wt_nat"::numeric
+  SELECT cc."Entry_ID", replace(cc."Formula", ' ', ''), cc."InChI_code", sm."String", cc."Formula_weight"::numeric, cc."Formula_weight"::numeric, cc."Formula_mono_iso_wt_nat"::numeric
   FROM metabolomics."Chem_comp" as cc
   LEFT JOIN metabolomics."Chem_comp_SMILES" AS sm
   ON sm."Entry_ID"=cc."Entry_ID"
@@ -140,7 +140,7 @@ SELECT DISTINCT "Entry_ID", "Name",'Systematic name' FROM metabolomics."Chem_com
 UNION
 SELECT DISTINCT "Entry_ID", regexp_replace("Formula", '\s', '', 'g'),'Formula' FROM metabolomics."Chem_comp"
 UNION
-SELECT DISTINCT "Entry_ID", "InCHi_code",'InChI' FROM metabolomics."Chem_comp"
+SELECT DISTINCT "Entry_ID", "InChI_code",'InChI' FROM metabolomics."Chem_comp"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM metabolomics."Chem_comp"
 UNION
