@@ -476,7 +476,7 @@ by the BMRB entry tracking system. There is a one-to-one correspondence between
 this queried entry and the provided PDB ID.
 * `BLAST Match` - The entry was found during a routine BLAST search.
 It is similar to the queried entry in sequence but no other correlation is implied.
-* `Assembly DB Link` - ??? provided by author?
+* `Assembly DB Link` - Author provided PDB link from one of the entry assemblies.
 * `Author Provided` - If an author provided a "related entry" during deposition
 it will appear here.
 
@@ -504,7 +504,7 @@ by the BMRB entry tracking system. There is a one-to-one correspondence between
 this queried entry and the provided BMRB ID.
 * `BLAST Match` - The entry was found during a routine BLAST search.
 It is similar to the queried entry in sequence but no other correlation is implied.
-* `Assembly DB Link` - ??? provided by author?
+* `Assembly DB Link` - Author provided link from one of the entry assemblies.
 * `Author Provided` - If an author provided a "related entry" during deposition
 it will appear here.
 
