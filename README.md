@@ -237,6 +237,25 @@ Example: [Fetching the entry title](http://webapi.bmrb.wisc.edu/v2/entry/15000?t
 
 Example: [Fetching the entry title and citation title](http://webapi.bmrb.wisc.edu/v2/entry/15000?tag=Entry.Title&tag=Citation.Title)
 
+#### Fetch the citation information for the entry (GET)
+
+**/entry/$entry_id/citation**
+
+Returns the citation information for the entry. Citation information
+is available in three formats. The default format is JSON-LD. To use one
+of the other formats, specify one of the following values for the `format`
+tag:
+
+* `json-ld` - Schema.org JSON-LD format.
+* `bibtex` - BibTeX format.
+* `text` - Text citation format.
+
+Examples:
+
+* [JSON-LD](http://webapi.bmrb.wisc.edu/v2/entry/15000/citation?format=json-ld)
+* [BibTeX](http://webapi.bmrb.wisc.edu/v2/entry/15000/citation?format=bibtex)
+* [Text](http://webapi.bmrb.wisc.edu/v2/entry/15000/citation?format=text)
+
 #### Fetch information on the NMR experiments (GET)
 
 **/entry/$entry_id/experiments**
@@ -437,6 +456,63 @@ Example: [The compound names for all compounds in the metabolomics database](htt
 
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](http://www.bmrb.wisc.edu/dictionary/tag.php) for reference.
+
+#### Get associated PDB IDs for a given BMRB ID (GET)
+
+**/search/get_pdb_ids_from_bmrb_id/$pdb_id**
+
+Returns a list of dictionaries, each containing three keys corresponding to PDB IDs
+associated with the specified BMRB ID, the association between the two, and any
+notes on the relationship if present.
+
+The keys are `pdb_id`, `match_type`, and `comment`.
+
+The `pdb_id` field will contain the PDB ID of the match.
+
+The following match types are possible for `match_type`:
+
+* `BMRB Entry Tracking System` - The entry is an exact match as tracked
+by the BMRB entry tracking system. There is a one-to-one correspondence between
+this queried entry and the provided PDB ID.
+* `BLAST Match` - The entry was found during a routine BLAST search.
+It is similar to the queried entry in sequence but no other correlation is implied.
+* `Assembly DB Link` - ??? provided by author?
+* `Author Provided` - If an author provided a "related entry" during deposition
+it will appear here.
+
+The `comment` field will usually be `null`, but if not, it will contain any recorded
+notes on how the specific PDB ID is related to the queried BMRB ID.
+
+Example: [PDB IDs associated with BMRB ID 15000](http://webapi.bmrb.wisc.edu/v2/search/get_bmrb_ids_from_pdb_id/15000)
+
+#### Get associated BMRB IDs for a given PDB ID (GET)
+
+**/search/get_bmrb_ids_from_pdb_id/$pdb_id**
+
+Returns a list of dictionaries, each containing three keys corresponding to BMRB IDs
+associated with the specified PDB ID, the association between the two, and any
+notes on the relationship if present.
+
+The keys are `bmrb_id`, `match_type`, and `comment`.
+
+The `bmrb_id` field will contain the BMRB ID of the match.
+
+The following match types are possible for `match_type`:
+
+* `BMRB Entry Tracking System` - The entry is an exact match as tracked
+by the BMRB entry tracking system. There is a one-to-one correspondence between
+this queried entry and the provided BMRB ID.
+* `BLAST Match` - The entry was found during a routine BLAST search.
+It is similar to the queried entry in sequence but no other correlation is implied.
+* `Assembly DB Link` - ??? provided by author?
+* `Author Provided` - If an author provided a "related entry" during deposition
+it will appear here.
+
+The `comment` field will usually be `null`, but if not, it will contain any recorded
+notes on how the specific BMRB ID is related to the queried PDB ID.
+
+Example: [BMRB IDs associated with PDB ID 2JM0](http://webapi.bmrb.wisc.edu/v2/search/get_pdb_ids_from_bmrb_id/2JM0)
+
 
 ### Software
 

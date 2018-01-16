@@ -78,7 +78,7 @@ CREATE TABLE web.metabolomics_summary_tmp (
     monoisotopic_mass numeric);
 
 INSERT INTO web.metabolomics_summary_tmp (id, formula, inchi, smiles, average_mass, molecular_weight, monoisotopic_mass)
-  SELECT cc."Entry_ID", replace(cc."Formula", ' ', ''), cc."InCHi_code", sm."String", cc."Formula_weight"::numeric, cc."Formula_weight"::numeric, cc."Formula_mono_iso_wt_nat"::numeric
+  SELECT cc."Entry_ID", replace(cc."Formula", ' ', ''), cc."InChI_code", sm."String", cc."Formula_weight"::numeric, cc."Formula_weight"::numeric, cc."Formula_mono_iso_wt_nat"::numeric
   FROM metabolomics."Chem_comp" as cc
   LEFT JOIN metabolomics."Chem_comp_SMILES" AS sm
   ON sm."Entry_ID"=cc."Entry_ID"
@@ -140,7 +140,7 @@ SELECT DISTINCT "Entry_ID", "Name",'Systematic name' FROM metabolomics."Chem_com
 UNION
 SELECT DISTINCT "Entry_ID", regexp_replace("Formula", '\s', '', 'g'),'Formula' FROM metabolomics."Chem_comp"
 UNION
-SELECT DISTINCT "Entry_ID", "InCHi_code",'InChI' FROM metabolomics."Chem_comp"
+SELECT DISTINCT "Entry_ID", "InChI_code",'InChI' FROM metabolomics."Chem_comp"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM metabolomics."Chem_comp"
 UNION
@@ -214,9 +214,9 @@ SELECT
  False
 FROM macromolecules."Entry" as entry
 LEFT JOIN macromolecules."Citation" AS citation
-  ON entry."ID"=citation."Entry_ID"
+  ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
 LEFT JOIN macromolecules."Citation_author" AS citation_author
-  ON entry."ID"=citation_author."Entry_ID"
+  ON entry."ID"=citation_author."Entry_ID" AND citation_author."Citation_ID" = '1'
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
 -- Metabolomics bmse
@@ -307,6 +307,16 @@ CREATE INDEX ON web.instant_cache_tmp USING gin(full_text gin_trgm_ops);
 ALTER TABLE IF EXISTS web.instant_cache RENAME TO instant_cache_old;
 ALTER TABLE web.instant_cache_tmp RENAME TO instant_cache;
 DROP TABLE IF EXISTS web.instant_cache_old;
+
+
+-- Load the ETS PDB links into the database
+DROP TABLE IF IF EXISTS web.pdb_link_tmp;
+CREATE TABLE web.pdb_link_tmp (bmrb_id text, pdb_id text);
+\copy web.pdb_link_tmp from '/website/ftp/pub/bmrb/nmr_pdb_integrated_data/adit_nmr_matched_pdb_bmrb_entry_ids.csv' with (FORMAT csv);
+ALTER TABLE IF EXISTS web.pdb_link RENAME TO pdb_link_old;
+ALTER TABLE web.pdb_link_tmp RENAME TO pdb_link;
+DROP TABLE IF EXISTS web.pdb_link_old;
+
 
 -- Clean up
 DROP FUNCTION web.clean_title(varchar);
