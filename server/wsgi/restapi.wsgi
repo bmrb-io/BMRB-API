@@ -261,9 +261,9 @@ def print_search_options():
     """ Returns a list of the search methods."""
 
     result = ""
-    for method in ["get_all_values_for_tag", "get_id_by_tag_value",
-                   "chemical_shifts", "multiple_shift_search",
-                   "fasta"]:
+    for method in ["chemical_shifts", "fasta", "get_all_values_for_tag",
+                   "get_id_by_tag_value", "get_bmrb_ids_from_pdb_id",
+                   "get_pdb_ids_from_bmrb_id", "multiple_shift_search"]:
         result += '<a href="%s">%s</a><br>' % (method, method)
 
     return result
@@ -331,6 +331,28 @@ def get_id_from_search(tag_name=None, tag_value=None):
                              modifiers=['lower'], database=database)
 
     return jsonify(result[result.keys()[0]])
+
+@application.route('/search/get_bmrb_ids_from_pdb_id/')
+@application.route('/search/get_bmrb_ids_from_pdb_id/<pdb_id>')
+def get_bmrb_ids_from_pdb_id(pdb_id=None):
+    """ Returns the associated BMRB IDs for a PDB ID. """
+
+    if not pdb_id:
+        raise querymod.RequestError("You must specify a PDB ID.")
+
+    result = querymod.get_bmrb_ids_from_pdb_id(pdb_id)
+    return jsonify(result)
+
+@application.route('/search/get_pdb_ids_from_bmrb_id/')
+@application.route('/search/get_pdb_ids_from_bmrb_id/<pdb_id>')
+def get_pdb_ids_from_bmrb_id(pdb_id=None):
+    """ Returns the associated BMRB IDs for a PDB ID. """
+
+    if not pdb_id:
+        raise querymod.RequestError("You must specify a BMRB ID.")
+
+    result = querymod.get_pdb_ids_from_bmrb_id(pdb_id)
+    return jsonify(result)
 
 @application.route('/search/fasta/')
 @application.route('/search/fasta/<query>')

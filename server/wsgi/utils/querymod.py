@@ -18,9 +18,10 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/software', 'status',
             'software/', 'software/package/', 'instant', 'enumerations/',
-            'search/', 'search/chemical_shifts', 'search/multiple_shift_search',
+            'search/', 'search/chemical_shifts', 'search/fasta/',
             'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
-            'search/fasta/',
+            'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id',
+            'search/get_pdb_ids_from_bmrb_id',
             'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
 import os
@@ -1593,6 +1594,66 @@ def create_chemcomp_from_db(chemcomp, cur=None):
     ent.add_saveframe(chemcomp_frame)
 
     return ent
+
+def get_pdb_ids_from_bmrb_id(bmrb_id):
+    """ Returns the associated PDB IDs for a BMRB ID. """
+
+    cur = get_postgres_connection()[1]
+
+    query = '''
+SELECT pdb_id, 'BMRB Entry Tracking System' AS link_type, null AS comment
+  FROM web.pdb_link
+  WHERE bmrb_id LIKE %s
+UNION
+SELECT "Database_accession_code", 'Author Provided', "Relationship"
+  FROM macromolecules."Related_entries"
+  WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
+    AND "Relationship" != 'BMRB Entry Tracking System'
+UNION
+SELECT "Accession_code", 'BLAST Match', "Entry_details"
+  FROM macromolecules."Entity_db_link"
+  WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB'
+UNION
+SELECT "Accession_code", 'Assembly DB Link', "Entry_details"
+  FROM macromolecules."Assembly_db_link"
+  WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB';'''
+
+    terms = [bmrb_id, bmrb_id, bmrb_id, bmrb_id]
+    cur.execute(query, terms)
+
+    return [{"pdb_id": x[0], "match_type": x[1], "comment": x[2]}
+            for x in cur.fetchall()]
+
+def get_bmrb_ids_from_pdb_id(pdb_id):
+    """ Returns the associated BMRB IDs for a PDB ID. """
+
+    cur = get_postgres_connection()[1]
+
+    query = '''
+SELECT bmrb_id, 'BMRB Entry Tracking System' AS link_type, null as comment
+  FROM web.pdb_link
+  WHERE pdb_id LIKE %s
+UNION
+SELECT "Entry_ID", 'Author Provided', "Relationship"
+  FROM macromolecules."Related_entries"
+  WHERE "Database_accession_code" LIKE %s AND "Database_name" = 'PDB'
+    AND "Relationship" != 'BMRB Entry Tracking System'
+UNION
+SELECT "Entry_ID", 'BLAST Match', "Entry_details"
+  FROM macromolecules."Entity_db_link"
+  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB'
+UNION
+SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
+  FROM macromolecules."Assembly_db_link"
+  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB';'''
+
+    pdb_id = pdb_id.upper()
+    terms = [pdb_id, pdb_id, pdb_id, pdb_id]
+    cur.execute(query, terms)
+
+    return [{"bmrb_id": x[0], "match_type": x[1], "comment": x[2]}
+            for x in cur.fetchall()]
+
 
 def get_printable_tags(category, cur=None):
     """ Returns a list of the tags that should be printed for the given
