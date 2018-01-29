@@ -1390,7 +1390,12 @@ def get_all_values_for_tag(tag_name, database):
     # Turn the results into a dict
     res = {}
     for x in cur.fetchall():
-        res[x[0]] = x[1]
+        sub_res = []
+        for elem in x[1]:
+            if elem:
+                sub_res.append(elem)
+        if len(sub_res) > 0:
+            res[x[0]] = sub_res
 
     return res
 
