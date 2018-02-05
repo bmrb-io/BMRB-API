@@ -310,7 +310,7 @@ DROP TABLE IF EXISTS web.instant_cache_old;
 
 
 -- Load the ETS PDB links into the database
-DROP TABLE IF IF EXISTS web.pdb_link_tmp;
+DROP TABLE IF EXISTS web.pdb_link_tmp;
 CREATE TABLE web.pdb_link_tmp (bmrb_id text, pdb_id text);
 \copy web.pdb_link_tmp from '/website/ftp/pub/bmrb/nmr_pdb_integrated_data/adit_nmr_matched_pdb_bmrb_entry_ids.csv' with (FORMAT csv);
 ALTER TABLE IF EXISTS web.pdb_link RENAME TO pdb_link_old;
