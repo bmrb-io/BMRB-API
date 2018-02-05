@@ -13,7 +13,7 @@ request_counter = 1
 
 url = "http://localhost/jsonrpc/"
 if __name__ == "__main__":
-    url = "http://webapi.bmrb.wisc.edu/current/jsonrpc"
+    url = "http://webapi.bmrb.wisc.edu/v1/jsonrpc"
     # Take command line input of URL
     if len(sys.argv) > 1:
         url = sys.argv[1]
