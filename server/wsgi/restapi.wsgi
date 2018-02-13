@@ -190,19 +190,29 @@ def get_entry(entry_id=None):
                                         status_code=404)
 
         # See if they specified more than one of [saveframe, loop, tag]
-        args = sum([1 if request.args.get('saveframe', None) else 0,
+        args = sum([1 if request.args.get('saveframe_category', None) else 0,
+                    1 if request.args.get('saveframe_name', None) else 0,
                     1 if request.args.get('loop', None) else 0,
                     1 if request.args.get('tag', None) else 0])
         if args > 1:
-            raise querymod.RequestError("Request either loop(s), saveframe(s), "
+            raise querymod.RequestError("Request either loop(s), saveframe(s) by"
+                                        " category, saveframe(s) by name, "
                                         "or tag(s) but not more than one "
                                         "simultaneously.")
 
         # See if they are requesting one or more saveframe
-        elif request.args.get('saveframe', None):
-            result = querymod.get_saveframes(ids=entry_id,
-                                             keys=request.args.getlist('saveframe'),
-                                             format=format_)
+        elif request.args.get('saveframe_category', None):
+            result = querymod.get_saveframes_by_category(ids=entry_id,
+                                                         keys=request.args.getlist('saveframe_category'),
+                                                         format=format_)
+            return jsonify(result)
+
+
+        # See if they are requesting one or more saveframe
+        elif request.args.get('saveframe_name', None):
+            result = querymod.get_saveframes_by_name(ids=entry_id,
+                                                     keys=request.args.getlist('saveframe_name'),
+                                                     format=format_)
             return jsonify(result)
 
         # See if they are requesting one or more loop

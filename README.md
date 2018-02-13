@@ -191,9 +191,9 @@ fetch entries as quickly as possible and it is not expected you will
 benefit from the moderately faster entry access considering the additional
 code complexity required. [Example](http://webapi.bmrb.wisc.edu/v2/entry/15000?format=zlib)
 
-#### Retrieve one or more saveframes (GET)
+#### Retrieve one or more saveframes by category (GET)
 
-**/entry/$entry_id?saveframe=$saveframe_category[&format=$entry_format]**
+**/entry/$entry_id?saveframe_category=$saveframe_category[&format=$entry_format]**
 
 Returns all saveframes of the given category for an entry in
 [JSON format](ENTRY.md#saveframe) by default. If `entry_format` is specified then
@@ -202,12 +202,30 @@ return in that format instead.
 Only `json` and `nmrstar` are currently allowed for `entry_format`. These
 formats are the same as described in the entry method.
 
-You may provide the URL parameter saveframe=`saveframe_category` multiple times
+You may provide the URL parameter saveframe_category=`saveframe_category` multiple times
 to retrieve multiple saveframes.
 
-Example: [Querying for the entry information saveframe](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe=entry_information)
+Example: [Querying for the entry information saveframe](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe_category=entry_information)
 
-Example: [Querying for the entry information and citation saveframes](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe=entry_information&saveframe=citations)
+Example: [Querying for the entry information and citation saveframes](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe_category=entry_information&saveframe_category=citations)
+
+#### Retrieve one or more saveframes by name (GET)
+
+**/entry/$entry_id?saveframe_name=$saveframe_name[&format=$entry_format]**
+
+Returns the saveframe with the given name from an entry in
+[JSON format](ENTRY.md#saveframe) by default. If `entry_format` is specified then
+return in that format instead.
+
+Only `json` and `nmrstar` are currently allowed for `entry_format`. These
+formats are the same as described in the entry method.
+
+You may provide the URL parameter saveframe_name=`saveframe_name` multiple times
+to retrieve multiple saveframes.
+
+Example: [Querying for the entry information saveframe by name](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe_name=entry_information)
+
+Example: [Querying for the saveframes with the name entry_information and citation_1](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe_name=entry_information&saveframe_name=citation_2)
 
 #### Retreive one or more loops (GET)
 

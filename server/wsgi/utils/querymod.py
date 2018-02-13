@@ -1303,7 +1303,7 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
 
     return result
 
-def get_saveframes(**kwargs):
+def get_saveframes_by_category(**kwargs):
     """ Returns the matching saveframes."""
 
     # Get the valid IDs and redis connection
@@ -1320,6 +1320,29 @@ def get_saveframes(**kwargs):
             else:
                 matching_frames = [x.get_json(serialize=False) for x in matches]
             result[entry[0]][saveframe_category] = matching_frames
+    return result
+
+
+def get_saveframes_by_name(**kwargs):
+    """ Returns the matching saveframes."""
+
+    # Get the valid IDs and redis connection
+    saveframe_names = process_STAR_query(kwargs)
+    result = {}
+
+    # Go through the IDs
+    for entry in get_valid_entries_from_redis(kwargs['ids']):
+        result[entry[0]] = {}
+        for saveframe_name in saveframe_names:
+            try:
+                sf = entry[1].get_saveframe_by_name(saveframe_name)
+                if kwargs.get('format', "json") == "nmrstar":
+                    result[entry[0]][saveframe_name] = str(sf)
+                else:
+                    result[entry[0]][saveframe_name] = sf.get_json(serialize=False)
+            except KeyError:
+                continue
+
     return result
 
 def get_entries(**kwargs):
