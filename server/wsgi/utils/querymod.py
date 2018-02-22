@@ -514,8 +514,7 @@ def get_chemical_shift_validation(**kwargs):
             avs_location = os.path.join(_SUBMODULE_DIR, "avs/validate_assignments_31.pl")
             res = subprocess.check_output([avs_location, entry[0], "-nitrogen", "-fmean",
                                            "-aromatic", "-std", "-anomalous", "-suspicious",
-                                           "-star_output", star_file.name],
-                                          stderr=subprocess.STDOUT)
+                                           "-star_output", star_file.name])
 
             error_loop = pynmrstar.Entry.from_string(res)
             error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
