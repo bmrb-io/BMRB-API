@@ -46,7 +46,7 @@ import redis
 from redis.sentinel import Sentinel
 
 # Local imports
-import bmrb
+import pynmrstar
 
 class ServerError(Exception):
     """ Something is wrong with the server. """
@@ -259,7 +259,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
                         yield (entry_id, entry)
                     else:
                         # Parse the dict into object
-                        entry = bmrb.Entry.from_json(entry)
+                        entry = pynmrstar.Entry.from_json(entry)
                         if format_ == "object":
                             yield (entry_id, entry)
                         else:
@@ -281,7 +281,7 @@ def store_uploaded_entry(**kwargs):
                            "NMR-STAR file as the request body.")
 
     try:
-        parsed_star = bmrb.Entry.from_string(uploaded_data)
+        parsed_star = pynmrstar.Entry.from_string(uploaded_data)
     except ValueError as e:
         raise RequestError("Invalid uploaded NMR-STAR file."
                            " Exception: %s" % str(e))
@@ -517,7 +517,7 @@ def get_chemical_shift_validation(**kwargs):
                                            "-star_output", star_file.name],
                                           stderr=subprocess.STDOUT)
 
-            error_loop = bmrb.Entry.from_string(res)
+            error_loop = pynmrstar.Entry.from_string(res)
             error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
             error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
                                             "Entity_ID", "Comp_index_ID",
@@ -533,7 +533,7 @@ def get_chemical_shift_validation(**kwargs):
             # Modify the chemical shift loops with the new data
             shift_lists = entry[1].get_loops_by_category("atom_chem_shift")
             for loop in shift_lists:
-                loop.add_column(["AVS_analysis_status", "PANAV_analysis_status"])
+                loop.add_tag(["AVS_analysis_status", "PANAV_analysis_status"])
                 for row in loop.data:
                     row.extend(["Consistent", "Consistent"])
 
@@ -1606,7 +1606,7 @@ def create_chemcomp_from_db(chemcomp, cur=None):
         cur = get_postgres_connection()[1]
 
     # Create entry
-    ent = bmrb.Entry.from_scratch(chemcomp)
+    ent = pynmrstar.Entry.from_scratch(chemcomp)
     chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
                                               cc_id, "ID", cur)
     entity_frame = create_saveframe_from_db("chemcomps", "entity",
@@ -1724,7 +1724,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
                              cur=None):
     """ Builds a saveframe from the database. You specify the database:
     (metabolomics, macromolecules, chemcomps, combined), the category of the
-    saveframe, the identifier of the saveframe, and the name of the column that
+    saveframe, the identifier of the saveframe, and the name of the tag that
     we should search for the identifier (within the saveframe's table).
 
     You can optionally pass a cursor to reuse an existing postgresql
@@ -1789,7 +1789,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
     sf_id, sf_framecode = cur.fetchone()
 
     # Create the NMR-STAR saveframe
-    built_frame = bmrb.Saveframe.from_scratch(sf_framecode)
+    built_frame = pynmrstar.Saveframe.from_scratch(sf_framecode)
     built_frame.tag_prefix = "_" + table_name
 
     # Figure out which tags to display
@@ -1830,8 +1830,8 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
         # If there are any tags in the loop to use
         if len(tags_to_use) > 0:
             # Create the loop
-            bmrb_loop = bmrb.Loop.from_scratch(category=each_loop)
-            bmrb_loop.add_column(tags_to_use)
+            bmrb_loop = pynmrstar.Loop.from_scratch(category=each_loop)
+            bmrb_loop.add_tag(tags_to_use)
 
             # Get the loop data
             to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
