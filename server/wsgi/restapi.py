@@ -247,6 +247,12 @@ def get_entry(entry_id=None):
             # Return the entry in any other format
             return jsonify(entry)
 
+@application.route('/schema')
+@application.route('/schema/<schema_version>')
+def return_schema(schema_version=None):
+    """ Returns the BMRB schema as JSON. """
+    return jsonify(querymod.pynmrstar._get_schema().get_json(serialize=False))
+
 @application.route('/molprobity/')
 @application.route('/molprobity/<pdb_id>')
 @application.route('/molprobity/<pdb_id>/oneline')
