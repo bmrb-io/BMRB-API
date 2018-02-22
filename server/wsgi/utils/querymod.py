@@ -2,7 +2,7 @@
 
 """ This module provides methods to service the different query types that are
 provided through the REST and JSON-RPC interfaces. This is where the real work
-is done; jsonapi.wsgi and restapi.wsgi mainly just call the methods here and
+is done; jsonapi.py and restapi.py mainly just call the methods here and
 return the results."""
 
 # Make sure print functions work in python2 and python3
