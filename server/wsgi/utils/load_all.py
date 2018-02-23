@@ -119,7 +119,7 @@ def one_entry(entry_name, entry_location, r_conn):
             return entry_name
     else:
         try:
-            ent = querymod.bmrb.Entry.from_file(entry_location)
+            ent = querymod.pynmrstar.Entry.from_file(entry_location)
 
             print("On %s: loaded." % entry_name)
         except IOError as e:
