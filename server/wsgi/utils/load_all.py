@@ -7,6 +7,7 @@ from __future__ import print_function
 
 import re
 import os
+import csv
 import sys
 import time
 import zlib
@@ -134,8 +135,36 @@ def one_entry(entry_name, entry_location, r_conn):
             r_conn.set(key, zlib.compress(ent.get_json()))
             return entry_name
 
+def load_schemas(r):
+    # Load the schemas into the DB
+    orig_dir = os.getcwd()
+    os.chdir("/tmp")
+    os.system("svn checkout http://svn.bmrb.wisc.edu/svn/nmr-star-dictionary/bmrb_only_files/adit_input/ > /dev/null")
+    os.chdir("adit_input")
+
+    for rev in range(163, 221):
+        os.system("svn update -r %s > /dev/null" % rev)
+        with open("xlschem_ann.csv","rU") as schem_file:
+            a = csv.reader(schem_file)
+            a.next()
+            a.next()
+            a.next()
+            version = a.next()[3]
+            # Don't copy any where the schema version isn't listed correctly
+            if version.startswith("3"):
+                clean_schema = querymod.pynmrstar.Schema("xlschem_ann.csv").get_json()
+                r.set("schema:%s" % version, clean_schema)
+                print("schema:%s" % version)
+
+    os.system("rm -rfv adit_input")
+    os.chdir(orig_dir)
+
+
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
+
+# Load the schemas into REDIS
+load_schemas(r)
 
 # Flush the DB
 if options.flush:
