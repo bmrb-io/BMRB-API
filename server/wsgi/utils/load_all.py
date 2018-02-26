@@ -142,7 +142,7 @@ def load_schemas(r):
     os.system("svn checkout http://svn.bmrb.wisc.edu/svn/nmr-star-dictionary/bmrb_only_files/adit_input/ > /dev/null")
     os.chdir("adit_input")
 
-    for rev in range(163, 221):
+    for rev in range(163, 222):
         os.system("svn update -r %s > /dev/null" % rev)
         with open("xlschem_ann.csv","rU") as schem_file:
             a = csv.reader(schem_file)
@@ -154,7 +154,6 @@ def load_schemas(r):
             if version.startswith("3"):
                 clean_schema = querymod.pynmrstar.Schema("xlschem_ann.csv").get_json()
                 r.set("schema:%s" % version, clean_schema)
-                print("schema:%s" % version)
 
     os.system("rm -rfv adit_input")
     os.chdir(orig_dir)

@@ -900,6 +900,17 @@ WHERE "Software"."Entry_ID"=%s;''', [entry_id])
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
 
+def get_schema(version):
+    """ Return the schema from Redis. """
+
+    r = get_redis_connection()
+    try:
+        schema = json.loads(r.get("schema:%s" % version))
+    except TypeError:
+        raise RequestError("Invalid schema version.")
+
+    return schema
+
 def get_software_entries(software_name, database="macromolecules"):
     """ Returns the entries assosciated with a given piece of software. """
 
