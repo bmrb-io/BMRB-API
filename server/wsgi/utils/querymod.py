@@ -639,33 +639,28 @@ def get_enumerations(tag, term=None, cur=None):
     """ Returns a list of enumerations for a given tag from the DB. """
 
     if cur is None:
-        cur = get_postgres_connection()[1]
+        cur = get_postgres_connection(dictionary_cursor=True)[1]
 
     if not tag.startswith("_"):
         tag = "_" + tag
 
     # Get the list of which tags should be used to order data
     cur.execute('''
-SELECT itemenumclosedflg,enumeratedflg,dictionaryseq
- FROM dict.adit_item_tbl
- WHERE originaltag=%s''', [tag])
-    query_res = cur.fetchall()
-    if len(query_res) == 0:
+SELECT it.itemenumclosedflg,it.enumeratedflg,array_agg(enum.val) as values
+ FROM dict.adit_item_tbl as it
+ LEFT JOIN dict.enumerations as enum on enum.seq = it.dictionaryseq
+WHERE originaltag=%s
+GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
+    p_res = cur.fetchone()
+    if not p_res:
         raise RequestError("Invalid tag specified.")
-
-    cur.execute('''
-SELECT val
- FROM dict.enumerations
- WHERE seq=%s
- ORDER BY val''', [query_res[0][2]])
-    values = cur.fetchall()
 
     # Generate the result dictionary
     result = {}
-    result['values'] = [x[0] for x in values]
-    if query_res[0][0] == "Y":
+    result['values'] = p_res['values']
+    if p_res['itemenumclosedflg'] == "Y":
         result['type'] = "enumerations"
-    elif query_res[0][1] == "Y":
+    elif p_res['enumeratedflg'] == "Y":
         result['type'] = "common"
     else:
         result['type'] = None
