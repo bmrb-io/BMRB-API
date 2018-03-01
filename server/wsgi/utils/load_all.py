@@ -11,6 +11,10 @@ import csv
 import sys
 import time
 import zlib
+try:
+    import simplejson as json
+except ImportError:
+    import json
 import optparse
 from multiprocessing import Pipe, cpu_count
 
@@ -152,12 +156,18 @@ def load_schemas(r):
             version = a.next()[3]
             # Don't copy any where the schema version isn't listed correctly
             if version.startswith("3"):
-                clean_schema = querymod.pynmrstar.Schema("xlschem_ann.csv").get_json()
-                r.set("schema:%s" % version, clean_schema)
+                clean_schema = querymod.pynmrstar.Schema("xlschem_ann.csv").get_json(serialize=False)
+                with open("adit_man_over.csv","rU") as over_ride_file:
+                    override = csv.reader(over_ride_file)
+                    headers = override.next()
+                    override.next()
+                    cc = ['Tag', 'Conditional tag', 'Override view value', 'Override value']
+                    columns = [headers.index(x) for x in cc]
+                    clean_schema['overrides'] = [[row[x] for x in columns] for row in override]
+                r.set("schema:%s" % version, json.dumps(clean_schema))
 
     os.system("rm -rfv adit_input")
     os.chdir(orig_dir)
-
 
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
