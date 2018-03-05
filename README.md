@@ -19,8 +19,8 @@ rely on a given API version as we continue to improve and develop the API.
 We intend to keep each released version of the API live as long as is feasible.
 
 Releases will be named with a major and minor version and optionally a revision
-number. For example, the current release version is v1.2. This means that
-it is the 1st API version and there have been two minor releases.
+number. For example, the current release version is v2.0. This means that
+it is the 2nd API version and there have been zero minor releases.
 
 Major release version incrementing means that the API may have changed in a way
 that breaks existing queries. Therefore you should write your applications to
