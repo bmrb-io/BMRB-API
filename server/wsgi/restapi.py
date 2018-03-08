@@ -28,6 +28,9 @@ from utils import querymod
 
 # Set up the flask application
 application = Flask(__name__)
+# Set debug if running from command line
+if application.debug == True:
+    querymod.configuration['debug'] = True
 
 # Set up the logging
 
