@@ -143,12 +143,18 @@ def load_schemas(r):
     # Load the schemas into the DB
     orig_dir = os.getcwd()
     os.chdir("/tmp")
-    os.system("svn checkout http://svn.bmrb.wisc.edu/svn/nmr-star-dictionary/bmrb_only_files/adit_input/ > /dev/null")
-    os.chdir("adit_input")
+    os.system("svn checkout http://svn.bmrb.wisc.edu/svn/nmr-star-dictionary/ > /dev/null")
+    os.chdir("nmr-star-dictionary")
 
-    for rev in range(163, 222):
+    for rev in range(40, 222):
+
+        # Handle old schema location
+        schem_loc = "bmrb_only_files/adit_input"
+        if rev < 163:
+            schem_loc = "bmrb_star_v3_files/adit_input"
+
         os.system("svn update -r %s > /dev/null" % rev)
-        with open("xlschem_ann.csv","rU") as schem_file:
+        with open("%s/xlschem_ann.csv" % schem_loc, "rU") as schem_file:
             a = csv.reader(schem_file)
             a.next()
             a.next()
@@ -156,15 +162,16 @@ def load_schemas(r):
             version = a.next()[3]
             # Don't copy any where the schema version isn't listed correctly
             if version.startswith("3"):
-                clean_schema = querymod.pynmrstar.Schema("xlschem_ann.csv").get_json(serialize=False)
-                with open("adit_man_over.csv","rU") as over_ride_file:
+                clean_schema = querymod.pynmrstar.Schema("%s/xlschem_ann.csv" % schem_loc).get_json(serialize=False)
+                with open("%s/adit_man_over.csv" % schem_loc, "rU") as over_ride_file:
                     override = csv.reader(over_ride_file)
                     headers = override.next()
                     override.next()
                     cc = ['Tag', 'Conditional tag', 'Override view value', 'Override value']
                     columns = [headers.index(x) for x in cc]
                     clean_schema['overrides'] = [[row[x] for x in columns] for row in override]
-                r.set("schema:%s" % version, json.dumps(clean_schema))
+                r.set("schema:%s" % version, zlib.compress(json.dumps(clean_schema)))
+                print("Set schema:%s" % version)
 
     os.system("rm -rfv adit_input")
     os.chdir(orig_dir)
