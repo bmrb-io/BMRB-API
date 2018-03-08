@@ -182,7 +182,11 @@ def get_redis_connection(db=None):
 
         # If they didn't specify a DB then use the configuration default
         if db is None:
-            db = configuration['redis']['db']
+            # If in debug, use debug database
+            if configuration['debug']:
+                db = 1
+            else:
+                db = configuration['redis']['db']
 
         # Get the redis instance
         r = redis.StrictRedis(host=redis_host,
