@@ -253,6 +253,10 @@ def return_schema(schema_version="3.2.0.15"):
     """ Returns the BMRB schema as JSON. """
     return jsonify(querymod.get_schema(schema_version))
 
+@application.route('/get_deposition/<entry_id>')
+def get_deposition(entry_id):
+    return jsonify(querymod.get_deposition(entry_id))
+
 @application.route('/molprobity/')
 @application.route('/molprobity/<pdb_id>')
 @application.route('/molprobity/<pdb_id>/oneline')

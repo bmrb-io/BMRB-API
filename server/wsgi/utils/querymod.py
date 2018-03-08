@@ -212,6 +212,43 @@ def get_all_entries_from_redis(format_="object", database="macromolecules"):
     return get_valid_entries_from_redis(all_ids, format_=format_,
                                         max_results=float("Inf"))
 
+def get_deposition(entry_id):
+    """ Return an entry and the associated schema."""
+
+    try:
+        entry = list(get_valid_entries_from_redis(entry_id))[0][1]
+    except IndexError:
+        raise RequestError("No such entry.")
+
+    schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
+    print(schema_version)
+
+    try:
+        schema = get_schema(schema_version)
+    except RequestError:
+        raise ServerError("Entry specifies schema that doesn't exist on the "
+                          "server: %s" % schema_version)
+
+    cur = get_postgres_connection(dictionary_cursor=True)[1]
+    cur.execute('''
+SELECT it.originaltag as tag, it.itemenumclosedflg as enumerated,it.enumeratedflg as common,array_agg(enum.val) as values
+ FROM dict.adit_item_tbl as it
+ LEFT JOIN dict.enumerations as enum on enum.seq = it.dictionaryseq
+ WHERE it.itemenumclosedflg = 'Y' or it.enumeratedflg = 'Y'
+GROUP BY tag, enumerated,common;''')
+    res = cur.fetchall()
+    enumerations = {}
+    for item in res:
+        enumerations[item[0]] = item[1:]
+
+    for key in schema['data_types']:
+        schema['data_types'][key] = "^%s$" % schema['data_types'][key]
+    schema['enumerations'] = enumerations
+
+    entry = entry.get_json(serialize=False)
+    entry['schema'] = schema
+    return entry
+
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
@@ -904,7 +941,7 @@ def get_schema(version):
 
     r = get_redis_connection()
     try:
-        schema = json.loads(r.get("schema:%s" % version))
+        schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
     except TypeError:
         raise RequestError("Invalid schema version.")
 
