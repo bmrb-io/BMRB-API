@@ -174,6 +174,8 @@ def load_schemas(r):
                 print("Set schema:%s" % version)
 
     os.system("rm -rfv adit_input")
+    os.chdir("/tmp")
+    os.system("rm -rfv nmr-star-dictionary")
     os.chdir(orig_dir)
 
 # Since we are about to start, tell REDIS it is being updated
