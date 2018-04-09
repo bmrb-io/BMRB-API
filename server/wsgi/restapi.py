@@ -29,11 +29,11 @@ from utils import querymod
 
 # Set up the flask application
 application = Flask(__name__)
-CORS(application)
 
 # Set debug if running from command line
 if application.debug == True:
     querymod.configuration['debug'] = True
+    CORS(application)
 
 # Set up the logging
 
