@@ -53,21 +53,12 @@ def get_main_schema(rev):
 
     header_idx = {x: all_headers.index(x) for x in cc}
     header_idx_list = [all_headers.index(x) for x in cc]
-    adit_idx = all_headers.index('ADIT category view name')
 
     res = {'version': version,
            'tags': {'headers': cc, 'values': {}},
-           'saveframes': {'headers': ['ADIT category view name', 'category_group_view_name', 'mandatory_number', 'ADIT replicable', 'group_view_help'],
-                          'values': {}}
           }
 
     for row in schem:
-        # First build the saveframe-based information
-        saveframe = row[header_idx['SFCategory']]
-        if not saveframe in res['saveframes']['values']:
-            res['saveframes']['values'][saveframe] = [row[adit_idx].replace("$", ",")]
-
-        # Now build the tag-based information
         res['tags']['values'][row[header_idx['Tag']]] = [row[x].replace("$", ",") for x in header_idx_list]
 
     return res
@@ -103,15 +94,11 @@ def load_schemas(remote, rev):
     sf_category_info = get_dict(get_file("adit_cat_grp_i.csv", rev),
                                 ['saveframe_category', 'category_group_view_name', 'mandatory_number', 'ADIT replicable', 'group_view_help'],
                                 2)
-    for sfo in sf_category_info['values']:
-        try:
-            res['saveframes']['values'][sfo[0]].extend(sfo[1:])
-        except KeyError:
-            if validate_mode:
-                print("SF category in adit_cat_grp but not xlschem_ann: %s" % sfo[0])
-            else:
-                pass
 
-    #res)
+    res['saveframes'] = {'headers': sf_category_info['headers'], 'values': {}}
+    for sfo in sf_category_info['values']:
+        res['saveframes']['values'][sfo[0]] = sfo[1:]
+
+
     return res['version'], res
 
