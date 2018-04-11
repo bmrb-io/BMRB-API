@@ -141,44 +141,10 @@ def one_entry(entry_name, entry_location, r_conn):
             return entry_name
 
 def load_schemas(r):
-    # Load the schemas into the DB
-    orig_dir = os.getcwd()
-    os.chdir("/tmp")
-    os.system("svn checkout http://svn.bmrb.wisc.edu/svn/nmr-star-dictionary/ > /dev/null")
-    os.chdir("nmr-star-dictionary")
-
-    for rev in range(40, int(subprocess.check_output(['svnversion']).strip())+1):
-
-        # Handle old schema location
-        schem_loc = "bmrb_only_files/adit_input"
-        if rev < 163:
-            schem_loc = "bmrb_star_v3_files/adit_input"
-
-        os.system("svn update -r %s > /dev/null" % rev)
-        with open("%s/xlschem_ann.csv" % schem_loc, "rU") as schem_file:
-            a = csv.reader(schem_file)
-            a.next()
-            a.next()
-            a.next()
-            version = a.next()[3]
-            # Don't copy any where the schema version isn't listed correctly
-            if version.startswith("3"):
-                clean_schema = querymod.pynmrstar.Schema("%s/xlschem_ann.csv" % schem_loc).get_json(serialize=False)
-                with open("%s/adit_man_over.csv" % schem_loc, "rU") as over_ride_file:
-                    override = csv.reader(over_ride_file)
-                    headers = override.next()
-                    override.next()
-                    cc = ['Tag', 'Conditional tag', 'Override view value', 'Override value']
-                    columns = [headers.index(x) for x in cc]
-                    clean_schema['overrides'] = [[row[x] for x in columns] for row in override]
-                r.set("schema:%s" % version, zlib.compress(json.dumps(clean_schema)))
-                print("Set schema: %s" % version)
-            else:
-                print("Skipped schema: %s" % version)
-
-    os.chdir("/tmp")
-    os.system("rm -rfv nmr-star-dictionary > /dev/null")
-    os.chdir(orig_dir)
+    import schema_loader
+    for schema in schema_loader.schema_emitter():
+        r.set("schema:%s" % schema[0], zlib.compress(json.dumps(schema[1])))
+        print("Set schema: %s" % schema[0])
 
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
