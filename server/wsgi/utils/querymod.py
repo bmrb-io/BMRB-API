@@ -220,8 +220,9 @@ def get_deposition(entry_id):
     except IndexError:
         raise RequestError("No such entry.")
 
-    schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
-    print(schema_version)
+    #schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
+    #print(schema_version)
+    schema_version = '3.2.1.0'
 
     try:
         schema = get_schema(schema_version)

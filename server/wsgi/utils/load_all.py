@@ -11,6 +11,7 @@ import csv
 import sys
 import time
 import zlib
+import subprocess
 try:
     import simplejson as json
 except ImportError:
@@ -36,6 +37,8 @@ opt.add_option("--macromolecules", action="store_true", dest="macromolecules",
                default=False, help="Update the macromolecule entries.")
 opt.add_option("--chemcomps", action="store_true", dest="chemcomps",
                default=False, help="Update the chemcomp entries.")
+opt.add_option("--schema", action="store_true", dest="schema",
+               default=False, help="Update the schemas.")
 opt.add_option("--all", action="store_true", dest="all", default=False,
                help="Update all the entries.")
 opt.add_option("--redis-db", action="store", dest="db", default=1,
@@ -49,8 +52,8 @@ opt.add_option("--flush", action="store_true", dest="flush", default=False,
 
 # Make sure they specify a DB
 if not (options.metabolomics or options.macromolecules or
-        options.chemcomps or options.all):
-    print("You must specify which entries to load.")
+        options.chemcomps or options.schema or options.all):
+    print("You must specify which entries to load (or specify the schema).")
     sys.exit(1)
 
 # Update the values if all is presented
@@ -58,9 +61,7 @@ if options.all:
     options.metabolomics = True
     options.macromolecules = True
     options.chemcomps = True
-
-if options.metabolomics and options.macromolecules and options.chemcomps:
-    options.all = True
+    options.schema = True
 
 # Load the metabolomics data
 if options.metabolomics:
@@ -146,7 +147,7 @@ def load_schemas(r):
     os.system("svn checkout http://svn.bmrb.wisc.edu/svn/nmr-star-dictionary/ > /dev/null")
     os.chdir("nmr-star-dictionary")
 
-    for rev in range(40, 222):
+    for rev in range(40, int(subprocess.check_output(['svnversion']).strip())+1):
 
         # Handle old schema location
         schem_loc = "bmrb_only_files/adit_input"
@@ -171,18 +172,16 @@ def load_schemas(r):
                     columns = [headers.index(x) for x in cc]
                     clean_schema['overrides'] = [[row[x] for x in columns] for row in override]
                 r.set("schema:%s" % version, zlib.compress(json.dumps(clean_schema)))
-                print("Set schema:%s" % version)
+                print("Set schema: %s" % version)
+            else:
+                print("Skipped schema: %s" % version)
 
-    os.system("rm -rfv adit_input")
     os.chdir("/tmp")
-    os.system("rm -rfv nmr-star-dictionary")
+    os.system("rm -rfv nmr-star-dictionary > /dev/null")
     os.chdir(orig_dir)
 
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
-
-# Load the schemas into REDIS
-load_schemas(r)
 
 # Flush the DB
 if options.flush:
@@ -304,6 +303,8 @@ if options.macromolecules:
 if options.chemcomps:
     make_entry_list('chemcomps')
     clear_cache(r, 'chemcomps')
+if options.schema:
+    load_schemas(r)
 
 # Make the full list from the existing lists regardless of update type
 loaded['combined'] = (r.lrange('metabolomics:entry_list', 0, -1) +
