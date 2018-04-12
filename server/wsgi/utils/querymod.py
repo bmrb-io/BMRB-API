@@ -222,7 +222,7 @@ def get_deposition(entry_id):
 
     #schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
     #print(schema_version)
-    schema_version = '3.2.1.0'
+    schema_version = '3.2.1.2'
 
     try:
         schema = get_schema(schema_version)
@@ -230,21 +230,6 @@ def get_deposition(entry_id):
         raise ServerError("Entry specifies schema that doesn't exist on the "
                           "server: %s" % schema_version)
 
-    cur = get_postgres_connection(dictionary_cursor=True)[1]
-    cur.execute('''
-SELECT it.originaltag as tag, it.itemenumclosedflg as enumerated,it.enumeratedflg as common,array_agg(enum.val) as values
- FROM dict.adit_item_tbl as it
- LEFT JOIN dict.enumerations as enum on enum.seq = it.dictionaryseq
- WHERE it.itemenumclosedflg = 'Y' or it.enumeratedflg = 'Y'
-GROUP BY tag, enumerated,common;''')
-    res = cur.fetchall()
-    enumerations = {}
-    for item in res:
-        enumerations[item[0]] = item[1:]
-
-    for key in schema['data_types']:
-        schema['data_types'][key] = "^%s$" % schema['data_types'][key]
-    schema['enumerations'] = enumerations
 
     entry = entry.get_json(serialize=False)
     entry['schema'] = schema
@@ -940,7 +925,7 @@ WHERE "Software"."Entry_ID"=%s;''', [entry_id])
 def get_schema(version):
     """ Return the schema from Redis. """
 
-    r = get_redis_connection()
+    r = get_redis_connection(db=1)
     try:
         schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
     except TypeError:

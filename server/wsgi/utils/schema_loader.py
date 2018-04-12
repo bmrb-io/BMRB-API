@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import os
+import re
 import csv
 import svn.remote
-from querymod import _QUERYMOD_DIR
+from querymod import _QUERYMOD_DIR, pynmrstar
 
 try:
     # for Python 2.x
@@ -47,15 +48,16 @@ def get_main_schema(rev):
     schem.next()
     version = schem.next()[3]
 
-    cc = ['Tag', 'SFCategory', 'BMRB data type', 'Prompt', 'Interface',
+    cc = ['Tag', 'Tag category', 'SFCategory', 'BMRB data type', 'Prompt', 'Interface',
           'default value', 'Example', 'User full view',
-          'Foreign Table', 'Sf pointer', 'Item enumerated', 'Item enumeration closed']
+          'Foreign Table', 'Sf pointer', 'Item enumerated', 'Item enumeration closed', 'ADIT category view name']
+    # Todo: remove ADIT category view name once code is refactored
 
     header_idx = {x: all_headers.index(x) for x in cc}
     header_idx_list = [all_headers.index(x) for x in cc]
 
     res = {'version': version,
-           'tags': {'headers': cc, 'values': {}},
+           'tags': {'headers': cc + ['enumerations'], 'values': {}},
           }
 
     for row in schem:
@@ -82,7 +84,7 @@ def load_schemas(remote, rev):
 
     res['data_types'] = data_types
     res['overrides']  = get_dict(get_file("adit_man_over.csv", rev),
-                                 ['Tag', 'Sf category', 'Tag category', 'Conditional tag', 'Override view value', 'Override value'],
+                                 ['Tag', 'Sf category', 'Tag category', 'Conditional tag', 'Override view value', 'Override value', 'Order of operation'],
                                  1)
 
     # Check for outdated overrides
@@ -95,9 +97,28 @@ def load_schemas(remote, rev):
                                 ['saveframe_category', 'category_group_view_name', 'mandatory_number', 'ADIT replicable', 'group_view_help'],
                                 2)
 
-    res['saveframes'] = {'headers': sf_category_info['headers'], 'values': {}}
+    res['saveframes'] = {'headers': sf_category_info['headers'][1:], 'values': {}}
     for sfo in sf_category_info['values']:
         res['saveframes']['values'][sfo[0]] = sfo[1:]
+
+    try:
+        enumerations = get_file('enumerations.txt', rev).read()
+        enumerations = re.sub('_Revision_date.*', '', enumerations.replace('\x00', '').replace('\xd5', ''))
+        pynmrstar.ALLOW_V2_ENTRIES = True
+        enum_entry = pynmrstar.Entry.from_string(enumerations)
+        for saveframe in enum_entry:
+            enums = [x.replace("$", ",") for x in saveframe[0].get_data_by_tag('_item_enumeration_value')[0]]
+            try:
+                res['tags']['values'][saveframe.name].append(enums)
+            except KeyError:
+                if validate_mode:
+                    print("Enumeration for non-existant tag: %s" % saveframe.name)
+
+    except ValueError as e:
+        if validate_mode:
+            print("Invalid enum file in version %s: %s" % (res['version'], str(e)))
+    finally:
+        pynmrstar.ALLOW_V2_ENTRIES = False
 
 
     return res['version'], res
