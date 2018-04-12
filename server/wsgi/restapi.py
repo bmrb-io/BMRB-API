@@ -23,17 +23,17 @@ sys.path.append(local_dir)
 
 # Import flask
 from flask import Flask, request, Response, jsonify
-from flask_cors import CORS
 # Import the functions needed to service requests
 from utils import querymod
 
 # Set up the flask application
 application = Flask(__name__)
-CORS(application)
 
 # Set debug if running from command line
 if application.debug == True:
+    from flask_cors import CORS
     querymod.configuration['debug'] = True
+    CORS(application)
 
 # Set up the logging
 
