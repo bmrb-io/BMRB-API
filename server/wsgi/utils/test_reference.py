@@ -103,7 +103,7 @@ status_test = [
 (
     "status",
     {},
-    [u'macromolecules', u'chemcomps', u'jsonrpc_methods', u'combined', u'version', u'metabolomics', u'rest_methods']
+    [u'macromolecules', u'chemcomps', u'version', u'combined', u'metabolomics', u'methods']
 )
 ]
 
