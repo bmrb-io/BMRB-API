@@ -65,7 +65,7 @@ def get_main_schema(rev):
 
     return res
 
-def get_dict(fob, headers, skip):
+def get_dict(fob, headers, number_fields, skip):
     """ Returns a dictionary with 'key' and 'value' set to point to the
     headers and the values."""
 
@@ -74,8 +74,26 @@ def get_dict(fob, headers, skip):
     for x in range(0, skip):
         csv_reader.next()
 
+    def skip_end():
+        for row in csv_reader:
+            if row[0] != "TBL_END" and row[0]:
+                yield row
+
     columns = [all_headers.index(x) for x in headers]
-    return {'headers': headers, 'values': [[row[x].replace("$", ",") for x in columns] for row in csv_reader]}
+    values = [[row[x].replace("$", ",") for x in columns] for row in skip_end()]
+
+    number_fields = [headers.index(x) for x in number_fields]
+    for row in values:
+        for i in number_fields:
+            try:
+                if row[i]:
+                    row[i] = int(row[i])
+                else:
+                    row[i] = 0
+            except ValueError:
+                print(row)
+
+    return {'headers': headers, 'values': values}
 
 def load_schemas(remote, rev):
     # Load the schemas into the DB
@@ -85,6 +103,7 @@ def load_schemas(remote, rev):
     res['data_types'] = data_types
     res['overrides']  = get_dict(get_file("adit_man_over.csv", rev),
                                  ['Tag', 'Sf category', 'Tag category', 'Conditional tag', 'Override view value', 'Override value', 'Order of operation'],
+                                 ['Order of operation'],
                                  1)
 
     # Check for outdated overrides
@@ -95,12 +114,14 @@ def load_schemas(remote, rev):
 
     sf_category_info = get_dict(get_file("adit_cat_grp_i.csv", rev),
                                 ['saveframe_category', 'category_group_view_name', 'mandatory_number', 'ADIT replicable', 'group_view_help'],
+                                ['mandatory_number'],
                                 2)
 
     res['saveframes'] = {'headers': sf_category_info['headers'][1:], 'values': {}}
     for sfo in sf_category_info['values']:
         res['saveframes']['values'][sfo[0]] = sfo[1:]
 
+    # Load the enumerations
     try:
         enumerations = get_file('enumerations.txt', rev).read()
         enumerations = re.sub('_Revision_date.*', '', enumerations.replace('\x00', '').replace('\xd5', ''))
