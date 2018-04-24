@@ -144,6 +144,7 @@ def get_database_from_entry_id(entry_id):
 def get_postgres_connection(user=configuration['postgres']['user'],
                             host=configuration['postgres']['host'],
                             database=configuration['postgres']['database'],
+                            port=configuration['postgres']['port'],
                             dictionary_cursor=False):
     """ Returns a connection to postgres and a cursor."""
 
@@ -887,12 +888,15 @@ def get_molprobity_data(pdb_id, residues=None):
         sql = '''SELECT * FROM molprobity.oneline where pdb = %s'''
         terms = [pdb_id]
     else:
-        sql = '''SELECT * FROM molprobity.residue where pdb = %s AND ('''
         terms = [pdb_id]
-        for item in residues:
-            sql += " pdb_residue_no = %s OR "
-            terms.append(item)
-        sql += " 1=2) ORDER BY model, pdb_residue_no"
+        if residues == []:
+            sql = '''SELECT * FROM molprobity.residue where pdb = %s;'''
+        else:
+            sql = '''SELECT * FROM molprobity.residue where pdb = %s AND ('''
+            for item in residues:
+                sql += " pdb_residue_no = %s OR "
+                terms.append(item)
+            sql += " 1=2) ORDER BY model, pdb_residue_no"
 
     cur.execute(sql, terms)
 
