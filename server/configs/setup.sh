@@ -4,6 +4,9 @@ yum install redis python-pip python-redis mod_evasive apache-gzip java-1.8.0-ope
 
 sudo pip install -r requirements.txt
 
+# Install the postgres contribs module for pg_trgm
+sudo yum install postgresql10-contrib
+
 # Configure redis installation
 systemctl enable redis
 systemctl start redis
