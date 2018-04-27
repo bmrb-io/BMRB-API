@@ -151,9 +151,10 @@ def get_postgres_connection(user=configuration['postgres']['user'],
     # Errors connecting will be handled upstream
     if dictionary_cursor:
         conn = psycopg2.connect(user=user, host=host, database=database,
-                                cursor_factory=DictCursor)
+                                port=port, cursor_factory=DictCursor)
     else:
-        conn = psycopg2.connect(user=user, host=host, database=database)
+        conn = psycopg2.connect(user=user, host=host, database=database,
+                                port=port)
     cur = conn.cursor()
 
     return conn, cur
