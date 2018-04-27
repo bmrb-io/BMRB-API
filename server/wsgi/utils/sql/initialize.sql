@@ -38,14 +38,12 @@ BEGIN
         CREATE INDEX ON macromolecules."Atom_chem_shift" ("Atom_ID");
         CREATE INDEX ON macromolecules."Atom_chem_shift" ("Comp_ID");
         CREATE INDEX ON macromolecules."Atom_chem_shift" (CAST("Val" as float));
-        CREATE INDEX ON macromolecules."Atom_chem_shift" ("Atom_chem_shift_Comp_ID_id");
         ANALYZE macromolecules."Atom_chem_shift";
 
         CREATE INDEX ON metabolomics."Atom_chem_shift" ("Atom_type");
         CREATE INDEX ON metabolomics."Atom_chem_shift" ("Atom_ID");
         CREATE INDEX ON metabolomics."Atom_chem_shift" ("Comp_ID");
         CREATE INDEX ON metabolomics."Atom_chem_shift" (CAST("Val" as float));
-        CREATE INDEX ON metabolomics."Atom_chem_shift" ("Atom_chem_shift_Comp_ID_id");
         ANALYZE metabolomics."Atom_chem_shift";
     EXCEPTION
         WHEN OTHERS THEN RAISE NOTICE 'Skipping chemical_shift index creation because at least one index already exists.';
