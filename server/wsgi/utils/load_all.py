@@ -75,7 +75,8 @@ if options.metabolomics:
 if options.macromolecules:
     conn, cur = querymod.get_postgres_connection(user=configuration['ets']['user'],
                                                  host=configuration['ets']['host'],
-                                                 database=configuration['ets']['database'])
+                                                 database=configuration['ets']['database'],
+                                                 port=configuration['ets']['port'])
     cur.execute("SELECT bmrbnum FROM entrylog;")
     all_ids = [x[0] for x in cur.fetchall()]
     cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
