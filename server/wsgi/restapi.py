@@ -11,27 +11,29 @@ import traceback
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
 from pythonjsonlogger import jsonlogger
+
 try:
     import simplejson as json
 except ImportError:
     import json
-
-# Set up paths for imports and such
-local_dir = os.path.dirname(__file__)
-os.chdir(local_dir)
-sys.path.append(local_dir)
 
 # Import flask
 from flask import Flask, request, Response, jsonify
 # Import the functions needed to service requests
 from utils import querymod
 
+# Set up paths for imports and such
+local_dir = os.path.dirname(__file__)
+os.chdir(local_dir)
+sys.path.append(local_dir)
+
 # Set up the flask application
 application = Flask(__name__)
 
 # Set debug if running from command line
-if application.debug == True:
+if application.debug:
     from flask_cors import CORS
+
     querymod.configuration['debug'] = True
     CORS(application)
 
@@ -76,7 +78,6 @@ jlogger.setLevel(logging.INFO)
 jlogger.addHandler(application_json)
 jlogger.propagate = False
 
-
 # Set up the SMTP handler
 if not querymod.configuration['debug']:
 
@@ -87,12 +88,13 @@ if not querymod.configuration['debug']:
         mail_handler = SMTPHandler(mailhost=querymod.configuration['smtp']['server'],
                                    fromaddr='apierror@webapi.bmrb.wisc.edu',
                                    toaddrs=querymod.configuration['smtp']['admins'],
-                                   subject='BMRB API Error occured')
+                                   subject='BMRB API Error occurred')
         mail_handler.setLevel(logging.WARNING)
         application.logger.addHandler(mail_handler)
     else:
         logging.warning("Could not set up SMTP logger because the configuration"
                         " was not specified.")
+
 
 # Set up error handling
 @application.errorhandler(querymod.ServerError)
@@ -105,6 +107,7 @@ def handle_our_errors(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
+
 
 @application.errorhandler(Exception)
 def handle_other_errors(error):
@@ -127,6 +130,7 @@ def handle_other_errors(error):
         response.status_code = 500
         return response
 
+
 # Set up logging
 @application.before_request
 def log_request():
@@ -144,7 +148,9 @@ def log_request():
 
     # Don't pretty-print JSON unless local user and in debug mode
     application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (check_local_ip() and
-                                                         querymod.configuration['debug']) or request.args.get("prettyprint") == "true"
+                                                         querymod.configuration['debug']) or request.args.get(
+        "prettyprint") == "true"
+
 
 @application.route('/')
 def no_params():
@@ -156,6 +162,7 @@ def no_params():
 
     return result
 
+
 @application.route('/list_entries')
 def list_entries():
     """ Return a list of all valid BMRB entries."""
@@ -166,6 +173,7 @@ def list_entries():
                                                                 'chemcomps',
                                                                 'combined']))
     return jsonify(entries)
+
 
 @application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>')
@@ -213,7 +221,6 @@ def get_entry(entry_id=None):
                                                          format=format_)
             return jsonify(result)
 
-
         # See if they are requesting one or more saveframe
         elif request.args.get('saveframe_name', None):
             result = querymod.get_saveframes_by_name(ids=entry_id,
@@ -253,15 +260,18 @@ def get_entry(entry_id=None):
             # Return the entry in any other format
             return jsonify(entry)
 
+
 @application.route('/schema')
 @application.route('/schema/<schema_version>')
 def return_schema(schema_version="3.2.0.15"):
     """ Returns the BMRB schema as JSON. """
     return jsonify(querymod.get_schema(schema_version))
 
+
 @application.route('/get_deposition/<entry_id>')
 def get_deposition(entry_id):
     return jsonify(querymod.get_deposition(entry_id))
+
 
 @application.route('/molprobity/')
 @application.route('/molprobity/<pdb_id>')
@@ -274,12 +284,14 @@ def return_molprobity_oneline(pdb_id=None):
 
     return jsonify(querymod.get_molprobity_data(pdb_id))
 
+
 @application.route('/molprobity/<pdb_id>/residue')
 def return_molprobity_residue(pdb_id):
     """Returns the molprobity residue data for a PDB ID. """
 
     return jsonify(querymod.get_molprobity_data(pdb_id,
                                                 residues=request.args.getlist('r')))
+
 
 @application.route('/search')
 @application.route('/search/')
@@ -293,6 +305,7 @@ def print_search_options():
         result += '<a href="%s">%s</a><br>' % (method, method)
 
     return result
+
 
 @application.route('/search/multiple_shift_search')
 def multiple_shift_search():
@@ -310,6 +323,7 @@ def multiple_shift_search():
     return jsonify(querymod.multiple_peak_search(peaks,
                                                  database=get_db("metabolomics")))
 
+
 @application.route('/search/chemical_shifts')
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
@@ -323,6 +337,7 @@ def get_chemical_shifts():
                         conditions=request.args.get('conditions', False),
                         database=get_db("macromolecules")))
 
+
 @application.route('/search/get_all_values_for_tag/')
 @application.route('/search/get_all_values_for_tag/<tag_name>')
 def get_all_values_for_tag(tag_name=None):
@@ -330,6 +345,7 @@ def get_all_values_for_tag(tag_name=None):
 
     result = querymod.get_all_values_for_tag(tag_name, get_db('macromolecules'))
     return jsonify(result)
+
 
 @application.route('/search/get_id_by_tag_value/')
 @application.route('/search/get_id_by_tag_value/<tag_name>/')
@@ -353,10 +369,11 @@ def get_id_from_search(tag_name=None, tag_value=None):
                                     "saveframe included. For example: "
                                     "Entry.Experimental_method_subtype")
 
-    result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]:tag_value},
+    result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]: tag_value},
                              modifiers=['lower'], database=database)
 
     return jsonify(result[result.keys()[0]])
+
 
 @application.route('/search/get_bmrb_ids_from_pdb_id/')
 @application.route('/search/get_bmrb_ids_from_pdb_id/<pdb_id>')
@@ -369,6 +386,7 @@ def get_bmrb_ids_from_pdb_id(pdb_id=None):
     result = querymod.get_bmrb_ids_from_pdb_id(pdb_id)
     return jsonify(result)
 
+
 @application.route('/search/get_pdb_ids_from_bmrb_id/')
 @application.route('/search/get_pdb_ids_from_bmrb_id/<pdb_id>')
 def get_pdb_ids_from_bmrb_id(pdb_id=None):
@@ -380,6 +398,7 @@ def get_pdb_ids_from_bmrb_id(pdb_id=None):
     result = querymod.get_pdb_ids_from_bmrb_id(pdb_id)
     return jsonify(result)
 
+
 @application.route('/search/fasta/')
 @application.route('/search/fasta/<query>')
 def fasta_search(query=None):
@@ -389,8 +408,9 @@ def fasta_search(query=None):
         raise querymod.RequestError("You must specify a sequence.")
 
     return jsonify(querymod.fasta_search(query,
-                                         a_type=request.args.get('type','polymer'),
+                                         a_type=request.args.get('type', 'polymer'),
                                          e_val=request.args.get('e_val')))
+
 
 @application.route('/enumerations/')
 @application.route('/enumerations/<tag_name>')
@@ -402,6 +422,7 @@ def get_enumerations(tag_name=None):
 
     return jsonify(querymod.get_enumerations(tag=tag_name,
                                              term=request.args.get('term')))
+
 
 @application.route('/select', methods=('GET', 'POST'))
 def select():
@@ -415,11 +436,13 @@ def select():
 
     return jsonify(querymod.process_select(**data))
 
+
 @application.route('/software/')
 def get_software_summary():
     """ Returns a summary of all software used in all entries. """
 
     return jsonify(querymod.get_software_summary())
+
 
 # Software queries
 @application.route('/entry/<entry_id>/software')
@@ -430,6 +453,7 @@ def get_software_by_entry(entry_id=None):
         raise querymod.RequestError("You must specify the entry ID.")
 
     return jsonify(querymod.get_entry_software(entry_id))
+
 
 @application.route('/software/package/')
 @application.route('/software/package/<package_name>')
@@ -444,11 +468,13 @@ def get_software_by_package(package_name=None):
     return jsonify(querymod.get_software_entries(package_name,
                                                  database=get_db('macromolecules')))
 
+
 @application.route('/entry/<entry_id>/experiments')
 def get_metabolomics_data(entry_id):
     """ Return the experiments available for an entry. """
 
     return jsonify(querymod.get_experiments(entry=entry_id))
+
 
 @application.route('/entry/<entry_id>/citation')
 def get_citation(entry_id):
@@ -482,6 +508,7 @@ def get_instant():
     return jsonify(querymod.get_instant_search(term=request.args.get('term'),
                                                database=get_db('combined')))
 
+
 @application.route('/status')
 def get_status():
     """ Returns the server status."""
@@ -500,6 +527,7 @@ def get_status():
 
     return jsonify(status)
 
+
 # Queries that run commands
 @application.route('/entry/<entry_id>/validate')
 def validate_entry(entry_id=None):
@@ -513,8 +541,11 @@ def validate_entry(entry_id=None):
 
 # Helper methods
 def get_db(default="macromolecules",
-           valid_list=["metabolomics", "macromolecules", "combined"]):
+           valid_list=None):
     """ Make sure the DB specified is valid. """
+
+    if not valid_list:
+        valid_list = ["metabolomics", "macromolecules", "combined"]
 
     database = request.args.get('database', default)
 
@@ -522,6 +553,7 @@ def get_db(default="macromolecules",
         raise querymod.RequestError("Invalid database: %s." % database)
 
     return database
+
 
 def check_local_ip():
     """ Checks if the given IP is a local user."""

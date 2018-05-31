@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 
 # Standard imports
-import os
 import sys
 import time
 import unittest
 import requests
 import querymod
-from StringIO import StringIO
-import test_reference
+
+if sys.version_info[0] == 3:
+    from io import StringIO
+else:
+    from StringIO import StringIO
 
 url = 'http://localhost'
+
 
 # We will use this for our tests
 class TestAPI(unittest.TestCase):
@@ -45,11 +48,11 @@ class TestAPI(unittest.TestCase):
     def test_entries_in_redis(self):
         """ Make sure that one entry in each class is there and parses."""
 
-        self.assertEqual(querymod.bmrb.Entry.from_database(15000),
-                         querymod.bmrb.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
-        self.assertEqual(querymod.bmrb.Entry.from_database("bmse000894"),
-                         querymod.bmrb.Entry.from_file("/share/subedit/metabolomics/bmse000894/bmse000894.str"))
-        self.assertEqual(querymod.bmrb.Entry.from_database("chemcomp_0EY"),
+        self.assertEqual(querymod.pynmrstar.Entry.from_database(15000),
+                         querymod.pynmrstar.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
+        self.assertEqual(querymod.pynmrstar.Entry.from_database("bmse000894"),
+                         querymod.pynmrstar.Entry.from_file("/share/subedit/metabolomics/bmse000894/bmse000894.str"))
+        self.assertEqual(querymod.pynmrstar.Entry.from_database("chemcomp_0EY"),
                          querymod.create_chemcomp_from_db("chemcomp_0EY"))
 
     def test_chemical_shifts(self):
@@ -70,7 +73,7 @@ class TestAPI(unittest.TestCase):
     def test_store_entry(self):
         """ See if we can store an entry in the DB and then retrieve it."""
 
-        star_test = str(querymod.bmrb.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
+        star_test = str(querymod.pynmrstar.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
         response = self.session.post(url + "/entry/", data=star_test).json()
 
         # Check the response key length
@@ -78,10 +81,11 @@ class TestAPI(unittest.TestCase):
 
         # See if we can fetch the entry
         response2 = self.session.get(url + "/entry/%s?format=nmrstar" % response['entry_id'],
-                                 data=star_test).json()
+                                     data=star_test).json()
 
         # Make sure the returned entry equals the submitted entry
-        self.assertEquals(querymod.bmrb.Entry.from_string(response2[response['entry_id']]), querymod.bmrb.Entry.from_string(star_test))
+        self.assertEquals(querymod.pynmrstar.Entry.from_string(response2[response['entry_id']]),
+                          querymod.pynmrstar.Entry.from_string(star_test))
 
         # Delete the entry we uploaded
         querymod.get_redis_connection().delete(querymod.locate_entry(response['entry_id']))
@@ -98,11 +102,13 @@ class TestAPI(unittest.TestCase):
 
             # The local entry has converted datatypes straight from postgres
             #  so make sure to convert datatypes for the loaded entry
-            ligand_expo_ent = requests.get("http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_entity=yes&print_chem_comp=yes&%s=Fetch" % key).text
+            ligand_expo_ent = requests.get(
+                "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_entity=yes&print_chem_comp=yes&%s=Fetch" % key).text
             ligand_expo_ent = "data_chemcomp_%s\n" % key + ligand_expo_ent
-            ligand_expo_ent = querymod.bmrb.Entry.from_string(ligand_expo_ent)
+            ligand_expo_ent = querymod.pynmrstar.Entry.from_string(ligand_expo_ent)
 
             self.assertEquals(local, ligand_expo_ent)
+
 
 # Set up the tests
 def run_test(conf_url=querymod.configuration.get('url', None)):
@@ -125,13 +131,14 @@ def run_test(conf_url=querymod.configuration.get('url', None)):
     unittest.TextTestRunner(stream=results).run(demo_test)
 
     # See if the end of the results says it passed
-    results.seek(results.tell()-3)
+    results.seek(results.tell() - 3)
     if results.read() == "OK\n":
         sys.exit(0)
     else:
         results.seek(0)
         print(results.read())
         sys.exit(1)
+
 
 # If called on the command line run a test
 if __name__ == '__main__':

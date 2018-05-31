@@ -1,38 +1,24 @@
 #!/usr/bin/env python
 
 """ This module provides methods to service the different query types that are
-provided through the REST and JSON-RPC interfaces. This is where the real work
+provided through the REST interface. This is where the real work
 is done; restapi.py mainly just calls the methods here and returns the results.
 """
 
 # Make sure print functions work in python2 and python3
 from __future__ import print_function
 
-# Module level defines
-__all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
-           'get_loops', 'get_saveframes', 'get_entries',
-           'get_redis_connection', 'get_postgres_connection', 'get_status',
-           'list_entries', 'select', 'configuration', 'get_enumerations',
-           'store_uploaded_entry']
-
-_METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
-            'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/software', 'status',
-            'software/', 'software/package/', 'instant', 'enumerations/',
-            'search/', 'search/chemical_shifts', 'search/fasta/',
-            'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
-            'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id',
-            'search/get_pdb_ids_from_bmrb_id',
-            'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
-
 import os
 import zlib
 import logging
 import textwrap
 import subprocess
+from sys import maxint as max_integer
 from hashlib import md5
 from decimal import Decimal
-from time import time as unixtime
+from time import time as unix_time
 from tempfile import NamedTemporaryFile
+
 try:
     import simplejson as json
 except ImportError:
@@ -47,6 +33,23 @@ from redis.sentinel import Sentinel
 
 # Local imports
 import pynmrstar
+
+# Module level defines
+__all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
+           'get_loops', 'get_saveframes_by_category', 'get_saveframes_by_name',
+           'get_entries', 'get_redis_connection', 'get_postgres_connection',
+           'get_status', 'list_entries', 'select', 'configuration', 'get_enumerations',
+           'store_uploaded_entry']
+
+_METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
+            'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/software', 'status',
+            'software/', 'software/package/', 'instant', 'enumerations/',
+            'search/', 'search/chemical_shifts', 'search/fasta/',
+            'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
+            'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id',
+            'search/get_pdb_ids_from_bmrb_id',
+            'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
+
 
 class ServerError(Exception):
     """ Something is wrong with the server. """
@@ -64,6 +67,7 @@ class ServerError(Exception):
         rv = dict(self.payload or ())
         rv['error'] = self.message
         return rv
+
 
 class RequestError(Exception):
     """ Something is wrong with the request. """
@@ -103,6 +107,7 @@ _FASTA_LOCATION = os.path.join(_SUBMODULE_DIR, "fasta36", "bin", "fasta36")
 # Set up logging
 logging.basicConfig()
 
+
 def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
@@ -124,6 +129,7 @@ def locate_entry(entry_id, r_conn=None):
     else:
         return "macromolecules:entry:%s" % entry_id
 
+
 def check_valid(entry_id, r_conn=None):
     """ Returns whether an entry_is is valid. """
 
@@ -133,6 +139,7 @@ def check_valid(entry_id, r_conn=None):
 
     return r_conn.exists(locate_entry(entry_id, r_conn=r_conn))
 
+
 def get_database_from_entry_id(entry_id):
     """ Returns the appropriate database to inspect based on ID."""
 
@@ -140,6 +147,7 @@ def get_database_from_entry_id(entry_id):
         return "metabolomics"
     else:
         return "macromolecules"
+
 
 def get_postgres_connection(user=configuration['postgres']['user'],
                             host=configuration['postgres']['host'],
@@ -159,6 +167,7 @@ def get_postgres_connection(user=configuration['postgres']['user'],
 
     return conn, cur
 
+
 def set_database(cursor, database):
     """ Sets the search path to the database the query is for."""
 
@@ -170,8 +179,9 @@ def set_database(cursor, database):
 
     cursor.execute('SET search_path=%s;', [database])
 
+
 def get_redis_connection(db=None):
-    """ Figures out where the master redis instance is (and other paramaters
+    """ Figures out where the master redis instance is (and other parameters
     needed to connect like which database to use), and opens a connection
     to it. It passes back that connection object."""
 
@@ -203,6 +213,7 @@ def get_redis_connection(db=None):
 
     return r
 
+
 def get_all_entries_from_redis(format_="object", database="macromolecules"):
     """ Returns a generator that returns all the entries from a given
     database from Redis."""
@@ -212,7 +223,8 @@ def get_all_entries_from_redis(format_="object", database="macromolecules"):
     all_ids = list(r.lrange("%s:entry_list" % database, 0, -1))
 
     return get_valid_entries_from_redis(all_ids, format_=format_,
-                                        max_results=float("Inf"))
+                                        max_results=max_integer)
+
 
 def get_deposition(entry_id):
     """ Return an entry and the associated schema."""
@@ -222,8 +234,8 @@ def get_deposition(entry_id):
     except IndexError:
         raise RequestError("No such entry.")
 
-    #schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
-    #print(schema_version)
+    # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
+    # print(schema_version)
     schema_version = '3.2.1.2'
 
     try:
@@ -232,10 +244,10 @@ def get_deposition(entry_id):
         raise ServerError("Entry specifies schema that doesn't exist on the "
                           "server: %s" % schema_version)
 
-
     entry = entry.get_json(serialize=False)
     entry['schema'] = schema
     return entry
+
 
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
     """ Given a list of entries, yield the subset that exist in the database
@@ -300,6 +312,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
                             else:
                                 raise RequestError("Invalid format: %s." % format_)
 
+
 def store_uploaded_entry(**kwargs):
     """ Store an uploaded NMR-STAR file in the database."""
 
@@ -322,7 +335,8 @@ def store_uploaded_entry(**kwargs):
             zlib.compress(parsed_star.get_json()))
 
     return {"entry_id": key,
-            "expiration": unixtime() + configuration['redis']['upload_timeout']}
+            "expiration": unix_time() + configuration['redis']['upload_timeout']}
+
 
 def panav_parser(panav_text):
     """ Parses the PANAV data into something jsonify-able."""
@@ -330,16 +344,14 @@ def panav_parser(panav_text):
     lines = panav_text.split("\n")
 
     # Initialize the result dictionary
-    result = {}
-    result['offsets'] = {}
-    result['deviants'] = []
-    result['suspicious'] = []
-    result['text'] = panav_text
+    result = {'offsets': {},
+              'deviants': [],
+              'suspicious': [],
+              'text': panav_text}
 
     # Variables to keep track of output line numbers
     deviant_line = 5
     suspicious_line = 6
-
 
     # There is an error
     if len(lines) < 3:
@@ -366,19 +378,20 @@ def panav_parser(panav_text):
     deviant_line += 1
 
     # Get the deviants
-    for deviant in lines[deviant_line:deviant_line+num_deviants]:
-        resnum, res, atom, shift = deviant.strip().split(" ")
-        result['deviants'].append({"residue_number": resnum, "residue_name": res,
+    for deviant in lines[deviant_line:deviant_line + num_deviants]:
+        res_num, res, atom, shift = deviant.strip().split(" ")
+        result['deviants'].append({"residue_number": res_num, "residue_name": res,
                                    "atom": atom, "chemical_shift_value": shift})
 
     # Get the suspicious shifts
-    for suspicious in lines[suspicious_line:suspicious_line+num_suspicious]:
-        resnum, res, atom, shift = suspicious.strip().split(" ")
-        result['suspicious'].append({"residue_number": resnum, "residue_name": res,
+    for suspicious in lines[suspicious_line:suspicious_line + num_suspicious]:
+        res_num, res, atom, shift = suspicious.strip().split(" ")
+        result['suspicious'].append({"residue_number": res_num, "residue_name": res,
                                      "atom": atom, "chemical_shift_value": shift})
 
     # Return the result dictionary
     return result
+
 
 def get_citation(entry_id, format_="python"):
     """ Returns the citation for the entry. """
@@ -394,7 +407,7 @@ def get_citation(entry_id, format_="python"):
 
     def get_tag(saveframe, tag):
         tag = saveframe.get_tag(tag)
-        if tag == []:
+        if not tag:
             return ""
         else:
             return tag[0]
@@ -424,7 +437,7 @@ def get_citation(entry_id, format_="python"):
 
             # Authors
             for row in cl.get_tag(["Given_name", "Family_name", "Middle_initials"]):
-                auth = {"@type":"Person", "givenName": row[0], "familyName": row[1]}
+                auth = {"@type": "Person", "givenName": row[0], "familyName": row[1]}
                 if row[2] != ".":
                     auth["additionalName"] = row[2]
                 authors.append(auth)
@@ -432,10 +445,10 @@ def get_citation(entry_id, format_="python"):
             # Citations
             doi = get_tag(citation_frame, "DOI")
             if doi and doi != ".":
-                citations.append({"@type":"ScholarlyArticle",
-                                  "@id":"https://doi.org/" + doi,
-                                  "headline":get_tag(citation_frame, "Title"),
-                                  "datePublished":get_tag(citation_frame, "Year")})
+                citations.append({"@type": "ScholarlyArticle",
+                                  "@id": "https://doi.org/" + doi,
+                                  "headline": get_tag(citation_frame, "Title"),
+                                  "datePublished": get_tag(citation_frame, "Year")})
 
     # Figure out last update day, version, and original release
     orig_release, last_update, version = None, None, 1
@@ -462,13 +475,12 @@ def get_citation(entry_id, format_="python"):
                "publisher": "Biological Magnetic Resonance Bank",
                "datePublished": orig_release,
                "dateModified": last_update,
-               "version": "v%s" % version
-               }
+               "version": "v%s" % version,
+               "name": title,
+               "author": authors}
 
-        res["name"] = title
         if len(citations) > 0:
             res["citation"] = citations
-        res["author"] = authors
 
         if format_ == "json-ld":
             return json.dumps(res)
@@ -516,7 +528,8 @@ def get_citation(entry_id, format_="python"):
             return """BMRB ID: %(entry_id)s
 %(author)s
 %(citation_title)s
-%(citation_journal)s %(citation_volume_issue)s pp. %(citation_pagination)s (%(citation_year)s) doi: %(doi)s""" % text_dict
+%(citation_journal)s %(citation_volume_issue)s pp. %(citation_pagination)s (%(citation_year)s) doi: %(doi)s""" % \
+                   text_dict
         else:
             return """BMRB ID: %(entry_id)s %(author)s %(title)s doi: %(doi)s""" % text_dict
 
@@ -587,11 +600,11 @@ def get_chemical_shift_validation(**kwargs):
                     # There is a -j option that produces a somewhat usable JSON...
                     result[entry[0]]["panav"][pos] = panav_parser(res)
                 except subprocess.CalledProcessError:
-                    result[entry[0]]["panav"][pos] = {"error":
-                                                      "PANAV failed on this entry."}
+                    result[entry[0]]["panav"][pos] = {"error": "PANAV failed on this entry."}
 
     # Return the result dictionary
     return result
+
 
 def list_entries(**kwargs):
     """ Returns all valid entry IDs by default. If a database is specified than
@@ -602,11 +615,12 @@ def list_entries(**kwargs):
 
     return entry_list
 
+
 def get_tags(**kwargs):
     """ Returns results for the queried tags."""
 
     # Get the valid IDs and redis connection
-    search_tags = process_STAR_query(kwargs)
+    search_tags = process_nmrstar_query(kwargs)
     result = {}
 
     # Go through the IDs
@@ -614,6 +628,7 @@ def get_tags(**kwargs):
         result[entry[0]] = entry[1].get_tags(search_tags)
 
     return result
+
 
 def get_status():
     """ Return some statistics about the server."""
@@ -643,11 +658,12 @@ def get_status():
 
     return stats
 
+
 def get_loops(**kwargs):
     """ Returns the matching loops."""
 
     # Get the valid IDs and redis connection
-    loop_categories = process_STAR_query(kwargs)
+    loop_categories = process_nmrstar_query(kwargs)
     result = {}
 
     # Go through the IDs
@@ -663,6 +679,7 @@ def get_loops(**kwargs):
             result[entry[0]][loop_category] = matching_loops
 
     return result
+
 
 def get_enumerations(tag, term=None, cur=None):
     """ Returns a list of enumerations for a given tag from the DB. """
@@ -685,8 +702,7 @@ GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
         raise RequestError("Invalid tag specified.")
 
     # Generate the result dictionary
-    result = {}
-    result['values'] = p_res['values']
+    result = {'values': p_res['values']}
     if p_res['itemenumclosedflg'] == "Y":
         result['type'] = "enumerations"
     elif p_res['enumeratedflg'] == "Y":
@@ -695,14 +711,15 @@ GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
         result['type'] = None
 
     # Be able to search through enumerations based on the term argument
-    if term != None:
+    if term is not None:
         new_result = []
         for val in result['values']:
             if val.startswith(term):
-                new_result.append({"value":val, "label":val})
+                new_result.append({"value": val, "label": val})
         return new_result
 
     return result
+
 
 def multiple_peak_search(peaks, database="metabolomics"):
     """ Parses the JSON request and does a search against multiple peaks."""
@@ -711,10 +728,11 @@ def multiple_peak_search(peaks, database="metabolomics"):
     set_database(cur, database)
 
     sql = '''
-SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,array_agg(DISTINCT atom_shift."Val"::numeric),ent.title,ent.link
+SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,
+  array_agg(DISTINCT atom_shift."Val"::numeric),ent.title,ent.link
 FROM "Atom_chem_shift" as atom_shift
 LEFT JOIN web.instant_cache as ent
-ON ent.id = atom_shift."Entry_ID"
+  ON ent.id = atom_shift."Entry_ID"
 WHERE '''
     terms = []
 
@@ -729,7 +747,8 @@ WHERE '''
 
     for peak in peaks:
         sql += '''
-((atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND (atom_shift."Atom_type" = 'C' OR atom_shift."Atom_type" = 'N'))
+((atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND
+ (atom_shift."Atom_type" = 'C' OR atom_shift."Atom_type" = 'N'))
  OR
  (atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'H')) OR '''
         terms.append(peak + .2)
@@ -747,17 +766,17 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
     # Do the query
     cur.execute(sql, terms)
 
-    result = {"data":[]}
+    result = {"data": []}
 
     # Send query string if in debug mode
     if configuration['debug']:
         result['debug'] = cur.query
 
     for entry in cur:
-        result['data'].append({'Entry_ID':entry[0],
+        result['data'].append({'Entry_ID': entry[0],
                                'Assigned_chem_shift_list_ID': entry[1],
                                'Val': entry[2],
-                               'Title': entry[3].replace("\n",""),
+                               'Title': entry[3].replace("\n", ""),
                                'Link': entry[4]})
 
     # Convert the search to decimal
@@ -765,7 +784,7 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 
     def get_closest(collection, number):
         """ Returns the closest number from a list of numbers. """
-        return min(collection, key=lambda x: abs(x-number))
+        return min(collection, key=lambda _: abs(_ - number))
 
     def get_sort_key(res):
         """ Returns the sort key. """
@@ -779,17 +798,18 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 
         # Determine how many of the queried peaks were matched
         num_match = 0
-        for peak in peaks:
-            closest = get_closest(res['Val'], peak)
-            if abs(peak-closest) < .2:
+        for check_peak in peaks:
+            closest = get_closest(res['Val'], check_peak)
+            if abs(check_peak - closest) < .2:
                 num_match += 1
         res['Peaks_matched'] = num_match
 
-        return (-num_match, key, res['Entry_ID'])
+        return -num_match, key, res['Entry_ID']
 
     result['data'] = sorted(result['data'], key=get_sort_key)
 
     return result
+
 
 def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
                              atom_id=None, comp_id=None, conditions=False,
@@ -805,22 +825,25 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
         raise RequestError("Invalid threshold.")
 
     sql = '''
-SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer
+SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
+  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer
 FROM "Atom_chem_shift" as cs
 WHERE
 '''
 
     if conditions:
         sql = '''
-SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer,web.convert_to_numeric(ph."Val") as ph,web.convert_to_numeric(temp."Val") as temp
+SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
+  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer,
+  web.convert_to_numeric(ph."Val") as ph,web.convert_to_numeric(temp."Val") as temp
 FROM "Atom_chem_shift" as cs
 LEFT JOIN "Assigned_chem_shift_list" as csf
-ON csf."ID"=cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID"=cs."Entry_ID"
+  ON csf."ID"=cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID"=cs."Entry_ID"
 LEFT JOIN "Sample_condition_variable" AS ph
-ON csf."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH'
+  ON csf."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH'
 LEFT JOIN "Sample_condition_variable" AS temp
-ON csf."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=cs."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
-
+  ON csf."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=cs."Entry_ID" AND 
+     temp."Type"='temperature' AND temp."Val_units"='K'
 WHERE
 '''
 
@@ -879,6 +902,7 @@ WHERE
     result['data'] = cur.fetchall()
     return result
 
+
 def get_molprobity_data(pdb_id, residues=None):
     """ Returns the molprobity data."""
 
@@ -890,7 +914,7 @@ def get_molprobity_data(pdb_id, residues=None):
         terms = [pdb_id]
     else:
         terms = [pdb_id]
-        if residues == []:
+        if not residues:
             sql = '''SELECT * FROM molprobity.residue where pdb = %s;'''
         else:
             sql = '''SELECT * FROM molprobity.residue where pdb = %s AND ('''
@@ -908,6 +932,7 @@ def get_molprobity_data(pdb_id, residues=None):
         res['debug'] = cur.query
 
     return res
+
 
 def get_entry_software(entry_id):
     """ Returns the software used for a given entry. """
@@ -927,6 +952,7 @@ WHERE "Software"."Entry_ID"=%s;''', [entry_id])
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
 
+
 def get_schema(version):
     """ Return the schema from Redis. """
 
@@ -938,6 +964,7 @@ def get_schema(version):
 
     return schema
 
+
 def get_software_entries(software_name, database="macromolecules"):
     """ Returns the entries assosciated with a given piece of software. """
 
@@ -946,16 +973,18 @@ def get_software_entries(software_name, database="macromolecules"):
 
     # Get the list of which tags should be used to order data
     cur.execute('''
-SELECT "Software"."Entry_ID","Software"."Name","Software"."Version",vendor."Name" as "Vendor Name",vendor."Electronic_address" as "e-mail",task."Task" as "Task"
+SELECT "Software"."Entry_ID","Software"."Name","Software"."Version",vendor."Name" as "Vendor Name",
+  vendor."Electronic_address" as "e-mail",task."Task" as "Task"
 FROM "Software"
-   LEFT JOIN "Vendor" as vendor
-   ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN "Task" as task
-   ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+  LEFT JOIN "Vendor" as vendor
+    ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+  LEFT JOIN "Task" as task
+    ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
 WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
+
 
 def get_software_summary(database="macromolecules"):
     """ Returns all software packages from the DB. """
@@ -967,13 +996,14 @@ def get_software_summary(database="macromolecules"):
     cur.execute('''
 SELECT "Software"."Name","Software"."Version",task."Task" as "Task",vendor."Name" as "Vendor Name"
 FROM "Software"
-   LEFT JOIN "Vendor" as vendor
-   ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN "Task" as task
-   ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
+  LEFT JOIN "Vendor" as vendor
+    ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+  LEFT JOIN "Task" as task
+    ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
 
     column_names = [desc[0] for desc in cur.description]
     return {"columns": column_names, "data": cur.fetchall()}
+
 
 def do_sql_mods(conn=None, cur=None, sql_file=None):
     """ Make sure functions we need are saved in the DB. """
@@ -991,6 +1021,7 @@ def do_sql_mods(conn=None, cur=None, sql_file=None):
 
     cur.execute(open(sql_file, "r").read())
     conn.commit()
+
 
 def create_csrosetta_table(csrosetta_sqlite_file):
     """Creates the CS-Rosetta links table."""
@@ -1019,6 +1050,7 @@ VALUES %s;''',
                    entries)
 
     pconn.commit()
+
 
 def build_fulltext_search():
     """ Allows querying the full text of an entry. """
@@ -1052,6 +1084,7 @@ WHERE id=%s;''',
 
     conn.commit()
 
+
 def get_bmrb_as_text(entry):
     """ Prints the unique set of data in a BMRB entry. """
 
@@ -1064,6 +1097,7 @@ def get_bmrb_as_text(entry):
                 res_strings.update(row)
 
     return " ".join(res_strings)
+
 
 def fasta_search(query, a_type="polymer", e_val=None):
     """Performs a FASTA search on the specified query in the BMRB database."""
@@ -1079,11 +1113,14 @@ def fasta_search(query, a_type="polymer", e_val=None):
 
     cur = get_postgres_connection()[1]
     set_database(cur, "macromolecules")
-    cur.execute('''SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",regexp_replace(entity."Polymer_seq_one_letter_code", E'[\\n\\r]+', '', 'g' ), replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
-    FROM "Entity" as entity
-    LEFT JOIN "Entry" as entry
-    ON entity."Entry_ID" = entry."Entry_ID"
-    WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [a_type])
+    cur.execute('''
+SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",
+  regexp_replace(entity."Polymer_seq_one_letter_code", E'[\\n\\r]+', '', 'g' ),
+  replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
+FROM "Entity" as entity
+  LEFT JOIN "Entry" as entry
+  ON entity."Entry_ID" = entry."Entry_ID"
+  WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [a_type])
 
     sequences = cur.fetchall()
     wrapper = textwrap.TextWrapper(width=80, expand_tabs=False,
@@ -1092,7 +1129,7 @@ def fasta_search(query, a_type="polymer", e_val=None):
     seq_strings = [">%s\n%s\n" % (x[0], "\n".join(wrapper.wrap(x[3]))) for x in sequences]
 
     # Use temporary files to store the FASTA search string and FASTA DB
-    with NamedTemporaryFile(dir="/dev/shm") as fasta_file,\
+    with NamedTemporaryFile(dir="/dev/shm") as fasta_file, \
             NamedTemporaryFile(dir="/dev/shm") as sequence_file:
         fasta_file.file.write(">query\n%s" % query.upper())
         fasta_file.flush()
@@ -1114,7 +1151,7 @@ def fasta_search(query, a_type="polymer", e_val=None):
     for line in res.split("\n"):
         cols = line.split()
         if len(cols) == 12:
-            matching_row = sequences[int(cols[1])-1]
+            matching_row = sequences[int(cols[1]) - 1]
             results.append({'entry_id': matching_row[1], 'entity_id': matching_row[2],
                             'entry_title': matching_row[4], 'percent_id': Decimal(cols[2]),
                             'alignment_length': int(cols[3]), 'mismatches': int(cols[4]),
@@ -1124,6 +1161,7 @@ def fasta_search(query, a_type="polymer", e_val=None):
 
     return results
 
+
 def get_experiments(entry):
     """ Returns the experiments for this entry. """
 
@@ -1132,29 +1170,34 @@ def get_experiments(entry):
 
     # First get the sample components
     sql = '''
-    SELECT "Mol_common_name", "Isotopic_labeling", "Type", "Concentration_val", "Concentration_val_units", "Sample_ID"
-    FROM "Sample_component"
-    WHERE "Entry_ID" = %s'''
+SELECT "Mol_common_name", "Isotopic_labeling", "Type", "Concentration_val", "Concentration_val_units", "Sample_ID"
+FROM "Sample_component"
+  WHERE "Entry_ID" = %s'''
     cur.execute(sql, [entry])
     stored_results = cur.fetchall()
 
     # Then get all of the other information
     sql = '''
-SELECT me."Entry_ID", me."Sample_ID", me."ID", ns."Manufacturer",ns."Model",me."Name" as experiment_name, ns."Field_strength", array_agg(ef."Name") as name, array_agg(ef."Type") as type, array_agg(ef."Directory_path") as directory_path, array_agg(ef."Details") as details, ph."Val" as ph, temp."Val" as temp
+SELECT me."Entry_ID", me."Sample_ID", me."ID", ns."Manufacturer",ns."Model",me."Name" as experiment_name,
+  ns."Field_strength", array_agg(ef."Name") as name, array_agg(ef."Type") as type,
+  array_agg(ef."Directory_path") as directory_path, array_agg(ef."Details") as details, ph."Val" as ph,
+  temp."Val" as temp
 FROM "Experiment" as me
   LEFT JOIN "Experiment_file" as ef
-  ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
+    ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
   LEFT JOIN "NMR_spectrometer" as ns
-  ON ns."Entry_ID" = me."Entry_ID" and ns."ID" = me."NMR_spectrometer_ID"
+    ON ns."Entry_ID" = me."Entry_ID" and ns."ID" = me."NMR_spectrometer_ID"
 
   LEFT JOIN "Sample_condition_variable" AS ph
-  ON me."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=me."Entry_ID" AND ph."Type"='pH'
+    ON me."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=me."Entry_ID" AND ph."Type"='pH'
   LEFT JOIN "Sample_condition_variable" AS temp
-  ON me."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=me."Entry_ID" AND temp."Type"='temperature' AND temp."Val_units"='K'
+    ON me."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=me."Entry_ID" AND
+       temp."Type"='temperature' AND temp."Val_units"='K'
 
-  WHERE me."Entry_ID" = %s
-  GROUP BY me."Entry_ID", me."Name", me."ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val", temp."Val", me."Sample_ID"
-  ORDER BY me."Entry_ID" ASC, me."ID" ASC;'''
+WHERE me."Entry_ID" = %s
+GROUP BY me."Entry_ID", me."Name", me."ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val",
+         temp."Val", me."Sample_ID"
+ORDER BY me."Entry_ID" ASC, me."ID" ASC;'''
     cur.execute(sql, [entry])
 
     results = []
@@ -1163,9 +1206,9 @@ FROM "Experiment" as me
         data = []
         if row['name'][0]:
             for x, item in enumerate(row['directory_path']):
-
-                data.append({'type':row['type'][x], 'description': row['details'][x],
-                             'url': "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (row['Entry_ID'], row['directory_path'][x], row['name'][x])})
+                data.append({'type': row['type'][x], 'description': row['details'][x],
+                             'url': "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (
+                                 row['Entry_ID'], row['directory_path'][x], row['name'][x])})
 
         tmp_res = {'Name': row['experiment_name'],
                    'Experiment_ID': row['ID'],
@@ -1174,7 +1217,7 @@ FROM "Experiment" as me
                    'NMR_spectrometer': {'Manufacturer': row['Manufacturer'],
                                         'Model': row['Model'],
                                         'Field_strength': row['Field_strength']
-                                    },
+                                        },
                    'Experiment_file': data,
                    'Sample_component': []}
         for component in stored_results:
@@ -1193,6 +1236,7 @@ FROM "Experiment" as me
 
     return results
 
+
 def get_instant_search(term, database):
     """ Does an instant search and returns results. """
 
@@ -1200,30 +1244,34 @@ def get_instant_search(term, database):
 
     if database == "metabolomics":
         instant_query_one = '''
-SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass
-  FROM web.instant_cache
-    LEFT JOIN web.metabolomics_summary as ms
-    ON instant_cache.id = ms.id
-  WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
-  ORDER BY instant_cache.id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,
+  ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass
+FROM web.instant_cache
+LEFT JOIN web.metabolomics_summary as ms
+  ON instant_cache.id = ms.id
+WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
+ORDER BY instant_cache.id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
         instant_query_two = """
 SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight", NULL as "monoisotopic_mass"
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,
+  NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight",
+  NULL as "monoisotopic_mass"
+FROM web.instant_cache
+  LEFT JOIN web.instant_extra_search_terms as tt
+  ON instant_cache.id=tt.id
   WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,
+  is_metab,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
+  LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
-    LEFT JOIN web.metabolomics_summary as ms
+  LEFT JOIN web.metabolomics_summary as ms
     ON instant_cache.id = ms.id
-    WHERE tt.term %% %s AND tt.identical_term IS NULL and ms.id IS NOT NULL
-    ORDER BY id, similarity(tt.term, %s) DESC) as y
-    WHERE is_metab = 'True'"""
+  WHERE tt.term %% %s AND tt.identical_term IS NULL and ms.id IS NOT NULL
+  ORDER BY id, similarity(tt.term, %s) DESC) as y
+WHERE is_metab = 'True'"""
 
     elif database == "macromolecules":
         instant_query_one = '''
@@ -1240,7 +1288,8 @@ SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,auth
     WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
+  link,sub_date,is_metab
   FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
@@ -1264,7 +1313,8 @@ SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,auth
     WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
+  link,sub_date,is_metab
   FROM web.instant_cache
     LEFT JOIN web.instant_extra_search_terms as tt
     ON instant_cache.id=tt.id
@@ -1277,8 +1327,8 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
     except ProgrammingError:
         if configuration['debug']:
             raise
-        return [{"label":"Instant search temporarily offline.", "value":"error",
-                 "link":"/software/query/"}]
+        return [{"label": "Instant search temporarily offline.", "value": "error",
+                 "link": "/software/query/"}]
 
     # First query
     result = []
@@ -1302,8 +1352,9 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
         result.append(res)
         ids[item['id']] = 1
 
+    debug = {}
     if configuration['debug']:
-        debug = {'query1': cur.query}
+        debug['query1'] = cur.query
 
     # Second query
     try:
@@ -1311,8 +1362,8 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
     except ProgrammingError:
         if configuration['debug']:
             raise
-        return [{"label":"Instant search temporarily offline.", "value":"error",
-                 "link":"/software/query/"}]
+        return [{"label": "Instant search temporarily offline.", "value": "error",
+                 "link": "/software/query/"}]
 
     for item in cur.fetchall():
         if item['id'] not in ids:
@@ -1340,11 +1391,12 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
 
     return result
 
+
 def get_saveframes_by_category(**kwargs):
     """ Returns the matching saveframes."""
 
     # Get the valid IDs and redis connection
-    saveframe_categories = process_STAR_query(kwargs)
+    saveframe_categories = process_nmrstar_query(kwargs)
     result = {}
 
     # Go through the IDs
@@ -1364,7 +1416,7 @@ def get_saveframes_by_name(**kwargs):
     """ Returns the matching saveframes."""
 
     # Get the valid IDs and redis connection
-    saveframe_names = process_STAR_query(kwargs)
+    saveframe_names = process_nmrstar_query(kwargs)
     result = {}
 
     # Go through the IDs
@@ -1382,11 +1434,12 @@ def get_saveframes_by_name(**kwargs):
 
     return result
 
+
 def get_entries(**kwargs):
     """ Returns the full entries."""
 
     # Check their parameters before proceeding
-    process_STAR_query(kwargs)
+    process_nmrstar_query(kwargs)
     result = {}
 
     # Go through the IDs
@@ -1397,10 +1450,12 @@ def get_entries(**kwargs):
 
     return result
 
+
 def wrap_it_up(item):
     """ Quote items in a way that postgres accepts and that doesn't allow
     SQL injection."""
     return AsIs('"' + item + '"')
+
 
 def get_category_and_tag(tag_name):
     """ Returns the tag category and the tag formatted as needed for DB
@@ -1427,6 +1482,7 @@ def get_category_and_tag(tag_name):
                            "contain one period.")
 
     return sp
+
 
 def get_all_values_for_tag(tag_name, database):
     """ Returns all the values for a given tag by entry ID as a dictionary. """
@@ -1459,6 +1515,7 @@ def get_all_values_for_tag(tag_name, database):
 
     return res
 
+
 def select(fetch_list, table, where_dict=None, database="macromolecules",
            modifiers=None, as_hash=True, cur=None):
     """ Performs a SELECT query constructed from the supplied arguments."""
@@ -1469,7 +1526,7 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     if modifiers is None:
         modifiers = []
 
-    # Make sure they aren't tring to inject (paramterized queries are safe while
+    # Make sure they aren't trying to inject (paramterized queries are safe while
     # this is not, but there is no way to parameterize a table name...)
     if '"' in table:
         raise RequestError("Invalid 'from' parameter.")
@@ -1486,14 +1543,14 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     query = "SELECT "
     if "count" in modifiers:
         # Build the 'select * from *' part of the query
-        query += "count(" + "),count(".join(["%s"]*len(fetch_list))
+        query += "count(" + "),count(".join(["%s"] * len(fetch_list))
         query += ') from %s."%s"' % (database, table)
     else:
         if len(fetch_list) == 1 and fetch_list[0] == "*":
             query += '* from %s."%s"' % (database, table)
         else:
             # Build the 'select * from *' part of the query
-            query += ",".join(["%s"]*len(fetch_list))
+            query += ",".join(["%s"] * len(fetch_list))
             query += ' from %s."%s"' % (database, table)
 
     if len(where_dict) > 0:
@@ -1510,12 +1567,12 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
             parameters.extend([wrap_it_up(key), where_dict[key].replace("*", "%")])
             need_and = True
 
-# TODO: build ordering in based on dictionary
-#    if "count" not in modifiers:
-#        query += ' ORDER BY "Entry_ID"'
-#        # Order the parameters as ints if they are normal BMRB IDS
-#        if database == "macromolecules":
-#            query += "::int "
+    # TODO: build ordering in based on dictionary
+    #    if "count" not in modifiers:
+    #        query += ' ORDER BY "Entry_ID"'
+    #        # Order the parameters as ints if they are normal BMRB IDS
+    #        if database == "macromolecules":
+    #            query += "::int "
 
     query += ';'
 
@@ -1530,7 +1587,7 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     colnames = [desc[0] for desc in cur.description]
 
     if not as_hash:
-        return {'data':rows, 'columns': [table + "." + x for x in colnames]}
+        return {'data': rows, 'columns': [table + "." + x for x in colnames]}
 
     # Turn the results into a dictionary
     result = {}
@@ -1551,7 +1608,7 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     return result
 
 
-def process_STAR_query(params):
+def process_nmrstar_query(params):
     """ A helper method that parses the keys out of the query and validates
     the 'ids' parameter."""
 
@@ -1569,6 +1626,7 @@ def process_STAR_query(params):
         params['keys'] = [params['keys']]
 
     return params['keys']
+
 
 def process_select(**params):
     """ Checks the parameters submitted before calling the get_fields_by_fields
@@ -1626,6 +1684,7 @@ def process_select(**params):
 
     return result_list
 
+
 def create_chemcomp_from_db(chemcomp, cur=None):
     """ Create a chem comp entry from the database."""
 
@@ -1660,6 +1719,7 @@ def create_chemcomp_from_db(chemcomp, cur=None):
 
     return ent
 
+
 def get_pdb_ids_from_bmrb_id(bmrb_id):
     """ Returns the associated PDB IDs for a BMRB ID. """
 
@@ -1688,6 +1748,7 @@ SELECT "Accession_code", 'Assembly DB Link', "Entry_details"
 
     return [{"pdb_id": x[0], "match_type": x[1], "comment": x[2]}
             for x in cur.fetchall()]
+
 
 def get_bmrb_ids_from_pdb_id(pdb_id):
     """ Returns the associated BMRB IDs for a PDB ID. """
@@ -1757,6 +1818,7 @@ def get_printable_tags(category, cur=None):
 
     return tags_to_use, pointer_tags
 
+
 def create_saveframe_from_db(database, category, entry_id, id_search_field,
                              cur=None):
     """ Builds a saveframe from the database. You specify the database:
@@ -1775,17 +1837,17 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
         cur = get_postgres_connection()[1]
 
     # Look up information about the tags to use later
-    #cur.execute('''SELECT val_item_tbl.originaltag,val_item_tbl.internalflag,
-    #printflag,val_item_tbl.dictionaryseq,rowindexflg FROM dict.val_item_tbl,
-    #dict.adit_item_tbl WHERE val_item_tbl.originaltag=
-    #adit_item_tbl.originaltag''')
+    # cur.execute('''SELECT val_item_tbl.originaltag,val_item_tbl.internalflag,
+    # printflag,val_item_tbl.dictionaryseq,rowindexflg FROM dict.val_item_tbl,
+    # dict.adit_item_tbl WHERE val_item_tbl.originaltag=
+    # adit_item_tbl.originaltag''')
 
     # Get the list of which tags should be used to order data
     cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
-    tag_order = {x[0]:x[1] for x in cur.fetchall()}
+    tag_order = {x[0]: x[1] for x in cur.fetchall()}
 
     # Set the search path
-    cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path':database})
+    cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path': database})
 
     # Check if we are allowed to print it
     cur.execute('''SELECT internalflag,printflag FROM dict.cat_grp
@@ -1807,7 +1869,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
     # Get table name from category name
     cur.execute("""SELECT DISTINCT tagcategory FROM dict.val_item_tbl
                 WHERE originalcategory=%(category)s AND loopflag<>'Y'""",
-                {"category":category})
+                {"category": category})
     table_name = cur.fetchone()[0]
 
     if configuration['debug']:
@@ -1816,7 +1878,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
     # Get the sf_id for later
     cur.execute('''SELECT "Sf_ID","Sf_framecode" FROM %(table_name)s
                 WHERE %(search_field)s=%(id)s ORDER BY "Sf_ID"''',
-                {"id":entry_id, 'table_name': wrap_it_up(table_name),
+                {"id": entry_id, 'table_name': wrap_it_up(table_name),
                  "search_field": wrap_it_up(id_search_field)})
 
     # There is no matching saveframe found for their search term
@@ -1878,7 +1940,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
             # Determine how to order the data in the loops
             order_tags = []
             for tag in tags_to_use:
-                if tag_order["_"+ each_loop + "." + tag] == "Y":
+                if tag_order["_" + each_loop + "." + tag] == "Y":
                     order_tags.append(tag)
                     if configuration['debug']:
                         print("Ordering loop %s by %s." % (each_loop, tag))
@@ -1897,7 +1959,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
 
             # Perform the query
             cur.execute(query, {"id": sf_id,
-                                "table_name":wrap_it_up(each_loop)})
+                                "table_name": wrap_it_up(each_loop)})
             if configuration['debug']:
                 print(cur.query)
 
@@ -1913,10 +1975,11 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
                 # Add the data
                 bmrb_loop.add_data(row)
 
-            if bmrb_loop.data != []:
+            if bmrb_loop.data:
                 built_frame.add_loop(bmrb_loop)
 
     return built_frame
+
 
 def create_combined_view():
     """ Create the combined schema from the other three schemas."""
@@ -1925,12 +1988,7 @@ def create_combined_view():
     conn, cur = get_postgres_connection(user="bmrb")
 
     # Create the new schema if needed
-    cur.execute("""SELECT EXISTS(SELECT 1 FROM pg_namespace
-                WHERE nspname = 'combined');""")
-    if cur.fetchall()[0][0] is False:
-        cur.execute("CREATE SCHEMA combined;")
-        # TODO: Once we have postgres 9.3 replace the above 3 lines with
-        # cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
+    cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
 
     # Get the tables we need to combine
     cur.execute('''SELECT table_name,table_schema FROM information_schema.tables
