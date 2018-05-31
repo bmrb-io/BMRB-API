@@ -154,7 +154,7 @@ SELECT DISTINCT "Entry_ID", "Name",'Assembly name' FROM metabolomics."Assembly"
 
 --macromolecule
 UNION
-SELECT DISTINCT "Entry_ID",regexp_replace("Polymer_seq_one_letter_code", '\n| ', '', 'g'),'Polymer sequence' FROM macromolecules."Entity"
+SELECT DISTINCT "Entry_ID",regexp_replace("Polymer_seq_one_letter_code", '[\n ]', '', 'g'),'Polymer sequence' FROM macromolecules."Entity"
 UNION
 SELECT DISTINCT "Entry_ID","Organism_name_scientific",'Scientific name' FROM macromolecules."Entity_natural_src" WHERE "Organism_name_scientific" IS NOT null
 UNION
