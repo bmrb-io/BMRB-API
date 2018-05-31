@@ -229,14 +229,14 @@ def get_all_entries_from_redis(format_="object", database="macromolecules"):
 def get_deposition(entry_id):
     """ Return an entry and the associated schema."""
 
+    r_conn = get_redis_connection()
+    # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
+    schema_version = r_conn.get("schema_version")
+
     try:
-        entry = list(get_valid_entries_from_redis(entry_id))[0][1]
+        entry = list(get_valid_entries_from_redis(entry_id, r_conn=r_conn))[0][1]
     except IndexError:
         raise RequestError("No such entry.")
-
-    # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
-    # print(schema_version)
-    schema_version = '3.2.1.2'
 
     try:
         schema = get_schema(schema_version)
@@ -249,7 +249,7 @@ def get_deposition(entry_id):
     return entry
 
 
-def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
+def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, r_conn=None):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
 
@@ -274,13 +274,14 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500):
                            'or fewer entries at a time. You attempted to '
                            'query %d IDs.' % (max_results, len(search_ids)))
 
-    # Get the connection to redis
-    r = get_redis_connection()
+    # Get the connection to redis if needed
+    if r_conn is None:
+        r_conn = get_redis_connection()
 
     # Go through the IDs
     for entry_id in search_ids:
 
-        entry = r.get(locate_entry(entry_id, r_conn=r))
+        entry = r_conn.get(locate_entry(entry_id, r_conn=r_conn))
 
         # See if it is in redis
         if entry:

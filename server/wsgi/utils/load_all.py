@@ -1,17 +1,16 @@
 #!/usr/bin/python
 
-""" Populate the Redis database. """
+""" Populate the Redis and PSQL databases. """
 
 # Make sure print functions work in python2 and python3
 from __future__ import print_function
 
 import re
 import os
-import csv
 import sys
 import time
 import zlib
-import subprocess
+
 try:
     import simplejson as json
 except ImportError:
@@ -45,8 +44,8 @@ opt.add_option("--redis-db", action="store", dest="db", default=1,
                help="The Redis DB to use. 0 is master.")
 opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will "
-               "interrupt service until the DB is rebuilt! (So only use it on"
-               " the staging DB.)")
+                    "interrupt service until the DB is rebuilt! (So only use it on"
+                    " the staging DB.)")
 # Parse the command line input
 (options, cmd_input) = opt.parse_args()
 
@@ -101,6 +100,7 @@ to_process['combined'] = (to_process['chemcomps'] +
                           to_process['macromolecules'] +
                           to_process['metabolomics'])
 
+
 def clear_cache(r_conn, db_name):
     """ Delete the cache for a given schema."""
 
@@ -108,6 +108,7 @@ def clear_cache(r_conn, db_name):
         if key.startswith("cache:%s" % db_name):
             r_conn.delete(key)
             print("Deleting cached query: %s" % key)
+
 
 def one_entry(entry_name, entry_location, r_conn):
     """ Load an entry and add it to REDIS """
@@ -129,7 +130,7 @@ def one_entry(entry_name, entry_location, r_conn):
             ent = querymod.pynmrstar.Entry.from_file(entry_location)
 
             print("On %s: loaded." % entry_name)
-        except IOError as e:
+        except IOError:
             ent = None
             print("On %s: no file." % entry_name)
         except Exception as e:
@@ -141,11 +142,17 @@ def one_entry(entry_name, entry_location, r_conn):
             r_conn.set(key, zlib.compress(ent.get_json()))
             return entry_name
 
-def load_schemas(r):
+
+def load_schemas(redis_conn):
     import schema_loader
+
+    highest_schema = ""
     for schema in schema_loader.schema_emitter():
-        r.set("schema:%s" % schema[0], zlib.compress(json.dumps(schema[1])))
+        redis_conn.set("schema:%s" % schema[0], zlib.compress(json.dumps(schema[1])))
+        highest_schema = schema[0]
         print("Set schema: %s" % schema[0])
+    redis_conn.set("schema_version", highest_schema)
+
 
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
@@ -158,7 +165,7 @@ if options.flush:
 processes = []
 num_threads = cpu_count()
 
-for thread in xrange(0, num_threads):
+for thread in range(0, num_threads):
 
     # Set up the pipes
     parent_conn, child_conn = Pipe()
@@ -166,9 +173,9 @@ for thread in xrange(0, num_threads):
     processes.append([parent_conn, child_conn])
 
     # Use the fork to get through!
-    newpid = os.fork()
+    new_pid = os.fork()
     # Okay, we are the child
-    if newpid == 0:
+    if new_pid == 0:
 
         # Each child gets a Redis
         red = querymod.get_redis_connection(db=options.db)
@@ -190,6 +197,7 @@ for thread in xrange(0, num_threads):
     else:
         child_conn.close()
 
+
 def add_to_loaded(loaded_entry):
     """ The entry loaded successfully, so put it in the list of
     loaded entries of the appropriate type based on its name."""
@@ -201,24 +209,25 @@ def add_to_loaded(loaded_entry):
     else:
         loaded['macromolecules'].append(loaded_entry)
 
+
 # Check if entries have completed by listening on the sockets
 while len(to_process['combined']) > 0:
 
     time.sleep(.001)
     # Poll for processes ready to listen
-    for proc in processes:
-        if proc[0].poll():
-            data = proc[0].recv()
+    for process in processes:
+        if process[0].poll():
+            data = process[0].recv()
             if data:
                 if data != "ready":
                     add_to_loaded(data)
             else:
                 print("Not loaded.")
-            proc[0].send(to_process['combined'].pop())
+            process[0].send(to_process['combined'].pop())
             break
 
 # Reap the children
-for thread in xrange(0, num_threads):
+for thread in range(0, num_threads):
     # Get the last ready message from the child
     data = processes[thread][0].recv()
     # Tell the child to shut down
@@ -228,11 +237,13 @@ for thread in xrange(0, num_threads):
     if data:
         add_to_loaded(data)
 
+
 def natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
     """ Use as a key to do a natural sort. 1<12<2<23."""
 
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split(_nsre, s)]
+
 
 # Put a few more things in REDIS
 def make_entry_list(name):
@@ -259,6 +270,7 @@ def make_entry_list(name):
 
     dropped = [y[0] for y in to_process[name] if y[0] not in set(loaded[name])]
     print("Entries not loaded in DB %s: %s" % (name, dropped))
+
 
 # Use a Redis list so other applications can read the list of entries
 if options.metabolomics:
