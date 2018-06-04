@@ -1581,7 +1581,9 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     try:
         cur.execute(query, parameters)
         rows = cur.fetchall()
-    except psycopg2.ProgrammingError:
+    except psycopg2.ProgrammingError as error:
+        if configuration['debug']:
+            raise error
         raise RequestError("Invalid 'from' parameter.")
 
     # Get the column names from the DB
