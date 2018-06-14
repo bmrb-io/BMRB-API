@@ -349,7 +349,7 @@ def get_all_values_for_tag(tag_name=None):
 
 @application.route('/search/get_id_by_tag_value/')
 @application.route('/search/get_id_by_tag_value/<tag_name>/')
-@application.route('/search/get_id_by_tag_value/<tag_name>/<tag_value>')
+@application.route('/search/get_id_by_tag_value/<tag_name>/<path:tag_value>')
 def get_id_from_search(tag_name=None, tag_value=None):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
