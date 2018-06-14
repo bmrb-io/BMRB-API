@@ -19,13 +19,14 @@ except ImportError:
 
 # Import flask
 from flask import Flask, request, Response, jsonify
-# Import the functions needed to service requests
-from utils import querymod
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
 os.chdir(local_dir)
 sys.path.append(local_dir)
+
+# Import the functions needed to service requests - must be after path updates
+from utils import querymod
 
 # Set up the flask application
 application = Flask(__name__)
