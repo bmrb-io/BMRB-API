@@ -46,7 +46,7 @@ and a fixed version for software releases. This will ensure that your
 deployed applications do not break if a new API version is released.
 
 HTTPS is available, though due to the overhead in establishing a TLS session,
-slightly slower. It is only recomended if you are uploading private data
+slightly slower. It is only recommended if you are uploading private data
 to the server or calling methods on previously uploaded data.
 
 ### Results
@@ -103,7 +103,7 @@ The BMRB API has 3 databases. They are:
 * `macromolecules` - The standard BMRB database. Contains macromolecules.
 * `metabolomics` - The metabolomics database.
 * `chemcomps` - The chemical compounds used by the PDB in NMR-STAR format. Note
-that these entries only have chemical shifts.
+that these entries only have chemical component and entity sections.
 
 Note that not all databases contain the same tables. In general, a search in a
 table that a given database doesn't contain will not produce an error; instead
@@ -367,7 +367,7 @@ composition.)
 * `formula`: The chemical formula.
 * `inchi`: The InChI string for the compound.
 * `monoisotopic_mass`: Mono-isotopic formula mass calculated using the most
-abundant naturally occuring isotope for each atom.
+abundant naturally occurring isotope for each atom.
 * `smiles`: The canonical SMILES string for the compound.
 
 #### Get assigned chemical shift list (GET)
