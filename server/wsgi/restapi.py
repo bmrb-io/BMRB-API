@@ -371,17 +371,10 @@ def get_id_from_search(tag_name=None, tag_value=None):
                                     "saveframe included. For example: "
                                     "Entry.Experimental_method_subtype")
 
-    # Use Entry_ID normally, but occasionally use ID depending on the context
-    id_field = {'metabolomics': 'Entry_ID', 'macromolecules': 'Entry_ID', 'chemcomps': 'ID'}[database]
-    if sp[0].lower() == 'entry':
-        id_field = 'ID'
-
+    id_field = querymod.get_entry_id_tag(tag_name, database)
     result = querymod.select([id_field], sp[0], where_dict={sp[1]: tag_value},
                              modifiers=['lower'], database=database)
-    result = result[result.keys()[0]]
-    if database == 'chemcomps':
-        result = ["chemcomp_" + x for x in result]
-    return jsonify(result)
+    return jsonify(result[result.keys()[0]])
 
 
 @application.route('/search/get_bmrb_ids_from_pdb_id/')
@@ -554,7 +547,7 @@ def get_db(default="macromolecules",
     """ Make sure the DB specified is valid. """
 
     if not valid_list:
-        valid_list = ["metabolomics", "macromolecules", "combined"]
+        valid_list = ["metabolomics", "macromolecules", "combined", "chemcomps"]
 
     database = request.args.get('database', default)
 
