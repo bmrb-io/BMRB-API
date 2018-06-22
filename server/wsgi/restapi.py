@@ -355,7 +355,8 @@ def get_id_from_search(tag_name=None, tag_value=None):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
 
-    database = get_db('macromolecules')
+    database = get_db('macromolecules',
+                      valid_list=['metabolomics', 'macromolecules', 'chemcomps'])
 
     if not tag_name:
         raise querymod.RequestError("You must specify the tag name.")
@@ -370,10 +371,17 @@ def get_id_from_search(tag_name=None, tag_value=None):
                                     "saveframe included. For example: "
                                     "Entry.Experimental_method_subtype")
 
-    result = querymod.select(['Entry_ID'], sp[0], where_dict={sp[1]: tag_value},
-                             modifiers=['lower'], database=database)
+    # Use Entry_ID normally, but occasionally use ID depending on the context
+    id_field = {'metabolomics': 'Entry_ID', 'macromolecules': 'Entry_ID', 'chemcomps': 'ID'}[database]
+    if sp[0].lower() == 'entry':
+        id_field = 'ID'
 
-    return jsonify(result[result.keys()[0]])
+    result = querymod.select([id_field], sp[0], where_dict={sp[1]: tag_value},
+                             modifiers=['lower'], database=database)
+    result = result[result.keys()[0]]
+    if database == 'chemcomps':
+        result = ["chemcomp_" + x for x in result]
+    return jsonify(result)
 
 
 @application.route('/search/get_bmrb_ids_from_pdb_id/')

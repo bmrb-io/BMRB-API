@@ -1527,8 +1527,8 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     if modifiers is None:
         modifiers = []
 
-    # Make sure they aren't trying to inject (paramterized queries are safe while
-    # this is not, but there is no way to parameterize a table name...)
+    # Make sure they aren't trying to inject (parameterized queries are safe while
+    # this is not, but there is no way to parametrize a table name...)
     if '"' in table:
         raise RequestError("Invalid 'from' parameter.")
 

@@ -452,7 +452,7 @@ Example: [Search for peaks 2.075, 3.11, and 39.31](http://webapi.bmrb.wisc.edu/v
 Returns a list of BMRB entry IDs which contain the specified `tag_value` for the
 value of at least one instance of tag `tag_name`. The search is done
 case-insensitively. You may optionally specify a database if you want
-to query the metabolomics database rather than the macromolecule one.
+to query the metabolomics or chemcomp database rather than the macromolecule one.
 
 Example: [All entries which used solid-state NMR](http://webapi.bmrb.wisc.edu/v2/search/get_id_by_tag_value/Entry.Experimental_method_subtype/solid-state)
 
