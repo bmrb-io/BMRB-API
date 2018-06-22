@@ -1491,8 +1491,12 @@ def get_all_values_for_tag(tag_name, database):
     params = get_category_and_tag(tag_name)
     cur = get_postgres_connection()[1]
     set_database(cur, database)
-    query = '''SELECT "Entry_ID", array_agg(%%s) from "%s" GROUP BY "Entry_ID";'''
-    query = query % params[0]
+
+    # Use Entry_ID normally, but occasionally use ID depending on the context
+    id_field = get_entry_id_tag(tag_name, database, cur=cur)
+
+    query = '''SELECT "%s", array_agg(%%s) from "%s" GROUP BY "%s";'''
+    query = query % (id_field, params[0], id_field)
     try:
         cur.execute(query, [wrap_it_up(params[1])])
     except psycopg2.ProgrammingError as e:
@@ -1509,10 +1513,13 @@ def get_all_values_for_tag(tag_name, database):
     for x in cur.fetchall():
         sub_res = []
         for elem in x[1]:
-            if elem:
+            if elem and elem != "na":
                 sub_res.append(elem)
         if len(sub_res) > 0:
             res[x[0]] = sub_res
+
+    if configuration['debug']:
+        res['query'] = cur.query
 
     return res
 
