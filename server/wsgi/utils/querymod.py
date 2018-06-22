@@ -1594,10 +1594,10 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
         raise RequestError("Invalid 'from' parameter.")
 
     # Get the column names from the DB
-    colnames = [desc[0] for desc in cur.description]
+    col_names = [desc[0] for desc in cur.description]
 
     if not as_hash:
-        return {'data': rows, 'columns': [table + "." + x for x in colnames]}
+        return {'data': rows, 'columns': [table + "." + x for x in col_names]}
 
     # Turn the results into a dictionary
     result = {}
@@ -1606,9 +1606,9 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
         for pos, search_field in enumerate(fetch_list):
             result[table + "." + search_field] = rows[0][pos]
     else:
-        for search_field in colnames:
+        for search_field in col_names:
             result[table + "." + search_field] = []
-            s_index = colnames.index(search_field)
+            s_index = col_names.index(search_field)
             for row in rows:
                 result[table + "." + search_field].append(row[s_index])
 
