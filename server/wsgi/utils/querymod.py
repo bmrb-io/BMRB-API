@@ -174,7 +174,7 @@ def set_database(cursor, database):
     if database == "combined":
         raise RequestError("Combined database not implemented yet.")
 
-    if database not in ["metabolomics", "macromolecules"]:
+    if database not in ["metabolomics", "macromolecules", "chemcomps"]:
         raise RequestError("Invalid database: %s." % database)
 
     cursor.execute('SET search_path=%s;', [database])
