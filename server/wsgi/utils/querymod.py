@@ -1784,6 +1784,47 @@ SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
             for x in cur.fetchall()]
 
 
+def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
+    """ Returns the tag that contains the logical Entry ID. This isn't always the Entry_ID tag.
+
+    You should always provide a Postgres cursor if you've already opened one."""
+
+    if cur is None:
+        cur = get_postgres_connection()[1]
+
+    # Determine if this is a fully qualified tag or just the category
+    try:
+        tag_category = get_category_and_tag(tag_or_category)[0]
+    except RequestError:
+        tag_category = tag_or_category.replace(".", "")
+        while tag_category.startswith("_"):
+            tag_category = tag_category[1:]
+
+    # Chemcomp DB has hardcoded values since chemcomp_id is different from entry ID
+    if database == "chemcomps":
+        id_tag = {'entity': 'BMRB_code',
+                  'entity_comp_index': 'Comp_ID',
+                  'chem_comp': 'ID',
+                  'chem_comp_descriptor': 'Comp_ID',
+                  'chem_comp_identifier': 'Comp_ID',
+                  'chem_comp_atom': 'Comp_ID',
+                  'chem_comp_bond': 'Comp_ID'}
+        try:
+            return id_tag[tag_category.lower()]
+        except KeyError:
+            raise ServerError("Unknown ID tag for tag: %s" % tag_or_category)
+
+    cur.execute("""
+SELECT tagfield
+  FROM dict.val_item_tbl
+  WHERE entryidflag='Y' AND lower(tagcategory)=lower(%s);""", [tag_category])
+
+    try:
+        return cur.fetchone()[0]
+    except TypeError:
+        raise RequestError("Invalid tag queried, unable to determine entryidflag.")
+
+
 def get_printable_tags(category, cur=None):
     """ Returns a list of the tags that should be printed for the given
     category and a list of tags that are pointers."""
