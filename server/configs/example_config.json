@@ -13,7 +13,8 @@
     "postgres": {
         "user": "postgres_user",
         "host": "postgres_host",
-        "database": "postgres_database"
+        "database": "postgres_database",
+        "port": 5432
     },
     "ets": {
         "user": "ets_user",
