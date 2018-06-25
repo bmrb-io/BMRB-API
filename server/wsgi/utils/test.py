@@ -58,8 +58,9 @@ class TestAPI(unittest.TestCase):
     def test_chemical_shifts(self):
         """ Make sure the chemical shift fetching method is working."""
 
-        shifts = self.session.get(url + "/search/chemical_shifts?atom_id=HB3&database=macromolecules").json()['data']
-        self.assertGreater(len(shifts), 440000)
+        shifts_url = "/search/chemical_shifts?atom_id=HB3&shift=1.820&threshold=.001&database=macromolecules"
+        shifts = self.session.get(url + shifts_url).json()['data']
+        self.assertGreater(len(shifts), 1350)
         shifts = self.session.get(url + "/search/chemical_shifts?atom_id=C8&database=metabolomics")
         shifts = shifts.json()['data']
         self.assertGreater(len(shifts), 850)
@@ -80,11 +81,11 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(len(response['entry_id']), 32)
 
         # See if we can fetch the entry
-        response2 = self.session.get(url + "/entry/%s?format=nmrstar" % response['entry_id'],
-                                     data=star_test).json()
+        response2 = self.session.get(url + "/entry/%s" % response['entry_id'],
+                                     data=star_test)
 
         # Make sure the returned entry equals the submitted entry
-        self.assertEquals(querymod.pynmrstar.Entry.from_string(response2[response['entry_id']]),
+        self.assertEquals(querymod.pynmrstar.Entry.from_json(response2),
                           querymod.pynmrstar.Entry.from_string(star_test))
 
         # Delete the entry we uploaded
