@@ -100,6 +100,8 @@ class TestAPI(unittest.TestCase):
         for key in ["SES"]:
             # The entry generated locally
             local = querymod.create_chemcomp_from_db(key)
+            # These come out sorted from octopus, so we need to sort too
+            local.get_loops_by_category('Chem_comp_descriptor')[0].sort_rows("Descriptor")
 
             # The local entry has converted datatypes straight from postgres
             #  so make sure to convert datatypes for the loaded entry
