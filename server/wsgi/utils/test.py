@@ -82,10 +82,10 @@ class TestAPI(unittest.TestCase):
 
         # See if we can fetch the entry
         response2 = self.session.get(url + "/entry/%s" % response['entry_id'],
-                                     data=star_test)
+                                     data=star_test).json()
 
         # Make sure the returned entry equals the submitted entry
-        self.assertEquals(querymod.pynmrstar.Entry.from_json(response2),
+        self.assertEquals(querymod.pynmrstar.Entry.from_json(response2[response['entry_id']]),
                           querymod.pynmrstar.Entry.from_string(star_test))
 
         # Delete the entry we uploaded
@@ -101,7 +101,8 @@ class TestAPI(unittest.TestCase):
             # The entry generated locally
             local = querymod.create_chemcomp_from_db(key)
             # These come out sorted from octopus, so we need to sort too
-            local.get_loops_by_category('Chem_comp_descriptor')[0].sort_rows("Descriptor")
+            local.get_loops_by_category('Chem_comp_descriptor')[0].sort_rows(["Descriptor", "Type"])
+            del local.get_saveframes_by_category("chem_comp")[0]["Atom_nomenclature_source"]
 
             # The local entry has converted datatypes straight from postgres
             #  so make sure to convert datatypes for the loaded entry
