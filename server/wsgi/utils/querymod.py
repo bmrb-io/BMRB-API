@@ -317,20 +317,27 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
                                 raise RequestError("Invalid format: %s." % format_)
 
 
-def store_uploaded_entry(**kwargs):
+def store_uploaded_entry(request):
     """ Store an uploaded NMR-STAR file in the database."""
 
-    uploaded_data = kwargs.get("data", None)
+    uploaded_data = request.data
 
     if not uploaded_data:
         raise RequestError("No data uploaded. Please post the "
                            "NMR-STAR file as the request body.")
 
-    try:
-        parsed_star = pynmrstar.Entry.from_string(uploaded_data)
-    except ValueError as e:
-        raise RequestError("Invalid uploaded NMR-STAR file."
-                           " Exception: %s" % str(e))
+    if request.content_type == "application/json":
+        try:
+            parsed_star = pynmrstar.Entry.from_json(uploaded_data)
+        except (ValueError, TypeError) as e:
+            raise RequestError("Invalid uploaded JSON NMR-STAR data."
+                               " Exception: %s" % str(e))
+    else:
+        try:
+            parsed_star = pynmrstar.Entry.from_string(uploaded_data)
+        except ValueError as e:
+            raise RequestError("Invalid uploaded NMR-STAR file."
+                               " Exception: %s" % str(e))
 
     key = md5(uploaded_data).digest().encode("hex")
 

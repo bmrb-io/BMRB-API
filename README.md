@@ -150,7 +150,7 @@ Example: [List chemcomp entries](http://webapi.bmrb.wisc.edu/v2/list_entries?dat
 
 **/entry/**
 
-When you access this URI you must also provide a NMR-STAR entry in text format
+When you access this URI you must also provide a NMR-STAR entry in text or JSON format
 as the body of the request. The entry will be parsed and stored in the database.
 You can then use all of the entry-based queries below on your saved entry. The
 response to this request will include two keys:

@@ -186,7 +186,7 @@ def get_entry(entry_id=None):
 
     # If they are storing
     if request.method == "POST":
-        return jsonify(querymod.store_uploaded_entry(data=request.data))
+        return jsonify(querymod.store_uploaded_entry(request))
 
     # Loading
     else:
