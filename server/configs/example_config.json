@@ -26,5 +26,6 @@
         "server": "smtp-server"
     },
     "debug": false,
+    "timedomain_directory": "/timedomain/directory/",
     "local-ips": ["127.0.0.1", "your.sub.net"]
 }

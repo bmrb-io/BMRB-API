@@ -1024,6 +1024,34 @@ def do_sql_mods(conn=None, cur=None, sql_file=None):
     conn.commit()
 
 
+def create_timedomain_table():
+    """Creates the time domain links table."""
+
+    def get_dir_size(start_path='.'):
+        total_size = 0
+        for dir_path, dir_names, file_names in os.walk(start_path):
+            for f in file_names:
+                fp = os.path.join(dir_path, f)
+                total_size += os.path.getsize(fp)
+        return total_size
+
+    conn, cur = get_postgres_connection()
+    cur.execute('''
+DROP TABLE IF EXISTS web.timedomain_data;
+CREATE TABLE web.timedomain_data (
+ bmrbid integer PRIMARY KEY,
+ size numeric);''')
+
+    def td_data_getter():
+        td_dir = configuration['timedomain_directory']
+        for x in os.listdir(td_dir):
+            entry_id = int("".join([_ for _ in x if _.isdigit()]))
+            yield (entry_id, get_dir_size(os.path.join(td_dir, x)))
+
+    execute_values(cur, '''INSERT INTO web.timedomain_data(bmrbid, size) VALUES %s;''', td_data_getter())
+    conn.commit()
+
+
 def create_csrosetta_table(csrosetta_sqlite_file):
     """Creates the CS-Rosetta links table."""
 
