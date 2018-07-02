@@ -498,8 +498,8 @@ It is similar to the queried entry in sequence but no other correlation is impli
 * `Author Provided` - If an author provided a "related entry" during deposition
 it will appear here.
 
-The `comment` field will usually be `null`, but if not, it will contain any recorded
-notes on how the specific PDB ID is related to the queried BMRB ID.
+The `comment` field will only be present if it has a non-null value. It will contain any recorded
+notes on how the specific PDB ID is related to the queried BMRB ID if present.
 
 Example: [PDB IDs associated with BMRB ID 15000](http://webapi.bmrb.wisc.edu/v2/search/get_bmrb_ids_from_pdb_id/15000)
 

@@ -1815,8 +1815,14 @@ SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
     terms = [pdb_id, pdb_id, pdb_id, pdb_id]
     cur.execute(query, terms)
 
-    return [{"bmrb_id": x[0], "match_type": x[1], "comment": x[2]}
-            for x in cur.fetchall()]
+    result = []
+    for x in cur.fetchall():
+        res = {"bmrb_id": x[0], "match_type": x[1]}
+        if x[2]:
+            res["comment"] = x[2]
+        result.append(res)
+
+    return result
 
 
 def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
