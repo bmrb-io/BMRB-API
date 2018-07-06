@@ -52,7 +52,7 @@ _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'search/', 'search/chemical_shifts', 'search/fasta/',
             'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
             'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id',
-            'search/get_pdb_ids_from_bmrb_id',
+            'search/get_pdb_ids_from_bmrb_id', 'search/get_bmrb_data_from_pdb_id',
             'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
 

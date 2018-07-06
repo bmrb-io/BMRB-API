@@ -308,6 +308,23 @@ def print_search_options():
     return result
 
 
+@application.route('/search/get_bmrb_data_from_pdb_id/')
+@application.route('/search/get_bmrb_data_from_pdb_id/<pdb_id>')
+def get_bmrb_data_from_pdb_id(pdb_id=None):
+    """ Returns the associated BMRB data for a PDB ID. """
+
+    if not pdb_id:
+        raise querymod.RequestError("You must specify a PDB ID.")
+
+    result = []
+    for item in querymod.get_bmrb_ids_from_pdb_id(pdb_id):
+        result.append({'bmrb_id': item['bmrb_id'], 'match_types': item['match_types'],
+                       'url': 'http://www.bmrb.wisc.edu/data_library/summary/index.php?bmrbId=%s' % item['bmrb_id'],
+                       'data': querymod.get_extra_data_available(item['bmrb_id'])})
+
+    return jsonify(result)
+
+
 @application.route('/search/multiple_shift_search')
 def multiple_shift_search():
     """ Finds entries that match at least some of the peaks. """
