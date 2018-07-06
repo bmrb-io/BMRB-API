@@ -1854,31 +1854,29 @@ def get_extra_data_available(bmrb_id, cur=None, r_conn=None):
     set_database(cur, get_database_from_entry_id(bmrb_id))
 
     query = '''
-SELECT "Entry_ID", "Type", "Count"::integer, 0 as size from "Data_set" where "Entry_ID" like %s
+SELECT "Entry_ID" as entry_id, ed."Type" as type, dic.catgrpviewname as description, "Count"::integer as sets, 0 as size from "Data_set" as ed
+  LEFT JOIN dict.aditcatgrp as dic ON ed."Type" = dic.sfcategory
+ WHERE ed."Entry_ID" like %s
 UNION
-SELECT bmrbid, 'Time domain data', 0, size FROM web.timedomain_data where bmrbid like %s;'''
+SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timedomain_data where bmrbid like %s;'''
     cur.execute(query, [bmrb_id, bmrb_id])
 
     entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
 
-    result = {}
     extra_data = []
     for row in cur.fetchall():
-        if row['Type'] != "assigned_chemical_shifts":
-            if row['Type'] == 'Time domain data':
-                extra_data.append({'data_type': row['Type'], 'data_sets': 1, 'size': row['size'],
-                                   'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
-            else:
-                saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['Type'])]
-                url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
+        if row['type'] == 'time_domain_data':
+            extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
+                               'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
+        elif row['type'] != "assigned_chemical_shifts":
+            saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
+            url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
 
-                extra_data.append({'data_type': row['Type'], 'data_sets': row['Count'], 't': saveframe_names,
-                                   'urls': [urlquote(url % (bmrb_id, x)) for x in saveframe_names]})
-    result['entry_id'] = bmrb_id
-    result['entry_url'] = 'http://www.bmrb.wisc.edu/data_library/summary/index.php?bmrbId=%s' % bmrb_id
-    result['data'] = extra_data
+            extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],
+                               'data_sfcategory': row['type'],
+                               'urls': [url % (bmrb_id, urlquote(x)) for x in saveframe_names]})
 
-    print(result)
+    return extra_data
 
 
 def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
