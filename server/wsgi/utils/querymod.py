@@ -1813,7 +1813,8 @@ def get_bmrb_ids_from_pdb_id(pdb_id):
     cur = get_postgres_connection()[1]
 
     query = '''
-SELECT bmrb_id, 'BMRB Entry Tracking System' AS link_type, null as comment
+    SELECT bmrb_id, array_agg(link_type) from 
+(SELECT bmrb_id, 'BMRB Entry Tracking System' AS link_type, null as comment
   FROM web.pdb_link
   WHERE pdb_id LIKE %s
 UNION
@@ -1828,7 +1829,8 @@ SELECT "Entry_ID", 'BLAST Match', "Entry_details"
 UNION
 SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
   FROM macromolecules."Assembly_db_link"
-  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB';'''
+  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB') as sub
+GROUP BY bmrb_id;'''
 
     pdb_id = pdb_id.upper()
     terms = [pdb_id, pdb_id, pdb_id, pdb_id]
@@ -1836,10 +1838,7 @@ SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
 
     result = []
     for x in cur.fetchall():
-        res = {"bmrb_id": x[0], "match_type": x[1]}
-        if x[2]:
-            res["comment"] = x[2]
-        result.append(res)
+        result.append({"bmrb_id": x[0], "match_types": x[1]})
 
     return result
 
