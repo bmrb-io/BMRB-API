@@ -24,6 +24,11 @@ try:
 except ImportError:
     import json
 
+try:
+    from urllib import quote as urlquote
+except ImportError:
+    from urllib.parse import quote as urlquote
+
 import psycopg2
 from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values, DictCursor
@@ -1039,7 +1044,7 @@ def create_timedomain_table():
     cur.execute('''
 DROP TABLE IF EXISTS web.timedomain_data;
 CREATE TABLE web.timedomain_data (
- bmrbid integer PRIMARY KEY,
+ bmrbid text PRIMARY KEY,
  size numeric);''')
 
     def td_data_getter():
@@ -1823,6 +1828,44 @@ SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
         result.append(res)
 
     return result
+
+
+def get_extra_data_available(bmrb_id, cur=None, r_conn=None):
+    """ Returns any additional data associated with the entry. For example:
+
+    Time domain, residual dipolar couplings, pKa values, etc."""
+
+    # Set up the DB cursor
+    if cur is None:
+        cur = get_postgres_connection(dictionary_cursor=True)[1]
+    set_database(cur, get_database_from_entry_id(bmrb_id))
+
+    query = '''
+SELECT "Entry_ID", "Type", "Count"::integer, 0 as size from "Data_set" where "Entry_ID" like %s
+UNION
+SELECT bmrbid, 'Time domain data', 0, size FROM web.timedomain_data where bmrbid like %s;'''
+    cur.execute(query, [bmrb_id, bmrb_id])
+
+    entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
+
+    result = {}
+    extra_data = []
+    for row in cur.fetchall():
+        if row['Type'] != "assigned_chemical_shifts":
+            if row['Type'] == 'Time domain data':
+                extra_data.append({'data_type': row['Type'], 'data_sets': 1, 'size': row['size'],
+                                   'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
+            else:
+                saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['Type'])]
+                url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
+
+                extra_data.append({'data_type': row['Type'], 'data_sets': row['Count'], 't': saveframe_names,
+                                   'urls': [urlquote(url % (bmrb_id, x)) for x in saveframe_names]})
+    result['entry_id'] = bmrb_id
+    result['entry_url'] = 'http://www.bmrb.wisc.edu/data_library/summary/index.php?bmrbId=%s' % bmrb_id
+    result['data'] = extra_data
+
+    print(result)
 
 
 def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
