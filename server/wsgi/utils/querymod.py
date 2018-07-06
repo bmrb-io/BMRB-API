@@ -1040,20 +1040,34 @@ def create_timedomain_table():
                 total_size += os.path.getsize(fp)
         return total_size
 
+    def get_data_sets(path):
+        sets = 0
+        last_set = ""
+        for f in os.listdir(path):
+            if os.path.isdir(os.path.join(path, f)):
+                sets += 1
+                last_set = os.path.join(path, f)
+        if sets == 1:
+            child_sets = get_data_sets(last_set)
+            if child_sets > 1:
+                return child_sets
+        return sets
+
     conn, cur = get_postgres_connection()
     cur.execute('''
 DROP TABLE IF EXISTS web.timedomain_data;
 CREATE TABLE web.timedomain_data (
  bmrbid text PRIMARY KEY,
- size numeric);''')
+ size numeric,
+ sets numeric);''')
 
     def td_data_getter():
         td_dir = configuration['timedomain_directory']
         for x in os.listdir(td_dir):
             entry_id = int("".join([_ for _ in x if _.isdigit()]))
-            yield (entry_id, get_dir_size(os.path.join(td_dir, x)))
+            yield (entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x)))
 
-    execute_values(cur, '''INSERT INTO web.timedomain_data(bmrbid, size) VALUES %s;''', td_data_getter())
+    execute_values(cur, '''INSERT INTO web.timedomain_data(bmrbid, size, sets) VALUES %s;''', td_data_getter())
     conn.commit()
 
 
