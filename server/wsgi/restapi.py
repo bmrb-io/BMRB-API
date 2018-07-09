@@ -301,6 +301,7 @@ def print_search_options():
 
     result = ""
     for method in ["chemical_shifts", "fasta", "get_all_values_for_tag",
+                   "get_bmrb_data_from_pdb_id",
                    "get_id_by_tag_value", "get_bmrb_ids_from_pdb_id",
                    "get_pdb_ids_from_bmrb_id", "multiple_shift_search"]:
         result += '<a href="%s">%s</a><br>' % (method, method)
