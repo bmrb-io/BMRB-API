@@ -1783,14 +1783,14 @@ def get_pdb_ids_from_bmrb_id(bmrb_id):
     cur = get_postgres_connection()[1]
 
     query = '''
-SELECT pdb_id, 'BMRB Entry Tracking System' AS link_type, null AS comment
+SELECT pdb_id, 'Exact' AS link_type, null AS comment
   FROM web.pdb_link
   WHERE bmrb_id LIKE %s
 UNION
 SELECT "Database_accession_code", 'Author Provided', "Relationship"
   FROM macromolecules."Related_entries"
   WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
-    AND "Relationship" != 'BMRB Entry Tracking System'
+    AND "Relationship" != 'Exact'
 UNION
 SELECT "Accession_code", 'BLAST Match', "Entry_details"
   FROM macromolecules."Entity_db_link"
@@ -1814,14 +1814,14 @@ def get_bmrb_ids_from_pdb_id(pdb_id):
 
     query = '''
     SELECT bmrb_id, array_agg(link_type) from 
-(SELECT bmrb_id, 'BMRB Entry Tracking System' AS link_type, null as comment
+(SELECT bmrb_id, 'Exact' AS link_type, null as comment
   FROM web.pdb_link
   WHERE pdb_id LIKE %s
 UNION
 SELECT "Entry_ID", 'Author Provided', "Relationship"
   FROM macromolecules."Related_entries"
   WHERE "Database_accession_code" LIKE %s AND "Database_name" = 'PDB'
-    AND "Relationship" != 'BMRB Entry Tracking System'
+    AND "Relationship" != 'Exact'
 UNION
 SELECT "Entry_ID", 'BLAST Match', "Entry_details"
   FROM macromolecules."Entity_db_link"

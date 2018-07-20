@@ -489,7 +489,7 @@ The `pdb_id` field will contain the PDB ID of the match.
 
 The following match types are possible for `match_type`:
 
-* `BMRB Entry Tracking System` - The entry is an exact match as tracked
+* `Exact` - The entry is an exact match as tracked
 by the BMRB entry tracking system. There is a one-to-one correspondence between
 this queried entry and the provided PDB ID.
 * `BLAST Match` - The entry was found during a routine BLAST search.
