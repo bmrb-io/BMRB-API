@@ -319,9 +319,11 @@ def get_bmrb_data_from_pdb_id(pdb_id=None):
 
     result = []
     for item in querymod.get_bmrb_ids_from_pdb_id(pdb_id):
-        result.append({'bmrb_id': item['bmrb_id'], 'match_types': item['match_types'],
-                       'url': 'http://www.bmrb.wisc.edu/data_library/summary/index.php?bmrbId=%s' % item['bmrb_id'],
-                       'data': querymod.get_extra_data_available(item['bmrb_id'])})
+        data = querymod.get_extra_data_available(item['bmrb_id'])
+        if data:
+            result.append({'bmrb_id': item['bmrb_id'], 'match_types': item['match_types'],
+                           'url': 'http://www.bmrb.wisc.edu/data_library/summary/index.php?bmrbId=%s' % item['bmrb_id'],
+                           'data': data})
 
     return jsonify(result)
 
