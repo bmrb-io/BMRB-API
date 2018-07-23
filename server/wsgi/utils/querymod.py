@@ -19,6 +19,8 @@ from decimal import Decimal
 from time import time as unix_time
 from tempfile import NamedTemporaryFile
 
+from flask import url_for
+
 try:
     import simplejson as json
 except ImportError:
@@ -1867,7 +1869,7 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
     for row in cur.fetchall():
         if row['type'] == 'time_domain_data':
             extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
-                               'thumbnail_url': 'http://www.bmrb.wisc.edu/images/fid.svg',
+                               'thumbnail_url': url_for('send_svg', _external=True),
                                'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
         elif row['type'] != "assigned_chemical_shifts":
             saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]

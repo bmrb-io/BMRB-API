@@ -18,7 +18,7 @@ except ImportError:
     import json
 
 # Import flask
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, Response, jsonify, send_from_directory
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -326,6 +326,13 @@ def get_bmrb_data_from_pdb_id(pdb_id=None):
                            'data': data})
 
     return jsonify(result)
+
+
+@application.route('/static/fid.svg')
+def send_svg():
+    """ Sends the FID SVG image for sake of the time-domain endpoint. """
+
+    return send_from_directory('static', 'fid.svg')
 
 
 @application.route('/search/multiple_shift_search')
