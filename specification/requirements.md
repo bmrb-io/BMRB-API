@@ -16,7 +16,7 @@
 7. Email id validation
 8. Depositor will be able to modify previously entered data in later stage 
 
-## General issues
+## General Issues
 1.	Interface with ETS
 2.	Interface with validation system
 3.	Distribution to PDBj-BMRB
@@ -26,3 +26,6 @@
 7.	In what formats will data be accepted
 8.	Will depositions be locked and not editable after submission?
 9.	Will depositors interact through annotators after completing depositions as is now?
+
+## Use Cases
+
