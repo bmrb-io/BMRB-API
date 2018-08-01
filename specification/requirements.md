@@ -26,6 +26,25 @@
 7.	In what formats will data be accepted
 8.	Will depositions be locked and not editable after submission?
 9.	Will depositors interact through annotators after completing depositions as is now?
+10. Deposition security (limit access to valid depositor or BMRB staff)
+11. Ease of access by BMRB staff to trouble shoot issues for users
+
+## Specific Issues
+### UI navigation
+1.  User has ability to jump from one section to any other section of the deposition including data upload. The user is not forced to enter data in a pre-defined order
+2.  Navigation tool is available that describes the different sections of the deposition and ability to jump from section to section
+3.  Sections with mandatory fields are clearly distinguished from sections that have no non-mandatory fields
+4.  Mandatory fields are clearly defined
+5.  Mandatory fields that have been filled in are clearly distinguished from those that have not been completed
+
+### Data upload/deletion
+1.  What kinds of data to accept?
+
+### Source of information driving deposition interface
+1.  NMR-STAR dictionary
+2.  Conditional mandatory linkages (files?)
+3.  Information field linkages - fields that can use a pull down list populated from other sections
+
 
 ## Use Cases
 
