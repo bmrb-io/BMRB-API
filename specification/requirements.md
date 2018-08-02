@@ -30,6 +30,7 @@
 11. Ease of access by BMRB staff to trouble shoot issues for users
 12. Industrial versus academic depositors
 
+
 ## Specific Issues
 ### UI navigation
 1.  User has ability to jump from one section to any other section of the deposition including data upload. The user is not forced to enter data in a pre-defined order
