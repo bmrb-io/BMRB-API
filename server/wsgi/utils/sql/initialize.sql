@@ -310,7 +310,7 @@ DROP TABLE IF EXISTS web.instant_cache_old;
 -- Load the ETS PDB links into the database
 DROP TABLE IF EXISTS web.pdb_link_tmp;
 CREATE TABLE web.pdb_link_tmp (bmrb_id text, pdb_id text);
-\copy web.pdb_link_tmp from '/website/ftp/pub/bmrb/nmr_pdb_integrated_data/adit_nmr_matched_pdb_bmrb_entry_ids.csv' with (FORMAT csv);
+\copy web.pdb_link_tmp from '/website/ftp/pub/bmrb/nmr_pdb_integrated_data/adit_nmr_matched_pdb_bmrb_entry_ids.csv' CSV;
 ALTER TABLE IF EXISTS web.pdb_link RENAME TO pdb_link_old;
 ALTER TABLE web.pdb_link_tmp RENAME TO pdb_link;
 DROP TABLE IF EXISTS web.pdb_link_old;
@@ -322,22 +322,3 @@ GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to web;
 GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to web;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to bmrb;
-
-
-
-/*
--- Query both tsv and trigram at once. Partially broken still since
--- the UNIONED results are not in the right order
-SELECT DISTINCT ON (id) * from(
-SELECT * FROM (
-  SELECT ''::text as term,''::text as term,1.5::real as sml,id,title,citations,authors,link,sub_date FROM web.instant_cache
-    WHERE tsv @@ plainto_tsquery('caffeine')
-    ORDER BY is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery('caffeine')) DESC) AS one
-UNION
-SELECT * FROM (
-  SELECT DISTINCT on (id) term,termname,similarity(tt.term, 'caffeine') as sml,tt.id,title,citations,authors,link,sub_date FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.term % 'caffeine'
-    ORDER BY id DESC, similarity(tt.term, 'caffeine') DESC) AS two) AS three;
-*/
