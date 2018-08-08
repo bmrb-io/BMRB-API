@@ -328,13 +328,6 @@ def get_bmrb_data_from_pdb_id(pdb_id=None):
     return jsonify(result)
 
 
-@application.route('/static/fid.svg')
-def send_svg():
-    """ Sends the FID SVG image for sake of the time-domain endpoint. """
-
-    return send_from_directory('static', 'fid.svg')
-
-
 @application.route('/search/multiple_shift_search')
 def multiple_shift_search():
     """ Finds entries that match at least some of the peaks. """
