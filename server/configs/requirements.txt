@@ -7,3 +7,4 @@ flask-cors>=3.0.6
 redis>=2.10.6
 requests>=2.19.1
 gitdb2==2.0.4
+git+git://github.com/uwbmrb/validate_email.git@eccaa9aaf0dfe505b97f3e177883362887f456ec
