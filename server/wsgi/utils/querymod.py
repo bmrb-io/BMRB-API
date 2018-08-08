@@ -238,7 +238,45 @@ def get_all_entries_from_redis(format_="object", database="macromolecules"):
                                         max_results=max_integer)
 
 
-def get_deposition(entry_id):
+def store_deposition(uuid, data, ip):
+    """ Store an updated entry. """
+
+    try:
+        entry = pynmrstar.Entry.from_json(data)
+    except ValueError:
+        raise RequestError("Invalid JSON uploaded. The JSON was not a valid NMR-STAR entry.")
+
+    r = get_redis_connection()
+    existing_entry = get_valid_entries_from_redis(uuid, r_conn=r).next()[1]
+
+    # If they aren't making any changes
+    if existing_entry == entry:
+        return False
+
+    if existing_entry.entry_id != entry.entry_id:
+        raise RequestError("Refusing to overwrite entry with entry of different ID.")
+
+    print(pynmrstar.diff(existing_entry, entry))
+
+    # Update the meta data
+    meta = json.loads(r.get("depositions:meta:%s" % uuid))
+    meta['last_ip'] = ip
+    r.set("depositions:meta:%s" % uuid, json.dumps(meta))
+
+    # Update the entry data
+    r.set("depositions:entry:%s" % uuid, zlib.compress(entry.get_json()))
+    entry_dir = os.path.join(configuration['repo_path'], str(uuid))
+    entry_path = os.path.join(entry_dir, 'entry.json')
+    json.dump(entry.get_json(serialize=False), open(entry_path, "w"), indent=2, sort_keys=True)
+
+    repo = Repo(entry_dir)
+    repo.index.add([entry_path])
+    repo.index.commit("Entry updated.")
+    repo.close()
+    return True
+
+
+def get_deposition(uuid):
     """ Return an entry and the associated schema."""
 
     r_conn = get_redis_connection()
@@ -246,7 +284,7 @@ def get_deposition(entry_id):
     schema_version = r_conn.get("schema_version")
 
     try:
-        entry = list(get_valid_entries_from_redis(entry_id, r_conn=r_conn))[0][1]
+        entry = list(get_valid_entries_from_redis(uuid, r_conn=r_conn))[0][1]
     except IndexError:
         raise RequestError("No such entry.")
 
@@ -259,6 +297,47 @@ def get_deposition(entry_id):
     entry = entry.get_json(serialize=False)
     entry['schema'] = schema
     return entry
+
+
+def create_new_deposition(author_email, author_orcid, headers=None):
+    """ Create a new deposition using the newest schema. """
+
+    # Check the e-mail
+    if not validate_email(author_email):
+        raise RequestError("The e-mail you provided is not a valid e-mail. Please check the e-mail you provided"
+                           "for typos.")
+    elif not validate_email(author_email, check_mx=True, smtp_timeout=1):
+        raise RequestError("The e-mail you provided is invalid. There is no e-mail server at '%s'. (Do you have "
+                           "a typo in the part of your e-mail after the @?)" %
+                           (author_email[author_email.index("@") + 1:]))
+    elif not validate_email(author_email, verify=True, sending_email='webmaster@bmrb.wisc.edu', smtp_timeout=1):
+        raise RequestError("The e-mail you provided is invalid. That e-mail address does not exist at that server."
+                           " (Do you have a typo in the e-mail address before the @?)")
+
+    # Create the deposition
+    deposition_id = str(uuid4())
+    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True)
+    entry_meta = {'deposition_id': deposition_id,
+                  'author_email': author_email,
+                  'author_orcid': author_orcid,
+                  'last_ip': headers['ip']}
+    r = get_redis_connection()
+    r.set("depositions:entry:%s" % deposition_id, zlib.compress(entry_template.get_json()))
+    r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
+
+    entry_dir = os.path.join(configuration['repo_path'], deposition_id)
+    entry_path = os.path.join(entry_dir, 'entry.json')
+    info_path = os.path.join(entry_dir, 'submission_info.json')
+    repo = Repo.init(entry_dir)
+    json.dump(entry_template.get_json(serialize=False), open(entry_path, "w"), indent=2, sort_keys=True)
+    json.dump(headers, open(info_path, "w"))
+    headers['schema_version'] = pynmrstar._get_schema().version
+    headers['meta'] = entry_meta
+    repo.index.add([entry_path, info_path])
+    repo.index.commit("Entry created.")
+    repo.close()
+
+    return deposition_id
 
 
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, r_conn=None):
@@ -321,46 +400,6 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
                             # Unknown format
                             else:
                                 raise RequestError("Invalid format: %s." % format_)
-
-
-def create_new_deposition(author_email, author_orcid, headers=None):
-    """ Create a new deposition using the newest schema. """
-
-    # Check the e-mail
-    if not validate_email(author_email):
-        raise RequestError("The e-mail you provided is not a valid e-mail. Please check the e-mail you provided"
-                           "for typos.")
-    elif not validate_email(author_email, check_mx=True, smtp_timeout=1):
-        raise RequestError("The e-mail you provided is invalid. There is no e-mail server at '%s'. (Do you have "
-                           "a typo in the part of your e-mail after the @?)" %
-                           (author_email[author_email.index("@") + 1:]))
-    elif not validate_email(author_email, verify=True, sending_email='webmaster@bmrb.wisc.edu', smtp_timeout=1):
-        raise RequestError("The e-mail you provided is invalid. That e-mail address does not exist at that server."
-                           " (Do you have a typo in the e-mail address before the @?)")
-
-    # Create the deposition
-    deposition_id = str(uuid4())
-    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True)
-    entry_meta = {'deposition_id': deposition_id,
-                  'author_email': author_email,
-                  'author_orcid': author_orcid}
-    r = get_redis_connection()
-    r.set("depositions:entry:%s" % deposition_id, zlib.compress(entry_template.get_json()))
-    r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
-
-    entry_dir = os.path.join(configuration['repo_path'], deposition_id)
-    entry_path = os.path.join(entry_dir, 'entry.json')
-    info_path = os.path.join(entry_dir, 'submission_info.json')
-    repo = Repo.init(entry_dir)
-    json.dump(entry_template.get_json(serialize=False), open(entry_path, "w"), indent=2, sort_keys=True)
-    json.dump(headers, open(info_path, "w"))
-    headers['schema_version'] = pynmrstar._get_schema().version
-    headers['meta'] = entry_meta
-    repo.index.add([entry_path, info_path])
-    repo.index.commit("Entry created.")
-    repo.close()
-
-    return deposition_id
 
 
 def store_uploaded_entry(**kwargs):

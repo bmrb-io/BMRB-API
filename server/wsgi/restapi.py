@@ -200,14 +200,14 @@ def new_deposition():
 def fetch_or_store_deposition(uuid):
     """ Fetches or stores an entry based on uuid """
 
-    if request.method == "PUT":
-        pass
-    elif request.method == "GET":
-        if not querymod.check_valid(uuid):
-            raise querymod.RequestError("Entry '%s' is not a valid deposition ID." % uuid,
-                                        status_code=404)
+    if not querymod.check_valid(uuid):
+        raise querymod.RequestError("Entry '%s' is not a valid deposition ID." % uuid,
+                                    status_code=404)
 
-    return jsonify(querymod.get_valid_entries_from_redis(uuid, format_='dict').next())
+    if request.method == "PUT":
+        return jsonify({'changed': querymod.store_deposition(uuid, request.get_json(), request.environ['REMOTE_ADDR'])})
+    elif request.method == "GET":
+        return jsonify(querymod.get_deposition(uuid))
 
 
 @application.route('/entry/', methods=('POST', 'GET'))
@@ -301,11 +301,6 @@ def get_entry(entry_id=None):
 def return_schema(schema_version="3.2.0.15"):
     """ Returns the BMRB schema as JSON. """
     return jsonify(querymod.get_schema(schema_version))
-
-
-@application.route('/get_deposition/<entry_id>')
-def get_deposition(entry_id):
-    return jsonify(querymod.get_deposition(entry_id))
 
 
 @application.route('/molprobity/')
