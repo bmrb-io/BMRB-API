@@ -37,8 +37,9 @@ from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values, DictCursor
 from psycopg2 import ProgrammingError
 import redis
-from redis.sentinel import Sentinel
 from git import Repo
+from redis.sentinel import Sentinel
+from validate_email import validate_email
 
 # Local imports
 import pynmrstar
@@ -326,6 +327,19 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
 def create_new_deposition(author_email, author_orcid, headers=None):
     """ Create a new deposition using the newest schema. """
 
+    # Check the e-mail
+    if not validate_email(author_email):
+        raise RequestError("The e-mail you provided is not a valid e-mail. Please check the e-mail you provided"
+                           "for typos.")
+    elif not validate_email(author_email, check_mx=True, smtp_timeout=1):
+        raise RequestError("The e-mail you provided is invalid. There is no e-mail server at '%s'. (Do you have "
+                           "a typo in the part of your e-mail after the @?)" %
+                           (author_email[author_email.index("@") + 1:]))
+    elif not validate_email(author_email, verify=True, sending_email='webmaster@bmrb.wisc.edu', smtp_timeout=1):
+        raise RequestError("The e-mail you provided is invalid. That e-mail address does not exist at that server."
+                           " (Do you have a typo in the e-mail address before the @?)")
+
+    # Create the deposition
     deposition_id = str(uuid4())
     entry = {'deposition_id': deposition_id,
              'entry': pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True).get_json(serialize=False),
