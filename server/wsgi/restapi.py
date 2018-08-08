@@ -196,6 +196,20 @@ def new_deposition():
     return jsonify({'deposition_id': uuid})
 
 
+@application.route('/deposition/<uuid:uuid>', methods=('GET', 'PUT'))
+def fetch_or_store_deposition(uuid):
+    """ Fetches or stores an entry based on uuid """
+
+    if request.method == "PUT":
+        pass
+    elif request.method == "GET":
+        if not querymod.check_valid(uuid):
+            raise querymod.RequestError("Entry '%s' is not a valid deposition ID." % uuid,
+                                        status_code=404)
+
+    return jsonify(querymod.get_valid_entries_from_redis(uuid, format_='dict').next())
+
+
 @application.route('/entry/', methods=('POST', 'GET'))
 @application.route('/entry/<entry_id>')
 def get_entry(entry_id=None):

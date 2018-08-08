@@ -14,9 +14,9 @@ import logging
 import textwrap
 import subprocess
 from sys import maxint as max_integer
-from uuid import uuid4
 from hashlib import md5
 from decimal import Decimal
+from uuid import uuid4, UUID
 from time import time as unix_time
 from tempfile import NamedTemporaryFile
 
@@ -122,7 +122,9 @@ def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
 
-    if entry_id.startswith("bm"):
+    if type(entry_id) is UUID:
+        return 'depositions:entry:%s' % entry_id
+    elif entry_id.startswith("bm"):
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):
         return "chemcomps:entry:%s" % entry_id
@@ -275,9 +277,6 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
     if not isinstance(search_ids, list):
         search_ids = [search_ids]
 
-    # Make sure all the entry ids are strings
-    search_ids = [str(x) for x in search_ids]
-
     # Make sure there are not too many entries
     if len(search_ids) > max_results:
         raise RequestError('Too many IDs queried. Please query %s '
@@ -341,19 +340,22 @@ def create_new_deposition(author_email, author_orcid, headers=None):
 
     # Create the deposition
     deposition_id = str(uuid4())
-    entry = {'deposition_id': deposition_id,
-             'entry': pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True).get_json(serialize=False),
-             'author_email': author_email,
-             'author_orcid': author_orcid}
+    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True)
+    entry_meta = {'deposition_id': deposition_id,
+                  'author_email': author_email,
+                  'author_orcid': author_orcid}
     r = get_redis_connection()
-    r.set("depositions:entry:%s" % deposition_id, zlib.compress(json.dumps(entry)))
+    r.set("depositions:entry:%s" % deposition_id, zlib.compress(entry_template.get_json()))
+    r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
 
     entry_dir = os.path.join(configuration['repo_path'], deposition_id)
     entry_path = os.path.join(entry_dir, 'entry.json')
     info_path = os.path.join(entry_dir, 'submission_info.json')
     repo = Repo.init(entry_dir)
-    json.dump(entry, open(entry_path, "w"), indent=2, sort_keys=True)
+    json.dump(entry_template.get_json(serialize=False), open(entry_path, "w"), indent=2, sort_keys=True)
     json.dump(headers, open(info_path, "w"))
+    headers['schema_version'] = pynmrstar._get_schema().version
+    headers['meta'] = entry_meta
     repo.index.add([entry_path, info_path])
     repo.index.commit("Entry created.")
     repo.close()
