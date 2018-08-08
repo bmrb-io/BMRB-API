@@ -6,3 +6,4 @@ svn>=0.3.45
 flask-cors>=3.0.6
 redis>=2.10.6
 requests>=2.19.1
+gitdb2==2.0.4

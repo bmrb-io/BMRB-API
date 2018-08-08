@@ -4,6 +4,8 @@
 all of the work is done in utils/querymod.py - this just routes the queries
 to the correct location and passes the results back."""
 
+from __future__ import print_function
+
 import os
 import sys
 import time
@@ -18,7 +20,7 @@ except ImportError:
     import json
 
 # Import flask
-from flask import Flask, request, Response, jsonify, send_from_directory
+from flask import Flask, request, Response, jsonify
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -174,6 +176,20 @@ def list_entries():
                                                                 'chemcomps',
                                                                 'combined']))
     return jsonify(entries)
+
+
+@application.route('/deposition/new', methods=('POST',))
+def new_deposition():
+    """ Starts a new deposition. """
+
+    request_info = request.get_json()
+    if not request_info or 'email' not in request_info:
+        raise querymod.RequestError("Must specify user e-mail to start a session.")
+
+    uuid = querymod.create_new_deposition(author_email=request_info['email'],
+                                          author_orcid=request_info.get('orcid', None))
+    
+    return jsonify({'deposition_id': uuid})
 
 
 @application.route('/entry/', methods=('POST', 'GET'))

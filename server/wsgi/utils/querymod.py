@@ -14,6 +14,7 @@ import logging
 import textwrap
 import subprocess
 from sys import maxint as max_integer
+from uuid import uuid4
 from hashlib import md5
 from decimal import Decimal
 from time import time as unix_time
@@ -37,6 +38,7 @@ from psycopg2.extras import execute_values, DictCursor
 from psycopg2 import ProgrammingError
 import redis
 from redis.sentinel import Sentinel
+from git import Repo
 
 # Local imports
 import pynmrstar
@@ -319,6 +321,30 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
                             # Unknown format
                             else:
                                 raise RequestError("Invalid format: %s." % format_)
+
+
+def create_new_deposition(author_email, author_orcid, headers=None):
+    """ Create a new deposition using the newest schema. """
+
+    deposition_id = str(uuid4())
+    entry = {'deposition_id': deposition_id,
+             'entry': pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True).get_json(serialize=False),
+             'author_email': author_email,
+             'author_orcid': author_orcid}
+    r = get_redis_connection()
+    r.set("depositions:entry:%s" % deposition_id, zlib.compress(json.dumps(entry)))
+
+    entry_dir = os.path.join(configuration['repo_path'], deposition_id)
+    entry_path = os.path.join(entry_dir, 'entry.json')
+    info_path = os.path.join(entry_dir, 'submission_info.json')
+    repo = Repo.init(entry_dir)
+    json.dump(entry, open(entry_path, "w"), indent=2, sort_keys=True)
+    json.dump(headers, open(info_path, "w"))
+    repo.index.add([entry_path, info_path])
+    repo.index.commit("Entry created.")
+    repo.close()
+
+    return deposition_id
 
 
 def store_uploaded_entry(**kwargs):
