@@ -186,9 +186,13 @@ def new_deposition():
     if not request_info or 'email' not in request_info:
         raise querymod.RequestError("Must specify user e-mail to start a session.")
 
+    request_meta = {'request': dict(request.headers),
+                    'ip': request.environ['REMOTE_ADDR'],
+                    'body': request_info}
     uuid = querymod.create_new_deposition(author_email=request_info['email'],
-                                          author_orcid=request_info.get('orcid', None))
-    
+                                          author_orcid=request_info.get('orcid', None),
+                                          headers=request_meta)
+
     return jsonify({'deposition_id': uuid})
 
 
