@@ -195,6 +195,36 @@ def list_entries():
     return jsonify(entries)
 
 
+@application.route('/deposition/validate_email/<token>')
+def validate_user(token):
+    """ Validate a user-email. """
+
+    serializer = URLSafeSerializer(application.config['SECRET_KEY'])
+    try:
+        deposition_id = serializer.loads(token)
+    except BadSignature:
+        raise querymod.RequestError('Invalid e-mail validation token. Please request a new e-mail validation message.')
+
+    r = querymod.get_redis_connection()
+    entry_meta = json.loads(r.get("depositions:meta:%s" % deposition_id))
+
+    if not entry_meta['email_validated']:
+        entry_dir = os.path.join(querymod.configuration['repo_path'], deposition_id)
+        info_path = os.path.join(entry_dir, 'submission_info.json')
+        repo = Repo.init(entry_dir)
+        entry_meta['email_validated'] = True
+        entry_meta['last_ip'] = request.environ['REMOTE_ADDR']
+        r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
+        json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
+        repo.index.add([info_path])
+        repo.config_writer().set_value("user", "name", "BMRBDep").release()
+        repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
+        repo.index.commit("E-mail validated.")
+        repo.close()
+
+    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s' % deposition_id, code=302)
+
+
 @application.route('/deposition/new', methods=('POST',))
 def new_deposition():
     """ Starts a new deposition. """
