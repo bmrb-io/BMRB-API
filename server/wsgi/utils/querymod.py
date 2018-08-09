@@ -256,8 +256,6 @@ def store_deposition(uuid, data, ip):
     if existing_entry.entry_id != entry.entry_id:
         raise RequestError("Refusing to overwrite entry with entry of different ID.")
 
-    print(pynmrstar.diff(existing_entry, entry))
-
     # Update the meta data
     meta = json.loads(r.get("depositions:meta:%s" % uuid))
     meta['last_ip'] = ip
@@ -266,8 +264,10 @@ def store_deposition(uuid, data, ip):
     # Update the entry data
     r.set("depositions:entry:%s" % uuid, zlib.compress(entry.get_json()))
     entry_dir = os.path.join(configuration['repo_path'], str(uuid))
-    entry_path = os.path.join(entry_dir, 'entry.json')
-    json.dump(entry.get_json(serialize=False), open(entry_path, "w"), indent=2, sort_keys=True)
+    entry_path = os.path.join(entry_dir, 'entry.str')
+    info_path = os.path.join(entry_dir, 'submission_info.json')
+    entry.write_to_file(entry_path)
+    json.dump(meta, open(info_path, "w"), indent=2, sort_keys=True)
 
     repo = Repo(entry_dir)
     repo.index.add([entry_path])
@@ -326,11 +326,11 @@ def create_new_deposition(author_email, author_orcid, headers=None):
     r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
 
     entry_dir = os.path.join(configuration['repo_path'], deposition_id)
-    entry_path = os.path.join(entry_dir, 'entry.json')
+    entry_path = os.path.join(entry_dir, 'entry.str')
     info_path = os.path.join(entry_dir, 'submission_info.json')
     repo = Repo.init(entry_dir)
-    json.dump(entry_template.get_json(serialize=False), open(entry_path, "w"), indent=2, sort_keys=True)
-    json.dump(headers, open(info_path, "w"))
+    entry_template.write_to_file(entry_path)
+    json.dump(headers, open(info_path, "w"), indent=2, sort_keys=True)
     headers['schema_version'] = pynmrstar._get_schema().version
     headers['meta'] = entry_meta
     repo.index.add([entry_path, info_path])
