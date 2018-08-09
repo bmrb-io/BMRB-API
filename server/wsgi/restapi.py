@@ -21,6 +21,7 @@ except ImportError:
 
 # Import flask
 from flask import Flask, request, Response, jsonify
+from flask_mail import Mail
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -39,6 +40,8 @@ if application.debug:
 
     querymod.configuration['debug'] = True
     CORS(application)
+
+application.secret_key = querymod.configuration['secret_key']
 
 # Set up the logging
 
@@ -82,21 +85,28 @@ jlogger.addHandler(application_json)
 jlogger.propagate = False
 
 # Set up the SMTP handler
-if not querymod.configuration['debug']:
+if (querymod.configuration.get('smtp')
+        and querymod.configuration['smtp'].get('server')
+        and querymod.configuration['smtp'].get('admins')):
 
-    if (querymod.configuration.get('smtp')
-            and querymod.configuration['smtp'].get('server')
-            and querymod.configuration['smtp'].get('admins')):
-
+    # Don't send error e-mails in debugging mode
+    if not querymod.configuration['debug']:
         mail_handler = SMTPHandler(mailhost=querymod.configuration['smtp']['server'],
                                    fromaddr='apierror@webapi.bmrb.wisc.edu',
                                    toaddrs=querymod.configuration['smtp']['admins'],
                                    subject='BMRB API Error occurred')
         mail_handler.setLevel(logging.WARNING)
         application.logger.addHandler(mail_handler)
-    else:
-        logging.warning("Could not set up SMTP logger because the configuration"
-                        " was not specified.")
+
+    # Set up the mail interface
+    application.config.update(
+        MAIL_SERVER=querymod.configuration['smtp']['server'],
+        MAIL_DEFAULT_SENDER='noreply@bmrb.wisc.edu'
+    )
+    mail = Mail(application)
+else:
+    logging.warning("Could not set up SMTP logger because the configuration"
+                    " was not specified.")
 
 
 # Set up error handling
@@ -191,7 +201,8 @@ def new_deposition():
                     'body': request_info}
     uuid = querymod.create_new_deposition(author_email=request_info['email'],
                                           author_orcid=request_info.get('orcid', None),
-                                          headers=request_meta)
+                                          headers=request_meta,
+                                          mail=mail)
 
     return jsonify({'deposition_id': uuid})
 

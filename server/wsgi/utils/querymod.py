@@ -38,8 +38,10 @@ from psycopg2.extras import execute_values, DictCursor
 from psycopg2 import ProgrammingError
 import redis
 from git import Repo
+from flask_mail import Message
 from redis.sentinel import Sentinel
 from validate_email import validate_email
+from itsdangerous import URLSafeSerializer
 
 # Local imports
 import pynmrstar
@@ -299,7 +301,7 @@ def get_deposition(uuid):
     return entry
 
 
-def create_new_deposition(author_email, author_orcid, headers=None):
+def create_new_deposition(author_email, author_orcid, headers, mail):
     """ Create a new deposition using the newest schema. """
 
     # Check the e-mail
@@ -338,6 +340,14 @@ def create_new_deposition(author_email, author_orcid, headers=None):
     repo.index.add([entry_path, info_path])
     repo.index.commit("Entry created.")
     repo.close()
+
+    # Ask them to confirm their e-mail
+    confirm_message = Message("Please validate your e-mail address.",
+                              recipients=[author_email])
+
+    serializer = URLSafeSerializer(configuration['secret_key']).dumps(author_email)
+    confirm_message.body = 'Please click <a href="%s">here</a> to validate your e-mail.' % serializer
+    mail.send(confirm_message)
 
     return deposition_id
 
