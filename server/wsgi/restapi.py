@@ -234,7 +234,7 @@ def new_deposition():
         raise querymod.RequestError("Must specify user e-mail to start a session.")
 
     author_email = request_info.get('email')
-    author_orcid = request_info.get('orcid', None),
+    author_orcid = request_info.get('orcid'),
 
     # Check the e-mail
     if not validate_email(author_email):
@@ -257,26 +257,29 @@ def new_deposition():
                   'last_ip': request.environ['REMOTE_ADDR'],
                   'deposition_origination': {'request': dict(request.headers),
                                              'ip': request.environ['REMOTE_ADDR'],
-                                             'body': request_info},
+                                             'post-data': request_info},
                   'email_validated': False}
     r = querymod.get_redis_connection()
     r.set("depositions:entry:%s" % deposition_id, zlib.compress(entry_template.get_json()))
-    r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
 
     entry_dir = os.path.join(querymod.configuration['repo_path'], deposition_id)
     entry_path = os.path.join(entry_dir, 'entry.str')
+    schema_path = os.path.join(entry_dir, 'schema.json')
     info_path = os.path.join(entry_dir, 'submission_info.json')
     repo = Repo.init(entry_dir)
     entry_template.write_to_file(entry_path)
-    json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
     entry_meta['schema_version'] = pynmrstar._get_schema().version
-    entry_meta['meta'] = entry_meta
-    repo.index.add([entry_path, info_path])
+    r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
+    json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
+    json.dump(querymod.get_schema(entry_meta['schema_version']), open(schema_path, "w"), indent=1, sort_keys=True)
+    repo.index.add([entry_path, info_path, schema_path])
+    repo.config_writer().set_value("user", "name", "BMRBDep").release()
+    repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
     repo.index.commit("Entry created.")
     repo.close()
 
     # Ask them to confirm their e-mail
-    confirm_message = Message("Please validate your e-mail address.",
+    confirm_message = Message("Please validate your e-mail address for BMRBDep.",
                               recipients=[author_email])
 
     token = URLSafeSerializer(querymod.configuration['secret_key']).dumps(deposition_id)
