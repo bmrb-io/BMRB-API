@@ -306,12 +306,10 @@ def fetch_or_store_deposition(uuid):
 
     # Load an entry
     elif request.method == "GET":
-        r_conn = querymod.get_redis_connection()
-        # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
-        schema_version = r_conn.get("schema_version")
 
         with depositions.DepositionRepo(uuid) as repo:
             entry = repo.get_entry()
+            schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
 
         try:
             schema = querymod.get_schema(schema_version)
