@@ -11,8 +11,14 @@ import sys
 import time
 import traceback
 import logging
+import zlib
 from logging.handlers import RotatingFileHandler, SMTPHandler
+from uuid import uuid4
+
+from git import Repo
+from itsdangerous import URLSafeSerializer, BadSignature
 from pythonjsonlogger import jsonlogger
+from validate_email import validate_email,VALID_ADDRESS_REGEXP
 
 try:
     import simplejson as json
@@ -20,8 +26,8 @@ except ImportError:
     import json
 
 # Import flask
-from flask import Flask, request, Response, jsonify
-from flask_mail import Mail
+from flask import Flask, request, Response, jsonify, url_for, redirect
+from flask_mail import Mail, Message
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -30,6 +36,7 @@ sys.path.append(local_dir)
 
 # Import the functions needed to service requests - must be after path updates
 from utils import querymod
+pynmrstar = querymod.pynmrstar
 
 # Set up the flask application
 application = Flask(__name__)
@@ -196,15 +203,58 @@ def new_deposition():
     if not request_info or 'email' not in request_info:
         raise querymod.RequestError("Must specify user e-mail to start a session.")
 
-    request_meta = {'request': dict(request.headers),
-                    'ip': request.environ['REMOTE_ADDR'],
-                    'body': request_info}
-    uuid = querymod.create_new_deposition(author_email=request_info['email'],
-                                          author_orcid=request_info.get('orcid', None),
-                                          headers=request_meta,
-                                          mail=mail)
+    author_email = request_info.get('email')
+    author_orcid = request_info.get('orcid', None),
 
-    return jsonify({'deposition_id': uuid})
+    # Check the e-mail
+    if not validate_email(author_email):
+        raise querymod.RequestError("The e-mail you provided is not a valid e-mail. Please check the e-mail you "
+                                    "provided for typos.")
+    elif not validate_email(author_email, check_mx=True, smtp_timeout=1):
+        raise querymod.RequestError("The e-mail you provided is invalid. There is no e-mail server at '%s'. (Do you "
+                                    "have a typo in the part of your e-mail after the @?)" %
+                                    (author_email[author_email.index("@") + 1:]))
+    elif not validate_email(author_email, verify=True, sending_email='webmaster@bmrb.wisc.edu', smtp_timeout=1):
+        raise querymod.RequestError("The e-mail you provided is invalid. That e-mail address does not exist at that "
+                                    "server. (Do you have a typo in the e-mail address before the @?)")
+
+    # Create the deposition
+    deposition_id = str(uuid4())
+    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True)
+    entry_meta = {'deposition_id': deposition_id,
+                  'author_email': author_email,
+                  'author_orcid': author_orcid,
+                  'last_ip': request.environ['REMOTE_ADDR'],
+                  'deposition_origination': {'request': dict(request.headers),
+                                             'ip': request.environ['REMOTE_ADDR'],
+                                             'body': request_info},
+                  'email_validated': False}
+    r = querymod.get_redis_connection()
+    r.set("depositions:entry:%s" % deposition_id, zlib.compress(entry_template.get_json()))
+    r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
+
+    entry_dir = os.path.join(querymod.configuration['repo_path'], deposition_id)
+    entry_path = os.path.join(entry_dir, 'entry.str')
+    info_path = os.path.join(entry_dir, 'submission_info.json')
+    repo = Repo.init(entry_dir)
+    entry_template.write_to_file(entry_path)
+    json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
+    entry_meta['schema_version'] = pynmrstar._get_schema().version
+    entry_meta['meta'] = entry_meta
+    repo.index.add([entry_path, info_path])
+    repo.index.commit("Entry created.")
+    repo.close()
+
+    # Ask them to confirm their e-mail
+    confirm_message = Message("Please validate your e-mail address.",
+                              recipients=[author_email])
+
+    token = URLSafeSerializer(querymod.configuration['secret_key']).dumps(deposition_id)
+    confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.' % \
+                           (url_for('validate_user', token=token, _external=True), deposition_id)
+    mail.send(confirm_message)
+
+    return jsonify({'deposition_id': deposition_id})
 
 
 @application.route('/deposition/<uuid:uuid>', methods=('GET', 'PUT'))
