@@ -217,8 +217,6 @@ def validate_user(token):
         r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
         json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
         repo.index.add([info_path])
-        repo.config_writer().set_value("user", "name", "BMRBDep").release()
-        repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
         repo.index.commit("E-mail validated.")
         repo.close()
 
@@ -298,10 +296,63 @@ def fetch_or_store_deposition(uuid):
         raise querymod.RequestError("Entry '%s' is not a valid deposition ID." % uuid,
                                     status_code=404)
 
+    # Store an entry
     if request.method == "PUT":
-        return jsonify({'changed': querymod.store_deposition(uuid, request.get_json(), request.environ['REMOTE_ADDR'])})
+        try:
+            entry = pynmrstar.Entry.from_json(request.get_json())
+        except ValueError:
+            raise querymod.RequestError("Invalid JSON uploaded. The JSON was not a valid NMR-STAR entry.")
+
+        r = querymod.get_redis_connection()
+        existing_entry = querymod.get_valid_entries_from_redis(uuid, r_conn=r).next()[1]
+
+        # If they aren't making any changes
+        if existing_entry == entry:
+            return jsonify({'changed': False})
+
+        if existing_entry.entry_id != entry.entry_id:
+            raise querymod.RequestError("Refusing to overwrite entry with entry of different ID.")
+
+        # Update the meta data
+        meta = json.loads(r.get("depositions:meta:%s" % uuid))
+        meta['last_ip'] = request.environ['REMOTE_ADDR']
+        r.set("depositions:meta:%s" % uuid, json.dumps(meta))
+
+        # Update the entry data
+        r.set("depositions:entry:%s" % uuid, zlib.compress(entry.get_json()))
+        entry_dir = os.path.join(querymod.configuration['repo_path'], str(uuid))
+        entry_path = os.path.join(entry_dir, 'entry.str')
+        info_path = os.path.join(entry_dir, 'submission_info.json')
+        entry.write_to_file(entry_path)
+        json.dump(meta, open(info_path, "w"), indent=2, sort_keys=True)
+
+        repo = Repo(entry_dir)
+        repo.index.add([entry_path])
+        repo.index.commit("Entry updated.")
+        repo.close()
+
+        return jsonify({'changed': True})
+
+    # Load an entry
     elif request.method == "GET":
-        return jsonify(querymod.get_deposition(uuid))
+        r_conn = querymod.get_redis_connection()
+        # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
+        schema_version = r_conn.get("schema_version")
+
+        try:
+            entry = list(querymod.get_valid_entries_from_redis(uuid, r_conn=r_conn))[0][1]
+        except IndexError:
+            raise querymod.RequestError("No such entry.")
+
+        try:
+            schema = querymod.get_schema(schema_version)
+        except querymod.RequestError:
+            raise querymod.ServerError("Entry specifies schema that doesn't exist on the "
+                                       "server: %s" % schema_version)
+
+        entry = entry.get_json(serialize=False)
+        entry['schema'] = schema
+        return jsonify(entry)
 
 
 @application.route('/entry/', methods=('POST', 'GET'))
