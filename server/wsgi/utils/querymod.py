@@ -320,7 +320,9 @@ def create_new_deposition(author_email, author_orcid, headers=None):
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
                   'author_orcid': author_orcid,
-                  'last_ip': headers['ip']}
+                  'last_ip': headers['ip'],
+                  'deposition_origination': headers,
+                  'email_validated': False}
     r = get_redis_connection()
     r.set("depositions:entry:%s" % deposition_id, zlib.compress(entry_template.get_json()))
     r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
@@ -330,7 +332,7 @@ def create_new_deposition(author_email, author_orcid, headers=None):
     info_path = os.path.join(entry_dir, 'submission_info.json')
     repo = Repo.init(entry_dir)
     entry_template.write_to_file(entry_path)
-    json.dump(headers, open(info_path, "w"), indent=2, sort_keys=True)
+    json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
     headers['schema_version'] = pynmrstar._get_schema().version
     headers['meta'] = entry_meta
     repo.index.add([entry_path, info_path])
