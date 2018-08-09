@@ -37,6 +37,7 @@ sys.path.append(local_dir)
 # Import the functions needed to service requests - must be after path updates
 from utils import querymod
 pynmrstar = querymod.pynmrstar
+from utils import depositions
 
 # Set up the flask application
 application = Flask(__name__)
@@ -205,20 +206,14 @@ def validate_user(token):
     except BadSignature:
         raise querymod.RequestError('Invalid e-mail validation token. Please request a new e-mail validation message.')
 
-    r = querymod.get_redis_connection()
-    entry_meta = json.loads(r.get("depositions:meta:%s" % deposition_id))
+    with depositions.DepositionRepo(deposition_id) as repo:
+        entry_meta = repo.get_metadata()
 
-    if not entry_meta['email_validated']:
-        entry_dir = os.path.join(querymod.configuration['repo_path'], deposition_id)
-        info_path = os.path.join(entry_dir, 'submission_info.json')
-        repo = Repo.init(entry_dir)
-        entry_meta['email_validated'] = True
-        entry_meta['last_ip'] = request.environ['REMOTE_ADDR']
-        r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
-        json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
-        repo.index.add([info_path])
-        repo.index.commit("E-mail validated.")
-        repo.close()
+        if not entry_meta['email_validated']:
+            entry_meta['email_validated'] = True
+            entry_meta['last_ip'] = request.environ['REMOTE_ADDR']
+            repo.write_metadata(entry_meta)
+            repo.commit("E-mail validated.")
 
     return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s' % deposition_id, code=302)
 
@@ -257,29 +252,18 @@ def new_deposition():
                                              'ip': request.environ['REMOTE_ADDR'],
                                              'post-data': request_info},
                   'email_validated': False}
-    r = querymod.get_redis_connection()
-    r.set("depositions:entry:%s" % deposition_id, zlib.compress(entry_template.get_json()))
 
-    entry_dir = os.path.join(querymod.configuration['repo_path'], deposition_id)
-    entry_path = os.path.join(entry_dir, 'entry.str')
-    schema_path = os.path.join(entry_dir, 'schema.json')
-    info_path = os.path.join(entry_dir, 'submission_info.json')
-    repo = Repo.init(entry_dir)
-    entry_template.write_to_file(entry_path)
-    entry_meta['schema_version'] = pynmrstar._get_schema().version
-    r.set("depositions:meta:%s" % deposition_id, json.dumps(entry_meta))
-    json.dump(entry_meta, open(info_path, "w"), indent=2, sort_keys=True)
-    json.dump(querymod.get_schema(entry_meta['schema_version']), open(schema_path, "w"), indent=1, sort_keys=True)
-    repo.index.add([entry_path, info_path, schema_path])
-    repo.config_writer().set_value("user", "name", "BMRBDep").release()
-    repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
-    repo.index.commit("Entry created.")
-    repo.close()
+    # Initialize the repo
+    with depositions.DepositionRepo(deposition_id, initialize=True) as repo:
+        entry_meta['schema_version'] = pynmrstar._get_schema().version
+
+        repo.write_entry(entry_template)
+        repo.write_metadata(entry_meta)
+        repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])))
+        repo.commit("Entry created.")
 
     # Ask them to confirm their e-mail
-    confirm_message = Message("Please validate your e-mail address for BMRBDep.",
-                              recipients=[author_email])
-
+    confirm_message = Message("Please validate your e-mail address for BMRBDep.", recipients=[author_email])
     token = URLSafeSerializer(querymod.configuration['secret_key']).dumps(deposition_id)
     confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.' % \
                            (url_for('validate_user', token=token, _external=True), deposition_id)
@@ -292,10 +276,6 @@ def new_deposition():
 def fetch_or_store_deposition(uuid):
     """ Fetches or stores an entry based on uuid """
 
-    if not querymod.check_valid(uuid):
-        raise querymod.RequestError("Entry '%s' is not a valid deposition ID." % uuid,
-                                    status_code=404)
-
     # Store an entry
     if request.method == "PUT":
         try:
@@ -303,35 +283,26 @@ def fetch_or_store_deposition(uuid):
         except ValueError:
             raise querymod.RequestError("Invalid JSON uploaded. The JSON was not a valid NMR-STAR entry.")
 
-        r = querymod.get_redis_connection()
-        existing_entry = querymod.get_valid_entries_from_redis(uuid, r_conn=r).next()[1]
+        with depositions.DepositionRepo(uuid) as repo:
+            existing_entry = repo.get_entry()
 
-        # If they aren't making any changes
-        if existing_entry == entry:
-            return jsonify({'changed': False})
+            # If they aren't making any changes
+            if existing_entry == entry:
+                return jsonify({'changed': False})
 
-        if existing_entry.entry_id != entry.entry_id:
-            raise querymod.RequestError("Refusing to overwrite entry with entry of different ID.")
+            if existing_entry.entry_id != entry.entry_id:
+                raise querymod.RequestError("Refusing to overwrite entry with entry of different ID.")
 
-        # Update the meta data
-        meta = json.loads(r.get("depositions:meta:%s" % uuid))
-        meta['last_ip'] = request.environ['REMOTE_ADDR']
-        r.set("depositions:meta:%s" % uuid, json.dumps(meta))
+            # Update the meta data
+            meta = repo.get_metadata()
+            meta['last_ip'] = request.environ['REMOTE_ADDR']
 
-        # Update the entry data
-        r.set("depositions:entry:%s" % uuid, zlib.compress(entry.get_json()))
-        entry_dir = os.path.join(querymod.configuration['repo_path'], str(uuid))
-        entry_path = os.path.join(entry_dir, 'entry.str')
-        info_path = os.path.join(entry_dir, 'submission_info.json')
-        entry.write_to_file(entry_path)
-        json.dump(meta, open(info_path, "w"), indent=2, sort_keys=True)
+            # Update the entry data
+            repo.write_entry(entry)
+            repo.write_metadata(meta)
+            repo.commit("Entry updated.")
 
-        repo = Repo(entry_dir)
-        repo.index.add([entry_path])
-        repo.index.commit("Entry updated.")
-        repo.close()
-
-        return jsonify({'changed': True})
+            return jsonify({'changed': True})
 
     # Load an entry
     elif request.method == "GET":
@@ -339,10 +310,8 @@ def fetch_or_store_deposition(uuid):
         # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
         schema_version = r_conn.get("schema_version")
 
-        try:
-            entry = list(querymod.get_valid_entries_from_redis(uuid, r_conn=r_conn))[0][1]
-        except IndexError:
-            raise querymod.RequestError("No such entry.")
+        with depositions.DepositionRepo(uuid) as repo:
+            entry = repo.get_entry()
 
         try:
             schema = querymod.get_schema(schema_version)
