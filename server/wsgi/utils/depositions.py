@@ -33,6 +33,7 @@ class DepositionRepo:
                 self.repo = Repo.init(self.entry_dir)
                 self.repo.config_writer().set_value("user", "name", "BMRBDep").release()
                 self.repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
+                os.mkdir(os.path.join(self.entry_dir, 'data_files'))
             else:
                 self.repo = Repo(self.entry_dir)
         except NoSuchPathError:
@@ -67,12 +68,14 @@ class DepositionRepo:
         """ Save an entry in the standard place. """
 
         self.metadata['last_ip'] = flask.request.environ['REMOTE_ADDR']
-        self.write_file('entry.str', str(entry))
+        self.write_file('entry.str', str(entry), root=True)
 
-    def get_file(self, filename, raw_file=False):
+    def get_file(self, filename, raw_file=False, root=True):
         """ Returns the current version of a file from the repo. """
 
         filename = werkzeug.utils.secure_filename(filename)
+        if not root:
+            filename = os.path.join('data_files', filename)
         try:
             file_obj = open(os.path.join(self.entry_dir, filename), "r")
             if raw_file:
@@ -82,10 +85,13 @@ class DepositionRepo:
         except IOError:
             raise querymod.RequestError('No file with that name saved for this entry.')
 
-    def write_file(self, filename, data):
+    def write_file(self, filename, data, root=False):
         """ Adds (or overwrites) a file to the repo. """
 
         filename = werkzeug.utils.secure_filename(filename)
+        if not root:
+            filename = os.path.join('data_files', filename)
+
         with open(os.path.join(self.entry_dir, filename), "wb") as fo:
             fo.write(data)
         self.modified_files.append(filename)
@@ -97,7 +103,9 @@ class DepositionRepo:
 
         # Check if the metadata has changed
         if self._live_metadata != self._original_metadata:
-            self.write_file('submission_info.json', json.dumps(self._live_metadata, indent=2, sort_keys=True))
+            self.write_file('submission_info.json',
+                            json.dumps(self._live_metadata, indent=2, sort_keys=True),
+                            root=True)
             self._original_metadata = self._live_metadata.copy()
 
         # No recorded changes

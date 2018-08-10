@@ -247,14 +247,14 @@ def new_deposition():
                                              'ip': request.environ['REMOTE_ADDR'],
                                              'post-data': request_info},
                   'email_validated': False,
-                  'schema_version': pynmrstar._get_schema().version}
+                  'schema_version': entry_template.get_tag('_Entry.NMR_STAR_version')[0]}
 
     # Initialize the repo
     with depositions.DepositionRepo(deposition_id, initialize=True) as repo:
         # Manually set the metadata during object creation - never should be done this way elsewhere
         repo._live_metadata = entry_meta
         repo.write_entry(entry_template)
-        repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])))
+        repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])), root=True)
         repo.commit("Entry created.")
 
     # Ask them to confirm their e-mail
@@ -271,7 +271,8 @@ def new_deposition():
 def get_file(uuid, filename):
 
     with depositions.DepositionRepo(uuid) as repo:
-        return send_file(repo.get_file(filename, raw_file=True), attachment_filename=secure_filename(filename))
+        return send_file(repo.get_file(filename, raw_file=True, root=False),
+                         attachment_filename=secure_filename(filename))
 
 
 @application.route('/deposition/<uuid:uuid>/file', methods=('POST',))
