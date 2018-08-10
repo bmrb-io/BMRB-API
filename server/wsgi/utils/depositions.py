@@ -8,6 +8,9 @@ import json
 from git import Repo, NoSuchPathError
 import querymod
 
+import werkzeug.utils
+import flask
+
 
 class DepositionRepo:
     """ A class to interface with git repos for depositions. """
@@ -33,6 +36,8 @@ class DepositionRepo:
         except NoSuchPathError:
             raise querymod.RequestError("'%s' is not a valid deposition ID." % self.uuid,
                                         status_code=404)
+
+        #print(flask.request.environ['REMOTE_ADDR'])
 
         return self
 
@@ -64,14 +69,20 @@ class DepositionRepo:
 
         self.write_file('entry.str', str(entry))
 
-    def get_file(self, filename):
+    def get_file(self, filename, raw_file=False):
         """ Returns the current version of a file from the repo. """
 
-        return open(os.path.join(self.entry_dir, filename), "r").read()
+        filename = werkzeug.utils.secure_filename(filename)
+        file_obj = open(os.path.join(self.entry_dir, filename), "r")
+        if raw_file:
+            return file_obj
+        else:
+            return file_obj.read()
 
     def write_file(self, filename, data):
         """ Adds (or overwrites) a file to the repo. """
 
+        filename = werkzeug.utils.secure_filename(filename)
         with open(os.path.join(self.entry_dir, filename), "wb") as fo:
             fo.write(data)
         self.modified_files.append(filename)

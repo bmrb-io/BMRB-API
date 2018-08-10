@@ -11,14 +11,12 @@ import sys
 import time
 import traceback
 import logging
-import zlib
 from logging.handlers import RotatingFileHandler, SMTPHandler
 from uuid import uuid4
 
-from git import Repo
 from itsdangerous import URLSafeSerializer, BadSignature
 from pythonjsonlogger import jsonlogger
-from validate_email import validate_email,VALID_ADDRESS_REGEXP
+from validate_email import validate_email
 
 try:
     import simplejson as json
@@ -26,7 +24,8 @@ except ImportError:
     import json
 
 # Import flask
-from flask import Flask, request, Response, jsonify, url_for, redirect
+from flask import Flask, request, Response, jsonify, url_for, redirect, send_file
+from werkzeug.utils import secure_filename
 from flask_mail import Mail, Message
 
 # Set up paths for imports and such
@@ -270,6 +269,42 @@ def new_deposition():
     mail.send(confirm_message)
 
     return jsonify({'deposition_id': deposition_id})
+
+
+@application.route('/deposition/<uuid:uuid>/file/<filename>')
+def get_file(uuid, filename):
+
+    with depositions.DepositionRepo(uuid) as repo:
+        return send_file(repo.get_file(filename, raw_file=True), attachment_filename=secure_filename(filename))
+
+
+@application.route('/deposition/<uuid:uuid>/file', methods=('POST',))
+def store_file(uuid):
+    """ Stores a data file based on uuid. """
+
+    file_obj = request.files.get('file', None)
+
+    if not file_obj or not file_obj.filename:
+        raise querymod.RequestError('No file uploaded!')
+
+    # Store a data file
+    with depositions.DepositionRepo(uuid) as repo:
+        metadata = repo.get_metadata()
+        if not metadata['email_validated']:
+            raise querymod.RequestError('Please validate your e-mail before uploading files.')
+
+        filename = secure_filename(file_obj.filename)
+        repo.write_file(filename, file_obj.read())
+
+        # Update the meta data
+        metadata['last_ip'] = request.environ['REMOTE_ADDR']
+
+        # Update the entry data
+        repo.write_metadata(metadata)
+        if repo.commit("User uploaded file: %s" % filename):
+            return jsonify({'filename': filename})
+        else:
+            raise querymod.RequestError('Same file with same contents uploaded twice.')
 
 
 @application.route('/deposition/<uuid:uuid>', methods=('GET', 'PUT'))
