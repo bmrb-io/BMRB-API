@@ -21,6 +21,8 @@ class DepositionRepo:
         self.initialize = initialize
         self.entry_dir = None
         self.modified_files = []
+        self._live_metadata = None
+        self._original_metadata = None
 
     def __enter__(self):
         """ Get a session cookie to use for future requests. """
@@ -37,26 +39,23 @@ class DepositionRepo:
             raise querymod.RequestError("'%s' is not a valid deposition ID." % self.uuid,
                                         status_code=404)
 
-        #print(flask.request.environ['REMOTE_ADDR'])
-
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         """ End the current session."""
 
-        if self.modified_files:
-            self.commit("Repo closed without a commit... Potential software bug.")
+        # If nothing changed the commit won't do anything
+        self.commit("Repo closed with changed but without a manual commit... Potential software bug.")
         self.repo.close()
 
-    def get_metadata(self):
+    @property
+    def metadata(self):
         """ Return the metadata dictionary. """
 
-        return json.loads(self.get_file('submission_info.json'))
-
-    def write_metadata(self, metadata):
-        """ Return the metadata dictionary. """
-
-        self.write_file('submission_info.json', json.dumps(metadata, indent=2, sort_keys=True))
+        if not self._live_metadata:
+            self._live_metadata = json.loads(self.get_file('submission_info.json'))
+            self._original_metadata = self._live_metadata.copy()
+        return self._live_metadata
 
     def get_entry(self):
         """ Return the NMR-STAR entry for this entry. """
@@ -67,17 +66,21 @@ class DepositionRepo:
     def write_entry(self, entry):
         """ Save an entry in the standard place. """
 
+        self.metadata['last_ip'] = flask.request.environ['REMOTE_ADDR']
         self.write_file('entry.str', str(entry))
 
     def get_file(self, filename, raw_file=False):
         """ Returns the current version of a file from the repo. """
 
         filename = werkzeug.utils.secure_filename(filename)
-        file_obj = open(os.path.join(self.entry_dir, filename), "r")
-        if raw_file:
-            return file_obj
-        else:
-            return file_obj.read()
+        try:
+            file_obj = open(os.path.join(self.entry_dir, filename), "r")
+            if raw_file:
+                return file_obj
+            else:
+                return file_obj.read()
+        except IOError:
+            raise querymod.RequestError('No file with that name saved for this entry.')
 
     def write_file(self, filename, data):
         """ Adds (or overwrites) a file to the repo. """
@@ -89,6 +92,13 @@ class DepositionRepo:
 
     def commit(self, message):
         """ Commits the changes to the repository with a message. """
+
+        self.metadata['last_ip'] = flask.request.environ['REMOTE_ADDR']
+
+        # Check if the metadata has changed
+        if self._live_metadata != self._original_metadata:
+            self.write_file('submission_info.json', json.dumps(self._live_metadata, indent=2, sort_keys=True))
+            self._original_metadata = self._live_metadata.copy()
 
         # No recorded changes
         if not self.modified_files:

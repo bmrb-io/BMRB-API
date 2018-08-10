@@ -206,12 +206,8 @@ def validate_user(token):
         raise querymod.RequestError('Invalid e-mail validation token. Please request a new e-mail validation message.')
 
     with depositions.DepositionRepo(deposition_id) as repo:
-        entry_meta = repo.get_metadata()
-
-        if not entry_meta['email_validated']:
-            entry_meta['email_validated'] = True
-            entry_meta['last_ip'] = request.environ['REMOTE_ADDR']
-            repo.write_metadata(entry_meta)
+        if not repo.metadata['email_validated']:
+            repo.metadata['email_validated'] = True
             repo.commit("E-mail validated.")
 
     return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s' % deposition_id, code=302)
@@ -250,14 +246,14 @@ def new_deposition():
                   'deposition_origination': {'request': dict(request.headers),
                                              'ip': request.environ['REMOTE_ADDR'],
                                              'post-data': request_info},
-                  'email_validated': False}
+                  'email_validated': False,
+                  'schema_version': pynmrstar._get_schema().version}
 
     # Initialize the repo
     with depositions.DepositionRepo(deposition_id, initialize=True) as repo:
-        entry_meta['schema_version'] = pynmrstar._get_schema().version
-
+        # Manually set the metadata during object creation - never should be done this way elsewhere
+        repo._live_metadata = entry_meta
         repo.write_entry(entry_template)
-        repo.write_metadata(entry_meta)
         repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])))
         repo.commit("Entry created.")
 
@@ -289,18 +285,13 @@ def store_file(uuid):
 
     # Store a data file
     with depositions.DepositionRepo(uuid) as repo:
-        metadata = repo.get_metadata()
-        if not metadata['email_validated']:
+        if not repo.metadata['email_validated']:
             raise querymod.RequestError('Please validate your e-mail before uploading files.')
 
         filename = secure_filename(file_obj.filename)
         repo.write_file(filename, file_obj.read())
 
-        # Update the meta data
-        metadata['last_ip'] = request.environ['REMOTE_ADDR']
-
         # Update the entry data
-        repo.write_metadata(metadata)
         if repo.commit("User uploaded file: %s" % filename):
             return jsonify({'filename': filename})
         else:
@@ -328,13 +319,8 @@ def fetch_or_store_deposition(uuid):
             if existing_entry.entry_id != entry.entry_id:
                 raise querymod.RequestError("Refusing to overwrite entry with entry of different ID.")
 
-            # Update the meta data
-            meta = repo.get_metadata()
-            meta['last_ip'] = request.environ['REMOTE_ADDR']
-
             # Update the entry data
             repo.write_entry(entry)
-            repo.write_metadata(meta)
             repo.commit("Entry updated.")
 
             return jsonify({'changed': True})
