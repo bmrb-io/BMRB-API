@@ -13,7 +13,10 @@ import flask
 
 
 class DepositionRepo:
-    """ A class to interface with git repos for depositions. """
+    """ A class to interface with git repos for depositions.
+
+    You *MUST* use the 'with' statement when using this class to ensure that
+    changes are committed."""
 
     def __init__(self, uuid, initialize=False):
         self.repo = None
@@ -67,7 +70,10 @@ class DepositionRepo:
     def write_entry(self, entry):
         """ Save an entry in the standard place. """
 
-        self.metadata['last_ip'] = flask.request.environ['REMOTE_ADDR']
+        try:
+            self.metadata['last_ip'] = flask.request.environ['REMOTE_ADDR']
+        except RuntimeError:
+            pass
         self.write_file('entry.str', str(entry), root=True)
 
     def get_file(self, filename, raw_file=False, root=True):
@@ -88,6 +94,11 @@ class DepositionRepo:
     def write_file(self, filename, data, root=False):
         """ Adds (or overwrites) a file to the repo. """
 
+        try:
+            self.metadata['last_ip'] = flask.request.environ['REMOTE_ADDR']
+        except RuntimeError:
+            pass
+
         filename = werkzeug.utils.secure_filename(filename)
         if not root:
             filename = os.path.join('data_files', filename)
@@ -98,8 +109,6 @@ class DepositionRepo:
 
     def commit(self, message):
         """ Commits the changes to the repository with a message. """
-
-        self.metadata['last_ip'] = flask.request.environ['REMOTE_ADDR']
 
         # Check if the metadata has changed
         if self._live_metadata != self._original_metadata:

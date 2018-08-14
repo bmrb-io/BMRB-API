@@ -432,7 +432,7 @@ def get_entry(entry_id=None):
 
 @application.route('/schema')
 @application.route('/schema/<schema_version>')
-def return_schema(schema_version="3.2.0.15"):
+def return_schema(schema_version="3.2.1.5"):
     """ Returns the BMRB schema as JSON. """
     return jsonify(querymod.get_schema(schema_version))
 
