@@ -51,6 +51,7 @@ class DepositionRepo:
         # If nothing changed the commit won't do anything
         self.commit("Repo closed with changed but without a manual commit... Potential software bug.")
         self.repo.close()
+        self.repo.__del__()
 
     @property
     def metadata(self):
