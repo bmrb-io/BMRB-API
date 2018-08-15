@@ -54,7 +54,8 @@ def get_main_schema(rev):
 
     cc = ['Tag', 'Tag category', 'SFCategory', 'BMRB data type', 'Prompt', 'Interface',
           'default value', 'Example', 'User full view',
-          'Foreign Table', 'Sf pointer', 'Item enumerated', 'Item enumeration closed', 'ADIT category view name']
+          'Foreign Table', 'Sf pointer', 'Item enumerated', 'Item enumeration closed', 'ADIT category view name',
+          'Enumeration ties']
     # Todo: remove ADIT category view name once code is refactored
 
     header_idx = {x: all_headers.index(x) for x in cc}
