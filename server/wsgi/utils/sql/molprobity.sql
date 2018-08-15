@@ -1,8 +1,6 @@
 -- Molprobity schema
 
--- Activate once psql>=9.3
---CREATE SCHEMA IF NOT EXISTS molprobity;
-
+CREATE SCHEMA IF NOT EXISTS molprobity;
 
 DROP TABLE IF EXISTS molprobity.oneline_tmp;
 CREATE table molprobity.oneline_tmp (

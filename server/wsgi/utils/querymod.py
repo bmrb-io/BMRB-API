@@ -16,6 +16,7 @@ import subprocess
 from sys import maxint as max_integer
 from hashlib import md5
 from decimal import Decimal
+from uuid import UUID
 from time import time as unix_time
 from tempfile import NamedTemporaryFile
 
@@ -119,7 +120,9 @@ def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
 
-    if entry_id.startswith("bm"):
+    if type(entry_id) is UUID:
+        return 'depositions:entry:%s' % entry_id
+    elif entry_id.startswith("bm"):
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):
         return "chemcomps:entry:%s" % entry_id
@@ -233,29 +236,6 @@ def get_all_entries_from_redis(format_="object", database="macromolecules"):
                                         max_results=max_integer)
 
 
-def get_deposition(entry_id):
-    """ Return an entry and the associated schema."""
-
-    r_conn = get_redis_connection()
-    # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
-    schema_version = r_conn.get("schema_version")
-
-    try:
-        entry = list(get_valid_entries_from_redis(entry_id, r_conn=r_conn))[0][1]
-    except IndexError:
-        raise RequestError("No such entry.")
-
-    try:
-        schema = get_schema(schema_version)
-    except RequestError:
-        raise ServerError("Entry specifies schema that doesn't exist on the "
-                          "server: %s" % schema_version)
-
-    entry = entry.get_json(serialize=False)
-    entry['schema'] = schema
-    return entry
-
-
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, r_conn=None):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
@@ -271,9 +251,6 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
         search_ids = [search_ids]
-
-    # Make sure all the entry ids are strings
-    search_ids = [str(x) for x in search_ids]
 
     # Make sure there are not too many entries
     if len(search_ids) > max_results:

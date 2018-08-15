@@ -27,5 +27,12 @@
     },
     "debug": false,
     "timedomain_directory": "/timedomain/directory/",
-    "local-ips": ["127.0.0.1", "your.sub.net"]
+    "repo_path": "/tmp/repo",
+    "local-ips": ["127.0.0.1", "your.sub.net"],
+    "secret_key": "CHANGE_ME!",
+    "log": {
+        "json": "/tmp/api_json_configure.log",
+        "request": "/tmp/api_request_configure.log",
+        "application": "/tmp/api_application_configure.log"
+    }
 }
