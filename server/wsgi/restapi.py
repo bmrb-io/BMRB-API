@@ -239,6 +239,11 @@ def new_deposition():
     # Create the deposition
     deposition_id = str(uuid4())
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True)
+    # Set the loops to have at least one row of data
+    for saveframe in entry_template:
+        for loop in saveframe:
+            loop.data = [["."] * len(loop.tags)]
+
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
                   'author_orcid': author_orcid,
