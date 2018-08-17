@@ -14,6 +14,7 @@ import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
 from uuid import uuid4
 
+import requests
 from itsdangerous import URLSafeSerializer, BadSignature
 from pythonjsonlogger import jsonlogger
 from validate_email import validate_email
@@ -222,7 +223,7 @@ def new_deposition():
         raise querymod.RequestError("Must specify user e-mail to start a session.")
 
     author_email = request_info.get('email')
-    author_orcid = request_info.get('orcid'),
+    author_orcid = request_info.get('orcid')
 
     # Check the e-mail
     if not validate_email(author_email):
@@ -239,18 +240,64 @@ def new_deposition():
     # Create the deposition
     deposition_id = str(uuid4())
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True)
+
+    author_given = None
+    author_family = None
+
+    # Look up information based on the ORCID
+    if author_orcid:
+        r = requests.get(querymod.configuration['orcid']['url'] % author_orcid,
+                         headers={"Accept": "application/json",
+                                  'Authorization': 'Bearer %s' % querymod.configuration['orcid']['bearer']})
+        if not r.ok:
+            if r.status_code == 404:
+                raise querymod.RequestError('Invalid ORCID!')
+            else:
+                application.logger.exception('An error occurred while contacting the ORCID server.')
+        orcid_json = r.json()
+        author_given = orcid_json['person']['name']['given-names']['value']
+        author_family = orcid_json['person']['name']['family-name']['value']
+
+    # Update the loops with the data we have
+    author_loop = pynmrstar.Loop.from_scratch()
+    author_loop.add_tag(['_Entry_author.Given_name',
+                         '_Entry_author.Family_name',
+                         '_Entry_author.ORCID'])
+    author_loop.add_data([author_given,
+                          author_family,
+                          author_orcid])
+    author_loop.add_missing_tags(all_tags=True)
+    author_loop.sort_tags()
+    citation_loop = pynmrstar.Loop.from_scratch()
+    citation_loop.add_tag(['_Contact_person.Given_name',
+                           '_Contact_person.Family_name',
+                           '_Contact_person.ORCID',
+                           '_Contact_person.Email_address',
+                           '_Contact_person.Role'])
+    citation_loop.add_data([author_given,
+                            author_family,
+                            author_orcid,
+                            author_email,
+                            'principal investigator'])
+    citation_loop.add_missing_tags(all_tags=True)
+    citation_loop.sort_tags()
+
+    entry_saveframe = entry_template.get_saveframes_by_category("entry_information")[0]
+    entry_saveframe['_Entry_author'] = author_loop
+    entry_saveframe['_Contact_person'] = citation_loop
+
     # Set the loops to have at least one row of data
     for saveframe in entry_template:
         for loop in saveframe:
-            loop.data = [["."] * len(loop.tags)]
+            if not loop.data:
+                loop.data = [["."] * len(loop.tags)]
 
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
                   'author_orcid': author_orcid,
                   'last_ip': request.environ['REMOTE_ADDR'],
                   'deposition_origination': {'request': dict(request.headers),
-                                             'ip': request.environ['REMOTE_ADDR'],
-                                             'post-data': request_info},
+                                             'ip': request.environ['REMOTE_ADDR']},
                   'email_validated': False,
                   'schema_version': entry_template.get_tag('_Entry.NMR_STAR_version')[0]}
 
