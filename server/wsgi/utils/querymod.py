@@ -938,10 +938,12 @@ WHERE "Software"."Entry_ID"=%s;''', [entry_id])
     return {"columns": column_names, "data": cur.fetchall()}
 
 
-def get_schema(version):
+def get_schema(version=None):
     """ Return the schema from Redis. """
 
-    r = get_redis_connection(db=1)
+    r = get_redis_connection()
+    if not version:
+        version = r.get('schema_version')
     try:
         schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
     except TypeError:

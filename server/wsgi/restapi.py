@@ -272,13 +272,11 @@ def new_deposition():
     citation_loop.add_tag(['_Contact_person.Given_name',
                            '_Contact_person.Family_name',
                            '_Contact_person.ORCID',
-                           '_Contact_person.Email_address',
-                           '_Contact_person.Role'])
+                           '_Contact_person.Email_address'])
     citation_loop.add_data([author_given,
                             author_family,
                             author_orcid,
-                            author_email,
-                            'principal investigator'])
+                            author_email])
     citation_loop.add_missing_tags(all_tags=True)
     citation_loop.sort_tags()
 
@@ -484,7 +482,7 @@ def get_entry(entry_id=None):
 
 @application.route('/schema')
 @application.route('/schema/<schema_version>')
-def return_schema(schema_version="3.2.1.5"):
+def return_schema(schema_version=None):
     """ Returns the BMRB schema as JSON. """
     return jsonify(querymod.get_schema(schema_version))
 
