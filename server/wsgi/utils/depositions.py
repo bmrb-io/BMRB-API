@@ -19,10 +19,10 @@ class DepositionRepo:
     changes are committed."""
 
     def __init__(self, uuid, initialize=False):
-        self.repo = None
-        self.uuid = uuid
-        self.initialize = initialize
-        self.entry_dir = None
+        self._repo = None
+        self._uuid = uuid
+        self._initialize = initialize
+        self._entry_dir = None
         self._modified_files = False
         self._live_metadata = None
         self._original_metadata = None
@@ -30,17 +30,17 @@ class DepositionRepo:
     def __enter__(self):
         """ Get a session cookie to use for future requests. """
 
-        self.entry_dir = os.path.join(querymod.configuration['repo_path'], str(self.uuid))
+        self._entry_dir = os.path.join(querymod.configuration['repo_path'], str(self._uuid))
         try:
-            if self.initialize:
-                self.repo = Repo.init(self.entry_dir)
-                self.repo.config_writer().set_value("user", "name", "BMRBDep").release()
-                self.repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
-                os.mkdir(os.path.join(self.entry_dir, 'data_files'))
+            if self._initialize:
+                self._repo = Repo.init(self._entry_dir)
+                self._repo.config_writer().set_value("user", "name", "BMRBDep").release()
+                self._repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
+                os.mkdir(os.path.join(self._entry_dir, 'data_files'))
             else:
-                self.repo = Repo(self.entry_dir)
+                self._repo = Repo(self._entry_dir)
         except NoSuchPathError:
-            raise querymod.RequestError("'%s' is not a valid deposition ID." % self.uuid,
+            raise querymod.RequestError("'%s' is not a valid deposition ID." % self._uuid,
                                         status_code=404)
 
         return self
@@ -50,8 +50,8 @@ class DepositionRepo:
 
         # If nothing changed the commit won't do anything
         self.commit("Repo closed with changed but without a manual commit... Potential software bug.")
-        self.repo.close()
-        self.repo.__del__()
+        self._repo.close()
+        self._repo.__del__()
 
     @property
     def metadata(self):
@@ -65,7 +65,7 @@ class DepositionRepo:
     def get_entry(self):
         """ Return the NMR-STAR entry for this entry. """
 
-        entry_location = os.path.join(self.entry_dir, 'entry.str')
+        entry_location = os.path.join(self._entry_dir, 'entry.str')
         return querymod.pynmrstar.Entry.from_file(entry_location)
 
     def write_entry(self, entry):
@@ -84,7 +84,7 @@ class DepositionRepo:
         if not root:
             filename = os.path.join('data_files', filename)
         try:
-            file_obj = open(os.path.join(self.entry_dir, filename), "r")
+            file_obj = open(os.path.join(self._entry_dir, filename), "r")
             if raw_file:
                 return file_obj
             else:
@@ -95,13 +95,13 @@ class DepositionRepo:
     def get_data_file_list(self):
         """ Returns the list of data files associated with this deposition. """
 
-        return os.listdir(os.path.join(self.entry_dir, 'data_files'))
+        return os.listdir(os.path.join(self._entry_dir, 'data_files'))
 
     def delete_data_file(self, filename):
         """ Delete a data file by name."""
 
         filename = werkzeug.utils.secure_filename(filename)
-        os.unlink(os.path.join(self.entry_dir, 'data_files', filename))
+        os.unlink(os.path.join(self._entry_dir, 'data_files', filename))
         self._modified_files = True
 
     def write_file(self, filename, data, root=False):
@@ -116,7 +116,7 @@ class DepositionRepo:
         if not root:
             filename = os.path.join('data_files', filename)
 
-        with open(os.path.join(self.entry_dir, filename), "wb") as fo:
+        with open(os.path.join(self._entry_dir, filename), "wb") as fo:
             fo.write(data)
         self._modified_files = True
 
@@ -135,11 +135,11 @@ class DepositionRepo:
             return False
 
         # See if they wrote the same value to an existing file
-        if not self.repo.untracked_files and not [item.a_path for item in self.repo.index.diff(None)]:
+        if not self._repo.untracked_files and not [item.a_path for item in self._repo.index.diff(None)]:
             return False
 
         # Add the changes, commit
-        self.repo.git.add(all=True)
-        self.repo.git.commit(message=message)
+        self._repo.git.add(all=True)
+        self._repo.git.commit(message=message)
         self._modified_files = False
         return True
