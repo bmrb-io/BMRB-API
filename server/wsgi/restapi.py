@@ -38,6 +38,7 @@ sys.path.append(local_dir)
 from utils import querymod
 pynmrstar = querymod.pynmrstar
 from utils import depositions
+from utils.schema_loader import data_type_mapping
 
 # Set up the flask application
 application = Flask(__name__)
@@ -224,6 +225,8 @@ def new_deposition():
 
     author_email = request_info.get('email')
     author_orcid = request_info.get('orcid')
+    if not author_orcid:
+        author_orcid = None
 
     # Check the e-mail
     if not validate_email(author_email):
@@ -239,7 +242,8 @@ def new_deposition():
 
     # Create the deposition
     deposition_id = str(uuid4())
-    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True)
+    schema = pynmrstar.Schema(pynmrstar._SCHEMA_URL)
+    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
 
     author_given = None
     author_family = None
@@ -283,12 +287,18 @@ def new_deposition():
     entry_saveframe = entry_template.get_saveframes_by_category("entry_information")[0]
     entry_saveframe['_Entry_author'] = author_loop
     entry_saveframe['_Contact_person'] = citation_loop
+    entry_saveframe['UUID'] = deposition_id
 
     # Set the loops to have at least one row of data
     for saveframe in entry_template:
         for loop in saveframe:
             if not loop.data:
                 loop.data = [["."] * len(loop.tags)]
+
+    # Set the entry_interview tags
+    for tag in data_type_mapping:
+        if tag[2]:
+            entry_template['entry_interview_1'][tag[2]] = "no"
 
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
@@ -337,7 +347,7 @@ def store_file(uuid):
     # Store a data file
     with depositions.DepositionRepo(uuid) as repo:
         if not repo.metadata['email_validated']:
-            raise querymod.RequestError('Please validate your e-mail before uploading files.')
+            raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.')
 
         filename = secure_filename(file_obj.filename)
         repo.write_file(filename, file_obj.read())
@@ -346,7 +356,8 @@ def store_file(uuid):
         if repo.commit("User uploaded file: %s" % filename):
             return jsonify({'filename': filename})
         else:
-            raise querymod.RequestError('Same file with same contents uploaded twice.')
+            raise querymod.RequestError('Uploading file \'%s\': A file with the same name and contents has already been'
+                                        'uploaded.' % filename)
 
 
 @application.route('/deposition/<uuid:uuid>', methods=('GET', 'PUT'))

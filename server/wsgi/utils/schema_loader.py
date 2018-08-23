@@ -23,6 +23,38 @@ data_types = {x[0]: x[1] for x in csv.reader(open(dt_path, "rU"))}
 validate_mode = False
 
 
+data_type_mapping = [
+['Assigned NMR chemical shifts', 'assigned_chemical_shifts', 'Assigned_chem_shifts'],
+['Scalar coupling constants', 'coupling_constants', 'Coupling_constants'],  # ???????
+['Auto relaxation parameters', 'auto_relaxation', 'Auto_relaxation'],
+['Tensor data', 'tensor', 'Tensor'],
+['Interatomic distance data', 'interatomic_distance', 'Interatomic_distance'],
+['Chemical shift anisotropy', 'chem_shift_anisotropy', 'Chem_shift_anisotropy'],
+['Heteronuclear NOEs', 'heteronucl_NOEs', 'Heteronucl_NOEs'],
+['T1 (R1) NMR relaxation data', 'heteronucl_T1_relaxation', 'Heteronucl_T1_relaxation'],
+['T2 (R2) NMR relaxation data', 'heteronucl_T2_relaxation', 'Heteronucl_T2_relaxation'],
+['T1rho (R1rho) NMR relaxation data', 'heteronucl_T1rho_relaxation', 'Heteronucl_T1rho_relaxation'],
+['Order parameters', 'order_parameters', 'Order_parameters'],
+['Dynamics trajectory file', None, 'Dynamics_trajectory'],
+['Dynamics movie file', None, 'Movie'],  # ???
+['Residual dipolar couplings', 'RDCs', 'Residual_dipolar_couplings'],
+['Hydrogen exchange rates', 'H_exch_rates', 'H_exchange_rate'],
+['Hydrogen exchange protection data', 'H_exch_protection_factors', 'H_exchange_protection_factors'],
+['Chemical rate constants', 'chemical_rates', 'Chem_rate_constants'],
+['Spectral peak lists', 'spectral_peak_list', 'Spectral_peak_lists'],
+['Dipole-dipole couplings', None, 'Dipole_dipole_couplings'],
+['Quadrupolar couplings', None, 'Quadrupolar_couplings'],
+['Homonuclear NOEs', 'homonucl_NOEs', 'Homonucl_NOEs'],
+['Dipole-dipole relaxation data', 'dipole_dipole_relaxation', 'Dipole_dipole_relaxation'],
+['Dipole-dipole cross correlation data', 'dipole_dipole_cross_correlations', 'DD_cross_correlation'],
+['Dipole-CSA cross correlation data', 'dipole_CSA_cross_correlations', 'Dipole_CSA_cross_correlation'],
+['Binding constants', 'binding_data', 'Binding_constants'],
+['NMR-derived pH transitions (pKa\'s; pHmid\'s)', 'pH_param_list', 'PKa_value_data_set'],
+['NMR-derived D/H fractionation factors', 'D_H_fractionation_factors', 'D_H_fractionation_factors'],
+['Theoretical (calculated) chemical shift values', 'theoretical_chem_shifts', 'Theoretical_chem_shifts'],
+['Spectral density factors', 'spectral_density_values', 'Spectral_density_values'],
+['Other kinds of data', 'other_data_types', 'Other_kind_of_data']]
+
 def schema_emitter():
     """ Yields all the schemas in the SVN repo. """
 
@@ -30,6 +62,7 @@ def schema_emitter():
 
     for rev in range(53, cur_rev):
         yield load_schemas(rev)
+    yield load_schemas('development')
 
 
 def get_file(file_name, revision):
@@ -40,7 +73,10 @@ def get_file(file_name, revision):
     if revision < 163:
         schema_loc = "bmrb_star_v3_files/adit_input"
 
-    file_ = remote_svn.cat("%s/%s" % (schema_loc, file_name), revision=revision).splitlines()
+    if revision == "development":
+        file_ = open('nmr-star-dictionary/bmrb_only_files/adit_input/%s' % file_name, 'r').read().splitlines()
+    else:
+        file_ = remote_svn.cat("%s/%s" % (schema_loc, file_name), revision=revision).splitlines()
     file_ = StringIO('\n'.join(file_))
     return file_
 
@@ -149,5 +185,7 @@ def load_schemas(rev):
             print("Invalid enum file in version %s: %s" % (res['version'], str(e)))
     finally:
         pynmrstar.ALLOW_V2_ENTRIES = False
+
+    res['file_upload_types'] = data_type_mapping
 
     return res['version'], res
