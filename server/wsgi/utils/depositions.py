@@ -23,7 +23,7 @@ class DepositionRepo:
         self.uuid = uuid
         self.initialize = initialize
         self.entry_dir = None
-        self.modified_files = []
+        self._modified_files = False
         self._live_metadata = None
         self._original_metadata = None
 
@@ -92,6 +92,18 @@ class DepositionRepo:
         except IOError:
             raise querymod.RequestError('No file with that name saved for this entry.')
 
+    def get_data_file_list(self):
+        """ Returns the list of data files associated with this deposition. """
+
+        return os.listdir(os.path.join(self.entry_dir, 'data_files'))
+
+    def delete_data_file(self, filename):
+        """ Delete a data file by name."""
+
+        filename = werkzeug.utils.secure_filename(filename)
+        os.unlink(os.path.join(self.entry_dir, 'data_files', filename))
+        self._modified_files = True
+
     def write_file(self, filename, data, root=False):
         """ Adds (or overwrites) a file to the repo. """
 
@@ -106,7 +118,7 @@ class DepositionRepo:
 
         with open(os.path.join(self.entry_dir, filename), "wb") as fo:
             fo.write(data)
-        self.modified_files.append(filename)
+        self._modified_files = True
 
     def commit(self, message):
         """ Commits the changes to the repository with a message. """
@@ -119,7 +131,7 @@ class DepositionRepo:
             self._original_metadata = self._live_metadata.copy()
 
         # No recorded changes
-        if not self.modified_files:
+        if not self._modified_files:
             return False
 
         # See if they wrote the same value to an existing file
@@ -127,7 +139,7 @@ class DepositionRepo:
             return False
 
         # Add the changes, commit
-        self.repo.index.add(self.modified_files)
-        self.repo.index.commit(message)
-        self.modified_files = []
+        self.repo.git.add(all=True)
+        self.repo.git.commit(message=message)
+        self._modified_files = False
         return True
