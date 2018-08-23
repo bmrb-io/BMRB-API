@@ -12,6 +12,15 @@ import werkzeug.utils
 import flask
 
 
+def secure_filename(filename):
+    """ Wraps werkzeug secure_filename but raises an error if the filename comes out empty. """
+
+    filename = werkzeug.utils.secure_filename(filename)
+    if not (filename):
+        raise querymod.RequestError('Invalid upload file name. Please rename the file and try again.')
+    return filename
+
+
 class DepositionRepo:
     """ A class to interface with git repos for depositions.
 
@@ -80,7 +89,7 @@ class DepositionRepo:
     def get_file(self, filename, raw_file=False, root=True):
         """ Returns the current version of a file from the repo. """
 
-        filename = werkzeug.utils.secure_filename(filename)
+        filename = secure_filename(filename)
         if not root:
             filename = os.path.join('data_files', filename)
         try:
@@ -100,7 +109,7 @@ class DepositionRepo:
     def delete_data_file(self, filename):
         """ Delete a data file by name."""
 
-        filename = werkzeug.utils.secure_filename(filename)
+        filename = secure_filename(filename)
         os.unlink(os.path.join(self._entry_dir, 'data_files', filename))
         self._modified_files = True
 
@@ -112,13 +121,16 @@ class DepositionRepo:
         except RuntimeError:
             pass
 
-        filename = werkzeug.utils.secure_filename(filename)
+        filename = secure_filename(filename)
+        filepath = filename
         if not root:
-            filename = os.path.join('data_files', filename)
+            filepath = os.path.join('data_files', filename)
 
-        with open(os.path.join(self._entry_dir, filename), "wb") as fo:
+        with open(os.path.join(self._entry_dir, filepath), "wb") as fo:
             fo.write(data)
         self._modified_files = True
+
+        return filename
 
     def commit(self, message):
         """ Commits the changes to the repository with a message. """
