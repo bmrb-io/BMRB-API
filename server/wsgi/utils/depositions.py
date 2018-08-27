@@ -4,6 +4,8 @@ from __future__ import print_function
 
 import os
 import json
+import time
+import random
 
 from git import Repo, NoSuchPathError
 import querymod
@@ -16,7 +18,7 @@ def secure_filename(filename):
     """ Wraps werkzeug secure_filename but raises an error if the filename comes out empty. """
 
     filename = werkzeug.utils.secure_filename(filename)
-    if not (filename):
+    if not filename:
         raise querymod.RequestError('Invalid upload file name. Please rename the file and try again.')
     return filename
 
@@ -35,6 +37,7 @@ class DepositionRepo:
         self._modified_files = False
         self._live_metadata = None
         self._original_metadata = None
+        self._lock_path = os.path.join(querymod.configuration['repo_path'], str(uuid), '.git', 'api.lock')
 
     def __enter__(self):
         """ Get a session cookie to use for future requests. """
@@ -43,10 +46,20 @@ class DepositionRepo:
         try:
             if self._initialize:
                 self._repo = Repo.init(self._entry_dir)
+                with open(self._lock_path, "w") as f:
+                    f.write(str(os.getpid()))
                 self._repo.config_writer().set_value("user", "name", "BMRBDep").release()
                 self._repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
                 os.mkdir(os.path.join(self._entry_dir, 'data_files'))
             else:
+                counter = 10
+                while os.path.exists(self._lock_path):
+                    counter -= 1
+                    time.sleep(random.random())
+                    if counter <= 0:
+                        raise querymod.ServerError('Could not acquire entry directory lock.')
+                with open(self._lock_path, "w") as f:
+                    f.write(str(os.getpid()))
                 self._repo = Repo(self._entry_dir)
         except NoSuchPathError:
             raise querymod.RequestError("'%s' is not a valid deposition ID." % self._uuid,
@@ -61,6 +74,7 @@ class DepositionRepo:
         self.commit("Repo closed with changed but without a manual commit... Potential software bug.")
         self._repo.close()
         self._repo.__del__()
+        os.unlink(self._lock_path)
 
     @property
     def metadata(self):
