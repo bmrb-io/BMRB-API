@@ -52,7 +52,7 @@ class DepositionRepo:
                 self._repo.config_writer().set_value("user", "email", "bmrbhelp@bmrb.wisc.edu").release()
                 os.mkdir(os.path.join(self._entry_dir, 'data_files'))
             else:
-                counter = 10
+                counter = 100
                 while os.path.exists(self._lock_path):
                     counter -= 1
                     time.sleep(random.random())
@@ -74,7 +74,10 @@ class DepositionRepo:
         self.commit("Repo closed with changed but without a manual commit... Potential software bug.")
         self._repo.close()
         self._repo.__del__()
-        os.unlink(self._lock_path)
+        try:
+            os.unlink(self._lock_path)
+        except OSError:
+            raise querymod.ServerError('Could not remove entry lock file.')
 
     @property
     def metadata(self):
