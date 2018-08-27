@@ -55,6 +55,7 @@ data_type_mapping = [
 ['Spectral density factors', 'spectral_density_values', 'Spectral_density_values'],
 ['Other kinds of data', 'other_data_types', 'Other_kind_of_data']]
 
+
 def schema_emitter():
     """ Yields all the schemas in the SVN repo. """
 
@@ -62,7 +63,8 @@ def schema_emitter():
 
     for rev in range(53, cur_rev):
         yield load_schemas(rev)
-    yield load_schemas('development')
+    if os.path.exists('nmr-star-dictionary'):
+        yield load_schemas('development')
 
 
 def get_file(file_name, revision):
