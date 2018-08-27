@@ -380,8 +380,11 @@ def fetch_or_store_deposition(uuid):
             existing_entry = repo.get_entry()
 
             # If they aren't making any changes
-            if existing_entry == entry:
-                return jsonify({'changed': False})
+            try:
+                if existing_entry == entry:
+                    return jsonify({'changed': False})
+            except ValueError as err:
+                raise querymod.RequestError(str(err))
 
             if existing_entry.entry_id != entry.entry_id:
                 raise querymod.RequestError("Refusing to overwrite entry with entry of different ID.")
