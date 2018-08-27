@@ -327,12 +327,19 @@ def new_deposition():
     return jsonify({'deposition_id': deposition_id})
 
 
-@application.route('/deposition/<uuid:uuid>/file/<filename>')
-def get_file(uuid, filename):
+@application.route('/deposition/<uuid:uuid>/file/<filename>', methods=('GET', 'DELETE'))
+def file_operations(uuid, filename):
+    """ Either retrieve or delete a file. """
 
-    with depositions.DepositionRepo(uuid) as repo:
-        return send_file(repo.get_file(filename, raw_file=True, root=False),
-                         attachment_filename=secure_filename(filename))
+    if request.method == "GET":
+        with depositions.DepositionRepo(uuid) as repo:
+            return send_file(repo.get_file(filename, raw_file=True, root=False),
+                             attachment_filename=secure_filename(filename))
+    elif request.method == "DELETE":
+        with depositions.DepositionRepo(uuid) as repo:
+            repo.delete_data_file(filename)
+            repo.commit('Deleted file %s' % filename)
+        return jsonify({'status': 'success'})
 
 
 @application.route('/deposition/<uuid:uuid>/file', methods=('POST',))
@@ -349,15 +356,13 @@ def store_file(uuid):
         if not repo.metadata['email_validated']:
             raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.')
 
-        filename = secure_filename(file_obj.filename)
-        repo.write_file(filename, file_obj.read())
+        filename = repo.write_file(file_obj.filename, file_obj.read())
 
         # Update the entry data
         if repo.commit("User uploaded file: %s" % filename):
-            return jsonify({'filename': filename})
+            return jsonify({'filename': filename, 'changed': True})
         else:
-            raise querymod.RequestError('Uploading file \'%s\': A file with the same name and contents has already been'
-                                        'uploaded.' % filename)
+            return jsonify({'filename': filename, 'changed': False})
 
 
 @application.route('/deposition/<uuid:uuid>', methods=('GET', 'PUT'))
@@ -393,7 +398,7 @@ def fetch_or_store_deposition(uuid):
         with depositions.DepositionRepo(uuid) as repo:
             entry = repo.get_entry()
             schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
-
+            data_files = repo.get_data_file_list()
         try:
             schema = querymod.get_schema(schema_version)
         except querymod.RequestError:
@@ -402,6 +407,7 @@ def fetch_or_store_deposition(uuid):
 
         entry = entry.get_json(serialize=False)
         entry['schema'] = schema
+        entry['data_files'] = data_files
         return jsonify(entry)
 
 
