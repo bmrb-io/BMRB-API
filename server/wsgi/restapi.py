@@ -212,7 +212,7 @@ def validate_user(token):
             repo.metadata['email_validated'] = True
             repo.commit("E-mail validated.")
 
-    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s' % deposition_id, code=302)
+    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/deposited_data_files/category' % deposition_id, code=302)
 
 
 @application.route('/deposition/new', methods=('POST',))
