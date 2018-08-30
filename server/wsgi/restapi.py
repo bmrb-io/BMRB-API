@@ -244,6 +244,7 @@ def new_deposition():
     deposition_id = str(uuid4())
     schema = pynmrstar.Schema(pynmrstar._SCHEMA_URL)
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
+    entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.9.development'
 
     author_given = None
     author_family = None
@@ -354,7 +355,8 @@ def store_file(uuid):
     # Store a data file
     with depositions.DepositionRepo(uuid) as repo:
         if not repo.metadata['email_validated']:
-            raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.')
+            raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.' %
+                                        file_obj.filename)
 
         filename = repo.write_file(file_obj.filename, file_obj.read())
 

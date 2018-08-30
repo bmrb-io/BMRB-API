@@ -43,6 +43,8 @@ class DepositionRepo:
         """ Get a session cookie to use for future requests. """
 
         self._entry_dir = os.path.join(querymod.configuration['repo_path'], str(self._uuid))
+        if not os.path.exists(self._entry_dir) and not self._initialize:
+            raise querymod.RequestError('No deposition with that ID exists!')
         try:
             if self._initialize:
                 self._repo = Repo.init(self._entry_dir)
