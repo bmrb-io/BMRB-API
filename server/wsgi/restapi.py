@@ -299,8 +299,7 @@ def new_deposition():
 
     # Set the entry_interview tags
     for tag in data_type_mapping:
-        if tag[2]:
-            entry_template['entry_interview_1'][tag[2]] = "no"
+        entry_template['entry_interview_1'][tag] = "no"
 
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
