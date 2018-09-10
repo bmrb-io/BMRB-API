@@ -203,8 +203,9 @@ def validate_user(token):
 
     serializer = URLSafeSerializer(application.config['SECRET_KEY'])
     try:
-        deposition_id = serializer.loads(token)
-    except BadSignature:
+        deposition_data = serializer.loads(token)
+        deposition_id = deposition_data['deposition_id']
+    except (BadSignature, KeyError, TypeError):
         raise querymod.RequestError('Invalid e-mail validation token. Please request a new e-mail validation message.')
 
     with depositions.DepositionRepo(deposition_id) as repo:
@@ -320,7 +321,7 @@ def new_deposition():
 
     # Ask them to confirm their e-mail
     confirm_message = Message("Please validate your e-mail address for BMRBDep.", recipients=[author_email])
-    token = URLSafeSerializer(querymod.configuration['secret_key']).dumps(deposition_id)
+    token = URLSafeSerializer(querymod.configuration['secret_key']).dumps({'deposition_id': deposition_id})
     confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.' % \
                            (url_for('validate_user', token=token, _external=True), deposition_id)
     mail.send(confirm_message)
