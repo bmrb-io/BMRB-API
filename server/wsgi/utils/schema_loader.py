@@ -6,6 +6,7 @@ import os
 import re
 import csv
 import svn.remote
+from svn.exception import SvnException
 from querymod import _QUERYMOD_DIR, pynmrstar
 
 try:
@@ -22,38 +23,46 @@ data_types = {x[0]: x[1] for x in csv.reader(open(dt_path, "rU"))}
 
 validate_mode = False
 
-
-data_type_mapping = [
-['Assigned NMR chemical shifts', 'assigned_chemical_shifts', 'Assigned_chem_shifts'],
-['Scalar coupling constants', 'coupling_constants', 'Coupling_constants'],  # ???????
-['Auto relaxation parameters', 'auto_relaxation', 'Auto_relaxation'],
-['Tensor data', 'tensor', 'Tensor'],
-['Interatomic distance data', 'interatomic_distance', 'Interatomic_distance'],
-['Chemical shift anisotropy', 'chem_shift_anisotropy', 'Chem_shift_anisotropy'],
-['Heteronuclear NOEs', 'heteronucl_NOEs', 'Heteronucl_NOEs'],
-['T1 (R1) NMR relaxation data', 'heteronucl_T1_relaxation', 'Heteronucl_T1_relaxation'],
-['T2 (R2) NMR relaxation data', 'heteronucl_T2_relaxation', 'Heteronucl_T2_relaxation'],
-['T1rho (R1rho) NMR relaxation data', 'heteronucl_T1rho_relaxation', 'Heteronucl_T1rho_relaxation'],
-['Order parameters', 'order_parameters', 'Order_parameters'],
-['Dynamics trajectory file', None, 'Dynamics_trajectory'],
-['Dynamics movie file', None, 'Movie'],  # ???
-['Residual dipolar couplings', 'RDCs', 'Residual_dipolar_couplings'],
-['Hydrogen exchange rates', 'H_exch_rates', 'H_exchange_rate'],
-['Hydrogen exchange protection data', 'H_exch_protection_factors', 'H_exchange_protection_factors'],
-['Chemical rate constants', 'chemical_rates', 'Chem_rate_constants'],
-['Spectral peak lists', 'spectral_peak_list', 'Spectral_peak_lists'],
-['Dipole-dipole couplings', None, 'Dipole_dipole_couplings'],
-['Quadrupolar couplings', None, 'Quadrupolar_couplings'],
-['Homonuclear NOEs', 'homonucl_NOEs', 'Homonucl_NOEs'],
-['Dipole-dipole relaxation data', 'dipole_dipole_relaxation', 'Dipole_dipole_relaxation'],
-['Dipole-dipole cross correlation data', 'dipole_dipole_cross_correlations', 'DD_cross_correlation'],
-['Dipole-CSA cross correlation data', 'dipole_CSA_cross_correlations', 'Dipole_CSA_cross_correlation'],
-['Binding constants', 'binding_data', 'Binding_constants'],
-['NMR-derived pH transitions (pKa\'s; pHmid\'s)', 'pH_param_list', 'PKa_value_data_set'],
-['NMR-derived D/H fractionation factors', 'D_H_fractionation_factors', 'D_H_fractionation_factors'],
-['Theoretical (calculated) chemical shift values', 'theoretical_chem_shifts', 'Theoretical_chem_shifts'],
-['Spectral density factors', 'spectral_density_values', 'Spectral_density_values'],
-['Other kinds of data', 'other_data_types', 'Other_kind_of_data']]
+data_type_mapping = {'Assigned_chem_shifts': 'assigned_chemical_shifts',
+                     'Coupling_constants': 'coupling_constants',
+                     'Auto_relaxation': 'auto_relaxation',
+                     'Interatomic_distance': 'interatomic_distance',
+                     'Chem_shift_anisotropy': 'chem_shift_anisotropy',
+                     'Heteronucl_NOEs': 'heteronucl_NOEs',
+                     'Heteronucl_T1_relaxation': 'heteronucl_T1_relaxation',
+                     'Heteronucl_T2_relaxation': 'heteronucl_T2_relaxation',
+                     'Heteronucl_T1rho_relaxation': 'heteronucl_T1rho_relaxation',
+                     'Order_parameters': 'order_parameters',
+                     'Dynamics_trajectory': None,
+                     'Movie': None,
+                     'Residual_dipolar_couplings': 'RDCs',
+                     'H_exchange_rate': 'H_exch_rates',
+                     'H_exchange_protection_factors': 'H_exch_protection_factors',
+                     'Chem_rate_constants': 'chemical_rates',
+                     'Spectral_peak_lists': 'spectral_peak_list',
+                     'Dipole_dipole_couplings': None,
+                     'Quadrupolar_couplings': None,
+                     'Homonucl_NOEs': 'homonucl_NOEs',
+                     'Dipole_dipole_relaxation': 'dipole_dipole_relaxation',
+                     'DD_cross_correlation': 'dipole_dipole_cross_correations',
+                     'Dipole_CSA_cross_correlation': 'dipole_CSA_cross_correlations',
+                     'Binding_constants': 'binding_data',
+                     'PKa_value_data_set': 'pH_param_list',
+                     'D_H_fractionation_factors': 'D_H_fractionation_factors',
+                     'Theoretical_chem_shifts': 'theoretical_chem_shifts',
+                     'Spectral_density_values': 'spectral_density_values',
+                     'Other_kind_of_data': 'other_data_types',
+                     'Theoretical_coupling_constants': 'theoretical_coupling_constants',
+                     'Theoretical_heteronucl_NOEs': 'theoretical_heteronucl_NOEs',
+                     'Theoretical_T1_relaxation': 'theoretical_heteronucl_T1_relaxation',
+                     'Theoretical_T2_relaxation': 'theoretical_heteronucl_T2_relaxation',
+                     'Theoretical_auto_relaxation': 'theoretical_auto_relaxation',
+                     'Theoretical_DD_cross_correlation': 'theoretical_dipole_dipole_cross_correlations',
+                     'Timedomain_data': None,
+                     'Molecular_interactions': None,
+                     'Secondary_structure_orientations': 'secondary_structs',
+                     'Metabolite_coordinates': None
+                     }
 
 
 def schema_emitter():
@@ -107,6 +116,30 @@ def get_main_schema(rev):
         res['tags']['values'][row[header_idx['Tag']]] = [row[x].replace("$", ",") for x in header_idx_list]
 
     return res
+
+
+def get_data_file_types(rev):
+    """ Returns the list of enabled data file [description, sf_category, entry_interview.$tagname. """
+
+    try:
+        enabled_types_file = csv.reader(get_file("adit_nmr_upload_tags.csv", rev))
+    except SvnException:
+        return
+
+    pynmrstar.ALLOW_V2_ENTRIES = True
+    types_description = pynmrstar.Entry.from_file(get_file('adit_interface_dict.txt', rev))
+
+    for data_type in enabled_types_file:
+        try:
+            sf = types_description[data_type[1]]
+            type_description = sf['_Adit_item_view_name'][0].strip()
+            interview_tag = pynmrstar._format_tag(sf['_Tag'][0])
+            sf_category = data_type_mapping.get(interview_tag, None)
+            description = sf['_Description'][0]
+            yield [type_description, sf_category, interview_tag, description]
+        except Exception as e:
+            print('Something went wrong when loading the data types mapping.', repr(e))
+            return
 
 
 def get_dict(fob, headers, number_fields, skip):
@@ -188,6 +221,6 @@ def load_schemas(rev):
     finally:
         pynmrstar.ALLOW_V2_ENTRIES = False
 
-    res['file_upload_types'] = data_type_mapping
+    res['file_upload_types'] = list(get_data_file_types(rev))
 
     return res['version'], res
