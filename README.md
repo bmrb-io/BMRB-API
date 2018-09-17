@@ -477,7 +477,7 @@ Note that you need the proper tag capitalization for this method. Use
 
 #### Get associated PDB IDs for a given BMRB ID (GET)
 
-**/search/get_pdb_ids_from_bmrb_id/$pdb_id**
+**/search/get_pdb_ids_from_bmrb_id/$bmrb_id**
 
 Returns a list of dictionaries, each containing three keys corresponding to PDB IDs
 associated with the specified BMRB ID, the association between the two, and any
@@ -501,7 +501,7 @@ it will appear here.
 The `comment` field will only be present if it has a non-null value. It will contain any recorded
 notes on how the specific PDB ID is related to the queried BMRB ID if present.
 
-Example: [PDB IDs associated with BMRB ID 15000](http://webapi.bmrb.wisc.edu/v2/search/get_bmrb_ids_from_pdb_id/15000)
+Example: [PDB IDs associated with BMRB ID 15000](http://webapi.bmrb.wisc.edu/v2/search/get_pdb_ids_from_bmrb_id/15000)
 
 #### Get associated BMRB IDs for a given PDB ID (GET)
 
@@ -529,7 +529,7 @@ it will appear here.
 The `comment` field will usually be `null`, but if not, it will contain any recorded
 notes on how the specific BMRB ID is related to the queried PDB ID.
 
-Example: [BMRB IDs associated with PDB ID 2JM0](http://webapi.bmrb.wisc.edu/v2/search/get_pdb_ids_from_bmrb_id/2JM0)
+Example: [BMRB IDs associated with PDB ID 2JM0](http://webapi.bmrb.wisc.edu/v2/search/get_bmrb_ids_from_pdb_id/2JM0)
 
 
 ### Software
