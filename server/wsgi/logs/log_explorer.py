@@ -1,19 +1,26 @@
 #!/usr/bin/python3
 
-import csv
-import os, sys, json
+import os
+import sys
+import json
 import datetime
-from urllib.parse import unquote
 
-#os.system("cat /raid/www/admin/logs/api_json_v2.log* > /tmp/tmp.json")
+
+def log_generator(path='/raid/www/admin/logs/', default_name='api_json_v2.log'):
+    for file_ in os.listdir(path):
+        if file_.startswith(default_name):
+            with open(os.path.join(path, file_), 'rU') as cur_file:
+                lines = cur_file.readlines()
+                for line in lines:
+                    yield line
+
 
 scan_keys = {}
 for arg in sys.argv[1:]:
-    t,v = arg.split("=")
+    t, v = arg.split("=")
     scan_keys[t] = v
 
-sw = set()
-for line in open("tmp.json","r"):
+for line in log_generator():
     d = json.loads(line)
 
     d['time'] = datetime.datetime.fromtimestamp(d['time']).strftime('%Y-%m-%d %H:%M:%S')
@@ -26,21 +33,3 @@ for line in open("tmp.json","r"):
             show = False
     if show:
         print(te)
-
-#    if "instant" in d['path'] and d["local"] != True:
-#        key = unquote(unquote(d['path'].replace("+", " "))).lower()
-#        key = key[14:].strip()
-#        sw.add(key)
-
-
-#ss = sorted(sw)
-#with open("terms.csv", "w") as terms:
-#    for key in ss:
-#        writeit = True
-#        cp = set(ss)
-#        cp.remove(key)
-#        for tk in cp:
-#            if tk.startswith(key):
-#                writeit = False
-#        if writeit:
-#            terms.write(key + "\n")
