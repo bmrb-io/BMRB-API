@@ -213,7 +213,7 @@ def validate_user(token):
             repo.metadata['email_validated'] = True
             repo.commit("E-mail validated.")
 
-    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/entry_interview/category' % deposition_id,
+    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/deposited_data_files/category' % deposition_id,
                     code=302)
 
 
@@ -302,6 +302,7 @@ def new_deposition():
     for tag in data_type_mapping:
         entry_template['entry_interview_1'][tag] = "no"
     entry_template['entry_interview_1']['PDB_deposition'] = "no"
+    entry_template['entry_interview_1']['BMRB_deposition'] = "yes"
 
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
