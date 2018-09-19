@@ -213,7 +213,8 @@ def validate_user(token):
             repo.metadata['email_validated'] = True
             repo.commit("E-mail validated.")
 
-    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/deposited_data_files/category' % deposition_id, code=302)
+    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/entry_interview/category' % deposition_id,
+                    code=302)
 
 
 @application.route('/deposition/new', methods=('POST',))
@@ -300,6 +301,7 @@ def new_deposition():
     # Set the entry_interview tags
     for tag in data_type_mapping:
         entry_template['entry_interview_1'][tag] = "no"
+    entry_template['entry_interview_1']['PDB_deposition'] = "no"
 
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
@@ -354,9 +356,10 @@ def store_file(uuid):
 
     # Store a data file
     with depositions.DepositionRepo(uuid) as repo:
-        if not repo.metadata['email_validated']:
-            raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.' %
-                                        file_obj.filename)
+        # TODO: Consider re-enabling this with better indication of need to validate in interface
+        #if not repo.metadata['email_validated']:
+        #    raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.' %
+        #                                file_obj.filename)
 
         filename = repo.write_file(file_obj.filename, file_obj.read())
 
