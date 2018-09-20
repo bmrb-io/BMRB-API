@@ -311,7 +311,8 @@ def new_deposition():
                   'deposition_origination': {'request': dict(request.headers),
                                              'ip': request.environ['REMOTE_ADDR']},
                   'email_validated': False,
-                  'schema_version': entry_template.get_tag('_Entry.NMR_STAR_version')[0]}
+                  'schema_version': entry_template.get_tag('_Entry.NMR_STAR_version')[0],
+                  'entry_deposited': False}
 
     # Initialize the repo
     with depositions.DepositionRepo(deposition_id, initialize=True) as repo:
@@ -331,6 +332,26 @@ def new_deposition():
     return jsonify({'deposition_id': deposition_id})
 
 
+@application.route('/deposition/<uuid:uuid>/deposit', methods=('POST',))
+def deposit_entry(uuid):
+    """ Complete the deposition! """
+
+    with depositions.DepositionRepo(uuid) as repo:
+        if repo.metadata['entry_deposited']:
+            raise querymod.RequestError('Entry already deposited, no changes allowed.')
+        repo.metadata['entry_deposited'] = True
+        repo.commit('Deposition submitted!')
+
+        # Ask them to confirm their e-mail
+        message = Message("Your entry has been deposited!", recipients=[repo.metadata['author_email']])
+        message.html = 'Thank you for your deposition! The NMR-STAR representation of your entry is attached. You ' +\
+                       'will hear from our annotators in the next few days.'
+        message.attach("%s.str" % uuid, "text/plain", str(repo.get_entry()))
+        mail.send(message)
+
+    return jsonify({'status': 'success'})
+
+
 @application.route('/deposition/<uuid:uuid>/file/<filename>', methods=('GET', 'DELETE'))
 def file_operations(uuid, filename):
     """ Either retrieve or delete a file. """
@@ -341,6 +362,8 @@ def file_operations(uuid, filename):
                              attachment_filename=secure_filename(filename))
     elif request.method == "DELETE":
         with depositions.DepositionRepo(uuid) as repo:
+            if repo.metadata['entry_deposited']:
+                raise querymod.RequestError('Entry already deposited, no changes allowed.')
             repo.delete_data_file(filename)
             repo.commit('Deleted file %s' % filename)
         return jsonify({'status': 'success'})
@@ -361,6 +384,9 @@ def store_file(uuid):
         #if not repo.metadata['email_validated']:
         #    raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.' %
         #                                file_obj.filename)
+
+        if repo.metadata['entry_deposited']:
+            raise querymod.RequestError('Entry already deposited, no changes allowed.')
 
         filename = repo.write_file(file_obj.filename, file_obj.read())
 
@@ -383,6 +409,9 @@ def fetch_or_store_deposition(uuid):
             raise querymod.RequestError("Invalid JSON uploaded. The JSON was not a valid NMR-STAR entry.")
 
         with depositions.DepositionRepo(uuid) as repo:
+            if repo.metadata['entry_deposited']:
+                raise querymod.RequestError('Entry already deposited, no changes allowed.')
+
             existing_entry = repo.get_entry()
 
             # If they aren't making any changes
