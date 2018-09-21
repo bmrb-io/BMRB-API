@@ -25,7 +25,15 @@ for D in ../wsgi/releases/*/; do
     ln --symbolic -T ${D}/server/html $base
     echo "<a href='$base/'>$base</a><br>" >> index.html
 
-    echo "WSGIScriptAlias /$base         \${releases_path}/$base/server/wsgi/restapi.py" >> /websites/webapi/wsgi/releases/releases.conf
+    cat >> /websites/webapi/wsgi/releases/releases.conf << EOF
+WSGIDaemonProcess $base python-home=/websites/webapi/wsgi/releases/$base/server/wsgi/env
+WSGIProcessGroup $base
+WSGIApplicationGroup %{GLOBAL}
+
+WSGIScriptAlias /$base         \${releases_path}/$base/server/wsgi/restapi.py
+EOF
+
+    #echo "WSGIScriptAlias /$base         \${releases_path}/$base/server/wsgi/restapi.py" >> /websites/webapi/wsgi/releases/releases.conf
 done
 
 # Restart apache
