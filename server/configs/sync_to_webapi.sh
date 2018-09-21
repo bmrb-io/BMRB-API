@@ -18,6 +18,7 @@ rm index.html
 # Manually include the first server version
 echo "WSGIScriptAlias /v1/rest    \${releases_path}/v1/server/wsgi/restapi.py" > /websites/webapi/wsgi/releases/releases.conf
 echo "WSGIScriptAlias /v1/jsonrpc \${releases_path}/v1/server/wsgi/jsonapi.py" >> /websites/webapi/wsgi/releases/releases.conf
+echo '' > /websites/webapi/wsgi/releases/wsgi_process_groups.conf
 
 # Generate the new configurations
 for D in ../wsgi/releases/*/; do
@@ -29,19 +30,18 @@ for D in ../wsgi/releases/*/; do
 
     cat >> /websites/webapi/wsgi/releases/releases.conf << EOF
 
-WSGIProcessGroup $base
-WSGIApplicationGroup %{GLOBAL}
 <Location /$base>
         WSGIProcessGroup $base
 </Location>
 WSGIScriptAlias /$base         \${releases_path}/$base/server/wsgi/restapi.py
 EOF
 
-    #echo "WSGIScriptAlias /$base         \${releases_path}/$base/server/wsgi/restapi.py" >> /websites/webapi/wsgi/releases/releases.conf
 done
 
 # Restart apache
 sudo /root/send_HUP_to_apache.sh &> /dev/null
+
+exit 0
 
 # Run the tests
 errors=0
