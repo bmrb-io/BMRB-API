@@ -26,10 +26,10 @@ for D in ../wsgi/releases/*/; do
     echo "<a href='$base/'>$base</a><br>" >> index.html
 
     cat >> /websites/webapi/wsgi/releases/releases.conf << EOF
+
 WSGIDaemonProcess $base python-home=/websites/webapi/wsgi/releases/$base/server/wsgi/env
 WSGIProcessGroup $base
 WSGIApplicationGroup %{GLOBAL}
-
 WSGIScriptAlias /$base         \${releases_path}/$base/server/wsgi/restapi.py
 EOF
 
