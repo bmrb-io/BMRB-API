@@ -27,7 +27,7 @@ for D in ../wsgi/releases/*/; do
 
     cat >> /websites/webapi/wsgi/releases/releases.conf << EOF
 
-WSGIDaemonProcess $base python-home=/websites/webapi/wsgi/releases/$base/server/wsgi/env
+WSGIDaemonProcess $base python-home=\${releases_path}/$base/server/wsgi/env
 WSGIProcessGroup $base
 WSGIApplicationGroup %{GLOBAL}
 <Location /$base>
