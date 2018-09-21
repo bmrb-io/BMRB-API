@@ -41,8 +41,6 @@ done
 # Restart apache
 sudo /root/send_HUP_to_apache.sh &> /dev/null
 
-exit 0
-
 # Run the tests
 errors=0
 #for D in ../wsgi/releases/*/; do
