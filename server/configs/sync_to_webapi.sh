@@ -30,6 +30,9 @@ for D in ../wsgi/releases/*/; do
 WSGIDaemonProcess $base python-home=/websites/webapi/wsgi/releases/$base/server/wsgi/env
 WSGIProcessGroup $base
 WSGIApplicationGroup %{GLOBAL}
+<Location /$base>
+        WSGIProcessGroup $base
+</Location>
 WSGIScriptAlias /$base         \${releases_path}/$base/server/wsgi/restapi.py
 EOF
 
