@@ -234,11 +234,11 @@ def new_deposition():
     if not validate_email(author_email):
         raise querymod.RequestError("The e-mail you provided is not a valid e-mail. Please check the e-mail you "
                                     "provided for typos.")
-    elif not validate_email(author_email, check_mx=True, smtp_timeout=1):
+    elif not validate_email(author_email, check_mx=True, smtp_timeout=3):
         raise querymod.RequestError("The e-mail you provided is invalid. There is no e-mail server at '%s'. (Do you "
                                     "have a typo in the part of your e-mail after the @?)" %
                                     (author_email[author_email.index("@") + 1:]))
-    elif not validate_email(author_email, verify=True, sending_email='webmaster@bmrb.wisc.edu', smtp_timeout=1):
+    elif not validate_email(author_email, verify=True, sending_email='webmaster@bmrb.wisc.edu', smtp_timeout=3):
         raise querymod.RequestError("The e-mail you provided is invalid. That e-mail address does not exist at that "
                                     "server. (Do you have a typo in the e-mail address before the @?)")
 
