@@ -25,6 +25,8 @@ for D in ../wsgi/releases/*/; do
     ln --symbolic -T ${D}/server/html $base
     echo "<a href='$base/'>$base</a><br>" >> index.html
 
+    echo "WSGIDaemonProcess $base python-home=\${releases_path}/$base/server/wsgi/env" >> /websites/webapi/wsgi/releases/wsgi_process_groups.conf
+
     cat >> /websites/webapi/wsgi/releases/releases.conf << EOF
 
 WSGIDaemonProcess $base python-home=\${releases_path}/$base/server/wsgi/env
