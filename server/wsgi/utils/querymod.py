@@ -699,7 +699,7 @@ GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
     if term is not None:
         new_result = []
         for val in result['values']:
-            if val.startswith(term):
+            if val and val.startswith(term):
                 new_result.append({"value": val, "label": val})
         return new_result
 
