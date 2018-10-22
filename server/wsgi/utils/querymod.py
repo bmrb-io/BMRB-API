@@ -758,10 +758,11 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
         result['debug'] = cur.query
 
     for entry in cur:
+        title = entry[3].replace("\n", "") if entry[3] else None
         result['data'].append({'Entry_ID': entry[0],
                                'Assigned_chem_shift_list_ID': entry[1],
                                'Val': entry[2],
-                               'Title': entry[3].replace("\n", ""),
+                               'Title': title,
                                'Link': entry[4]})
 
     # Convert the search to decimal
