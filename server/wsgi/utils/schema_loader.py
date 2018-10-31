@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import os
 import re
 import csv
 import svn.remote
+from svn.exception import SvnException
 from querymod import _QUERYMOD_DIR, pynmrstar
 
 try:
@@ -20,6 +23,47 @@ data_types = {x[0]: x[1] for x in csv.reader(open(dt_path, "rU"))}
 
 validate_mode = False
 
+data_type_mapping = {'Assigned_chem_shifts': 'assigned_chemical_shifts',
+                     'Coupling_constants': 'coupling_constants',
+                     'Auto_relaxation': 'auto_relaxation',
+                     'Interatomic_distance': 'interatomic_distance',
+                     'Chem_shift_anisotropy': 'chem_shift_anisotropy',
+                     'Heteronucl_NOEs': 'heteronucl_NOEs',
+                     'Heteronucl_T1_relaxation': 'heteronucl_T1_relaxation',
+                     'Heteronucl_T2_relaxation': 'heteronucl_T2_relaxation',
+                     'Heteronucl_T1rho_relaxation': 'heteronucl_T1rho_relaxation',
+                     'Order_parameters': 'order_parameters',
+                     'Dynamics_trajectory': None,
+                     'Movie': None,
+                     'Residual_dipolar_couplings': 'RDCs',
+                     'H_exchange_rate': 'H_exch_rates',
+                     'H_exchange_protection_factors': 'H_exch_protection_factors',
+                     'Chem_rate_constants': 'chemical_rates',
+                     'Spectral_peak_lists': 'spectral_peak_list',
+                     'Dipole_dipole_couplings': None,
+                     'Quadrupolar_couplings': None,
+                     'Homonucl_NOEs': 'homonucl_NOEs',
+                     'Dipole_dipole_relaxation': 'dipole_dipole_relaxation',
+                     'DD_cross_correlation': 'dipole_dipole_cross_correations',
+                     'Dipole_CSA_cross_correlation': 'dipole_CSA_cross_correlations',
+                     'Binding_constants': 'binding_data',
+                     'PKa_value_data_set': 'pH_param_list',
+                     'D_H_fractionation_factors': 'D_H_fractionation_factors',
+                     'Theoretical_chem_shifts': 'theoretical_chem_shifts',
+                     'Spectral_density_values': 'spectral_density_values',
+                     'Other_kind_of_data': 'other_data_types',
+                     'Theoretical_coupling_constants': 'theoretical_coupling_constants',
+                     'Theoretical_heteronucl_NOEs': 'theoretical_heteronucl_NOEs',
+                     'Theoretical_T1_relaxation': 'theoretical_heteronucl_T1_relaxation',
+                     'Theoretical_T2_relaxation': 'theoretical_heteronucl_T2_relaxation',
+                     'Theoretical_auto_relaxation': 'theoretical_auto_relaxation',
+                     'Theoretical_DD_cross_correlation': 'theoretical_dipole_dipole_cross_correlations',
+                     'Timedomain_data': None,
+                     'Molecular_interactions': None,
+                     'Secondary_structure_orientations': 'secondary_structs',
+                     'Metabolite_coordinates': None
+                     }
+
 
 def schema_emitter():
     """ Yields all the schemas in the SVN repo. """
@@ -28,6 +72,8 @@ def schema_emitter():
 
     for rev in range(53, cur_rev):
         yield load_schemas(rev)
+    if os.path.exists('nmr-star-dictionary'):
+        yield load_schemas('development')
 
 
 def get_file(file_name, revision):
@@ -38,7 +84,10 @@ def get_file(file_name, revision):
     if revision < 163:
         schema_loc = "bmrb_star_v3_files/adit_input"
 
-    file_ = remote_svn.cat("%s/%s" % (schema_loc, file_name), revision=revision).splitlines()
+    if revision == "development":
+        file_ = open('nmr-star-dictionary/bmrb_only_files/adit_input/%s' % file_name, 'r').read().splitlines()
+    else:
+        file_ = remote_svn.cat("%s/%s" % (schema_loc, file_name), revision=revision).splitlines()
     file_ = StringIO('\n'.join(file_))
     return file_
 
@@ -52,7 +101,8 @@ def get_main_schema(rev):
 
     cc = ['Tag', 'Tag category', 'SFCategory', 'BMRB data type', 'Prompt', 'Interface',
           'default value', 'Example', 'User full view',
-          'Foreign Table', 'Sf pointer', 'Item enumerated', 'Item enumeration closed', 'ADIT category view name']
+          'Foreign Table', 'Sf pointer', 'Item enumerated', 'Item enumeration closed', 'ADIT category view name',
+          'Enumeration ties']
     # Todo: remove ADIT category view name once code is refactored
 
     header_idx = {x: all_headers.index(x) for x in cc}
@@ -66,6 +116,30 @@ def get_main_schema(rev):
         res['tags']['values'][row[header_idx['Tag']]] = [row[x].replace("$", ",") for x in header_idx_list]
 
     return res
+
+
+def get_data_file_types(rev):
+    """ Returns the list of enabled data file [description, sf_category, entry_interview.$tagname. """
+
+    try:
+        enabled_types_file = csv.reader(get_file("adit_nmr_upload_tags.csv", rev))
+    except SvnException:
+        return
+
+    pynmrstar.ALLOW_V2_ENTRIES = True
+    types_description = pynmrstar.Entry.from_file(get_file('adit_interface_dict.txt', rev))
+
+    for data_type in enabled_types_file:
+        try:
+            sf = types_description[data_type[1]]
+            type_description = sf['_Adit_item_view_name'][0].strip()
+            interview_tag = pynmrstar._format_tag(sf['_Tag'][0])
+            sf_category = data_type_mapping.get(interview_tag, None)
+            description = sf['_Description'][0]
+            yield [type_description, sf_category, interview_tag, description]
+        except Exception as e:
+            print('Something went wrong when loading the data types mapping.', repr(e))
+            return
 
 
 def get_dict(fob, headers, number_fields, skip):
@@ -146,5 +220,7 @@ def load_schemas(rev):
             print("Invalid enum file in version %s: %s" % (res['version'], str(e)))
     finally:
         pynmrstar.ALLOW_V2_ENTRIES = False
+
+    res['file_upload_types'] = list(get_data_file_types(rev))
 
     return res['version'], res

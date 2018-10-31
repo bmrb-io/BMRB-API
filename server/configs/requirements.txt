@@ -1,4 +1,4 @@
-flask>=0.12.2
+flask>=1.0.2
 psycopg2-binary>=2.7.4
 simplejson>=3.10.0
 python-json-logger>=0.1.7
@@ -6,3 +6,7 @@ svn>=0.3.45
 flask-cors>=3.0.6
 redis>=2.10.6
 requests>=2.19.1
+gitpython==2.1.11
+Flask-Mail==0.9.1
+git+git://github.com/uwbmrb/validate_email.git@eccaa9aaf0dfe505b97f3e177883362887f456ec
+pyDNS==2.3.6

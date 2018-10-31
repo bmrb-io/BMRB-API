@@ -4,13 +4,20 @@
 all of the work is done in utils/querymod.py - this just routes the queries
 to the correct location and passes the results back."""
 
+from __future__ import print_function
+
 import os
 import sys
 import time
 import traceback
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
+from uuid import uuid4
+
+import requests
+from itsdangerous import URLSafeSerializer, BadSignature
 from pythonjsonlogger import jsonlogger
+from validate_email import validate_email
 
 try:
     import simplejson as json
@@ -18,7 +25,9 @@ except ImportError:
     import json
 
 # Import flask
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, Response, jsonify, url_for, redirect, send_file
+from werkzeug.utils import secure_filename
+from flask_mail import Mail, Message
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -27,6 +36,9 @@ sys.path.append(local_dir)
 
 # Import the functions needed to service requests - must be after path updates
 from utils import querymod
+pynmrstar = querymod.pynmrstar
+from utils import depositions
+from utils.schema_loader import data_type_mapping
 
 # Set up the flask application
 application = Flask(__name__)
@@ -37,6 +49,8 @@ if application.debug:
 
     querymod.configuration['debug'] = True
     CORS(application)
+
+application.secret_key = querymod.configuration['secret_key']
 
 # Set up the logging
 
@@ -80,21 +94,28 @@ jlogger.addHandler(application_json)
 jlogger.propagate = False
 
 # Set up the SMTP handler
-if not querymod.configuration['debug']:
+if (querymod.configuration.get('smtp')
+        and querymod.configuration['smtp'].get('server')
+        and querymod.configuration['smtp'].get('admins')):
 
-    if (querymod.configuration.get('smtp')
-            and querymod.configuration['smtp'].get('server')
-            and querymod.configuration['smtp'].get('admins')):
-
+    # Don't send error e-mails in debugging mode
+    if not querymod.configuration['debug']:
         mail_handler = SMTPHandler(mailhost=querymod.configuration['smtp']['server'],
                                    fromaddr='apierror@webapi.bmrb.wisc.edu',
                                    toaddrs=querymod.configuration['smtp']['admins'],
                                    subject='BMRB API Error occurred')
         mail_handler.setLevel(logging.WARNING)
         application.logger.addHandler(mail_handler)
-    else:
-        logging.warning("Could not set up SMTP logger because the configuration"
-                        " was not specified.")
+
+    # Set up the mail interface
+    application.config.update(
+        MAIL_SERVER=querymod.configuration['smtp']['server'],
+        MAIL_DEFAULT_SENDER='noreply@bmrb.wisc.edu'
+    )
+    mail = Mail(application)
+else:
+    logging.warning("Could not set up SMTP logger because the configuration"
+                    " was not specified.")
 
 
 # Set up error handling
@@ -174,6 +195,258 @@ def list_entries():
                                                                 'chemcomps',
                                                                 'combined']))
     return jsonify(entries)
+
+
+@application.route('/deposition/validate_email/<token>')
+def validate_user(token):
+    """ Validate a user-email. """
+
+    serializer = URLSafeSerializer(application.config['SECRET_KEY'])
+    try:
+        deposition_data = serializer.loads(token)
+        deposition_id = deposition_data['deposition_id']
+    except (BadSignature, KeyError, TypeError):
+        raise querymod.RequestError('Invalid e-mail validation token. Please request a new e-mail validation message.')
+
+    with depositions.DepositionRepo(deposition_id) as repo:
+        if not repo.metadata['email_validated']:
+            repo.metadata['email_validated'] = True
+            repo.commit("E-mail validated.")
+
+    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/deposited_data_files/category' % deposition_id,
+                    code=302)
+
+
+@application.route('/deposition/new', methods=('POST',))
+def new_deposition():
+    """ Starts a new deposition. """
+
+    request_info = request.get_json()
+    if not request_info or 'email' not in request_info:
+        raise querymod.RequestError("Must specify user e-mail to start a session.")
+
+    author_email = request_info.get('email')
+    author_orcid = request_info.get('orcid')
+    if not author_orcid:
+        author_orcid = None
+
+    # Check the e-mail
+    if not validate_email(author_email):
+        raise querymod.RequestError("The e-mail you provided is not a valid e-mail. Please check the e-mail you "
+                                    "provided for typos.")
+    elif not validate_email(author_email, check_mx=True, smtp_timeout=3):
+        raise querymod.RequestError("The e-mail you provided is invalid. There is no e-mail server at '%s'. (Do you "
+                                    "have a typo in the part of your e-mail after the @?)" %
+                                    (author_email[author_email.index("@") + 1:]))
+    elif not validate_email(author_email, verify=True, sending_email='webmaster@bmrb.wisc.edu', smtp_timeout=3):
+        raise querymod.RequestError("The e-mail you provided is invalid. That e-mail address does not exist at that "
+                                    "server. (Do you have a typo in the e-mail address before the @?)")
+
+    # Create the deposition
+    deposition_id = str(uuid4())
+    schema = pynmrstar.Schema(pynmrstar._SCHEMA_URL)
+    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
+    entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.9.development'
+
+    author_given = None
+    author_family = None
+
+    # Look up information based on the ORCID
+    if author_orcid:
+        r = requests.get(querymod.configuration['orcid']['url'] % author_orcid,
+                         headers={"Accept": "application/json",
+                                  'Authorization': 'Bearer %s' % querymod.configuration['orcid']['bearer']})
+        if not r.ok:
+            if r.status_code == 404:
+                raise querymod.RequestError('Invalid ORCID!')
+            else:
+                application.logger.exception('An error occurred while contacting the ORCID server.')
+        orcid_json = r.json()
+        author_given = orcid_json['person']['name']['given-names']['value']
+        author_family = orcid_json['person']['name']['family-name']['value']
+
+    # Update the loops with the data we have
+    author_loop = pynmrstar.Loop.from_scratch()
+    author_loop.add_tag(['_Entry_author.Given_name',
+                         '_Entry_author.Family_name',
+                         '_Entry_author.ORCID'])
+    author_loop.add_data([author_given,
+                          author_family,
+                          author_orcid])
+    author_loop.add_missing_tags(all_tags=True)
+    author_loop.sort_tags()
+    citation_loop = pynmrstar.Loop.from_scratch()
+    citation_loop.add_tag(['_Contact_person.Given_name',
+                           '_Contact_person.Family_name',
+                           '_Contact_person.ORCID',
+                           '_Contact_person.Email_address'])
+    citation_loop.add_data([author_given,
+                            author_family,
+                            author_orcid,
+                            author_email])
+    citation_loop.add_missing_tags(all_tags=True)
+    citation_loop.sort_tags()
+
+    entry_saveframe = entry_template.get_saveframes_by_category("entry_information")[0]
+    entry_saveframe['_Entry_author'] = author_loop
+    entry_saveframe['_Contact_person'] = citation_loop
+    entry_saveframe['UUID'] = deposition_id
+
+    # Set the loops to have at least one row of data
+    for saveframe in entry_template:
+        for loop in saveframe:
+            if not loop.data:
+                loop.data = [["."] * len(loop.tags)]
+
+    # Set the entry_interview tags
+    for tag in data_type_mapping:
+        entry_template['entry_interview_1'][tag] = "no"
+    entry_template['entry_interview_1']['PDB_deposition'] = "no"
+    entry_template['entry_interview_1']['BMRB_deposition'] = "yes"
+
+    entry_meta = {'deposition_id': deposition_id,
+                  'author_email': author_email,
+                  'author_orcid': author_orcid,
+                  'last_ip': request.environ['REMOTE_ADDR'],
+                  'deposition_origination': {'request': dict(request.headers),
+                                             'ip': request.environ['REMOTE_ADDR']},
+                  'email_validated': False,
+                  'schema_version': entry_template.get_tag('_Entry.NMR_STAR_version')[0],
+                  'entry_deposited': False}
+
+    # Initialize the repo
+    with depositions.DepositionRepo(deposition_id, initialize=True) as repo:
+        # Manually set the metadata during object creation - never should be done this way elsewhere
+        repo._live_metadata = entry_meta
+        repo.write_entry(entry_template)
+        repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])), root=True)
+        repo.commit("Entry created.")
+
+    # Ask them to confirm their e-mail
+    confirm_message = Message("Please validate your e-mail address for BMRBDep.", recipients=[author_email])
+    token = URLSafeSerializer(querymod.configuration['secret_key']).dumps({'deposition_id': deposition_id})
+    confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.' % \
+                           (url_for('validate_user', token=token, _external=True), deposition_id)
+    mail.send(confirm_message)
+
+    return jsonify({'deposition_id': deposition_id})
+
+
+@application.route('/deposition/<uuid:uuid>/deposit', methods=('POST',))
+def deposit_entry(uuid):
+    """ Complete the deposition! """
+
+    with depositions.DepositionRepo(uuid) as repo:
+        if repo.metadata['entry_deposited']:
+            raise querymod.RequestError('Entry already deposited, no changes allowed.')
+        repo.metadata['entry_deposited'] = True
+        repo.commit('Deposition submitted!')
+
+        # Ask them to confirm their e-mail
+        message = Message("Your entry has been deposited!", recipients=[repo.metadata['author_email']])
+        message.html = 'Thank you for your deposition! The NMR-STAR representation of your entry is attached. You ' +\
+                       'will hear from our annotators in the next few days.'
+        message.attach("%s.str" % uuid, "text/plain", str(repo.get_entry()))
+        mail.send(message)
+
+    return jsonify({'status': 'success'})
+
+
+@application.route('/deposition/<uuid:uuid>/file/<filename>', methods=('GET', 'DELETE'))
+def file_operations(uuid, filename):
+    """ Either retrieve or delete a file. """
+
+    if request.method == "GET":
+        with depositions.DepositionRepo(uuid) as repo:
+            return send_file(repo.get_file(filename, raw_file=True, root=False),
+                             attachment_filename=secure_filename(filename))
+    elif request.method == "DELETE":
+        with depositions.DepositionRepo(uuid) as repo:
+            if repo.metadata['entry_deposited']:
+                raise querymod.RequestError('Entry already deposited, no changes allowed.')
+            repo.delete_data_file(filename)
+            repo.commit('Deleted file %s' % filename)
+        return jsonify({'status': 'success'})
+
+
+@application.route('/deposition/<uuid:uuid>/file', methods=('POST',))
+def store_file(uuid):
+    """ Stores a data file based on uuid. """
+
+    file_obj = request.files.get('file', None)
+
+    if not file_obj or not file_obj.filename:
+        raise querymod.RequestError('No file uploaded!')
+
+    # Store a data file
+    with depositions.DepositionRepo(uuid) as repo:
+        # TODO: Consider re-enabling this with better indication of need to validate in interface
+        #if not repo.metadata['email_validated']:
+        #    raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.' %
+        #                                file_obj.filename)
+
+        if repo.metadata['entry_deposited']:
+            raise querymod.RequestError('Entry already deposited, no changes allowed.')
+
+        filename = repo.write_file(file_obj.filename, file_obj.read())
+
+        # Update the entry data
+        if repo.commit("User uploaded file: %s" % filename):
+            return jsonify({'filename': filename, 'changed': True})
+        else:
+            return jsonify({'filename': filename, 'changed': False})
+
+
+@application.route('/deposition/<uuid:uuid>', methods=('GET', 'PUT'))
+def fetch_or_store_deposition(uuid):
+    """ Fetches or stores an entry based on uuid """
+
+    # Store an entry
+    if request.method == "PUT":
+        try:
+            entry = pynmrstar.Entry.from_json(request.get_json())
+        except ValueError:
+            raise querymod.RequestError("Invalid JSON uploaded. The JSON was not a valid NMR-STAR entry.")
+
+        with depositions.DepositionRepo(uuid) as repo:
+            if repo.metadata['entry_deposited']:
+                raise querymod.RequestError('Entry already deposited, no changes allowed.')
+
+            existing_entry = repo.get_entry()
+
+            # If they aren't making any changes
+            try:
+                if existing_entry == entry:
+                    return jsonify({'changed': False})
+            except ValueError as err:
+                raise querymod.RequestError(str(err))
+
+            if existing_entry.entry_id != entry.entry_id:
+                raise querymod.RequestError("Refusing to overwrite entry with entry of different ID.")
+
+            # Update the entry data
+            repo.write_entry(entry)
+            repo.commit("Entry updated.")
+
+            return jsonify({'changed': True})
+
+    # Load an entry
+    elif request.method == "GET":
+
+        with depositions.DepositionRepo(uuid) as repo:
+            entry = repo.get_entry()
+            schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
+            data_files = repo.get_data_file_list()
+        try:
+            schema = querymod.get_schema(schema_version)
+        except querymod.RequestError:
+            raise querymod.ServerError("Entry specifies schema that doesn't exist on the "
+                                       "server: %s" % schema_version)
+
+        entry = entry.get_json(serialize=False)
+        entry['schema'] = schema
+        entry['data_files'] = data_files
+        return jsonify(entry)
 
 
 @application.route('/entry/', methods=('POST', 'GET'))
@@ -264,14 +537,9 @@ def get_entry(entry_id=None):
 
 @application.route('/schema')
 @application.route('/schema/<schema_version>')
-def return_schema(schema_version="3.2.0.15"):
+def return_schema(schema_version=None):
     """ Returns the BMRB schema as JSON. """
     return jsonify(querymod.get_schema(schema_version))
-
-
-@application.route('/get_deposition/<entry_id>')
-def get_deposition(entry_id):
-    return jsonify(querymod.get_deposition(entry_id))
 
 
 @application.route('/molprobity/')
@@ -301,11 +569,31 @@ def print_search_options():
 
     result = ""
     for method in ["chemical_shifts", "fasta", "get_all_values_for_tag",
+                   "get_bmrb_data_from_pdb_id",
                    "get_id_by_tag_value", "get_bmrb_ids_from_pdb_id",
                    "get_pdb_ids_from_bmrb_id", "multiple_shift_search"]:
         result += '<a href="%s">%s</a><br>' % (method, method)
 
     return result
+
+
+@application.route('/search/get_bmrb_data_from_pdb_id/')
+@application.route('/search/get_bmrb_data_from_pdb_id/<pdb_id>')
+def get_bmrb_data_from_pdb_id(pdb_id=None):
+    """ Returns the associated BMRB data for a PDB ID. """
+
+    if not pdb_id:
+        raise querymod.RequestError("You must specify a PDB ID.")
+
+    result = []
+    for item in querymod.get_bmrb_ids_from_pdb_id(pdb_id):
+        data = querymod.get_extra_data_available(item['bmrb_id'])
+        if data:
+            result.append({'bmrb_id': item['bmrb_id'], 'match_types': item['match_types'],
+                           'url': 'http://www.bmrb.wisc.edu/data_library/summary/index.php?bmrbId=%s' % item['bmrb_id'],
+                           'data': data})
+
+    return jsonify(result)
 
 
 @application.route('/search/multiple_shift_search')

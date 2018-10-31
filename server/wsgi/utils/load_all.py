@@ -67,7 +67,7 @@ if options.metabolomics:
     entries = querymod.select(["Entry_ID"], "Release", database="metabolomics")
     entries = sorted(set(entries["Release.Entry_ID"]))
     for entry in entries:
-        aent = (entry, "/share/subedit/metabolomics/%s/%s.str" % (entry, entry))
+        aent = (entry, "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s/%s.str" % (entry, entry))
         to_process['metabolomics'].append(aent)
 
 # Get the released entries from ETS

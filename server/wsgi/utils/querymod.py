@@ -19,13 +19,21 @@ except ImportError:
     from sys import maxsize as max_integer
 from hashlib import md5
 from decimal import Decimal
+from uuid import UUID
 from time import time as unix_time
 from tempfile import NamedTemporaryFile
+
+from flask import url_for
 
 try:
     import simplejson as json
 except ImportError:
     import json
+
+try:
+    from urllib import quote as urlquote
+except ImportError:
+    from urllib.parse import quote as urlquote
 
 import psycopg2
 from psycopg2.extensions import AsIs
@@ -49,8 +57,8 @@ _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'software/', 'software/package/', 'instant', 'enumerations/',
             'search/', 'search/chemical_shifts', 'search/fasta/',
             'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
-            'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id',
-            'search/get_pdb_ids_from_bmrb_id',
+            'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id/',
+            'search/get_pdb_ids_from_bmrb_id/', 'search/get_bmrb_data_from_pdb_id/',
             'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
 
@@ -115,7 +123,9 @@ def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
 
-    if entry_id.startswith("bm"):
+    if type(entry_id) is UUID:
+        return 'depositions:entry:%s' % entry_id
+    elif entry_id.startswith("bm"):
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):
         return "chemcomps:entry:%s" % entry_id
@@ -229,29 +239,6 @@ def get_all_entries_from_redis(format_="object", database="macromolecules"):
                                         max_results=max_integer)
 
 
-def get_deposition(entry_id):
-    """ Return an entry and the associated schema."""
-
-    r_conn = get_redis_connection()
-    # schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
-    schema_version = r_conn.get("schema_version")
-
-    try:
-        entry = list(get_valid_entries_from_redis(entry_id, r_conn=r_conn))[0][1]
-    except IndexError:
-        raise RequestError("No such entry.")
-
-    try:
-        schema = get_schema(schema_version)
-    except RequestError:
-        raise ServerError("Entry specifies schema that doesn't exist on the "
-                          "server: %s" % schema_version)
-
-    entry = entry.get_json(serialize=False)
-    entry['schema'] = schema
-    return entry
-
-
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, r_conn=None):
     """ Given a list of entries, yield the subset that exist in the database
     as the appropriate type as determined by the "format_" variable.
@@ -267,9 +254,6 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
     # Wrap the IDs in a list if necessary
     if not isinstance(search_ids, list):
         search_ids = [search_ids]
-
-    # Make sure all the entry ids are strings
-    search_ids = [str(x) for x in search_ids]
 
     # Make sure there are not too many entries
     if len(search_ids) > max_results:
@@ -725,7 +709,7 @@ GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
     if term is not None:
         new_result = []
         for val in result['values']:
-            if val.startswith(term):
+            if val and val.startswith(term):
                 new_result.append({"value": val, "label": val})
         return new_result
 
@@ -784,10 +768,11 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
         result['debug'] = cur.query
 
     for entry in cur:
+        title = entry[3].replace("\n", "") if entry[3] else None
         result['data'].append({'Entry_ID': entry[0],
                                'Assigned_chem_shift_list_ID': entry[1],
                                'Val': entry[2],
-                               'Title': entry[3].replace("\n", ""),
+                               'Title': title,
                                'Link': entry[4]})
 
     # Convert the search to decimal
@@ -964,10 +949,12 @@ WHERE "Software"."Entry_ID"=%s;''', [entry_id])
     return {"columns": column_names, "data": cur.fetchall()}
 
 
-def get_schema(version):
+def get_schema(version=None):
     """ Return the schema from Redis. """
 
-    r = get_redis_connection(db=1)
+    r = get_redis_connection()
+    if not version:
+        version = r.get('schema_version')
     try:
         schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
     except TypeError:
@@ -1031,6 +1018,48 @@ def do_sql_mods(conn=None, cur=None, sql_file=None):
                                 "sql", sql_file)
 
     cur.execute(open(sql_file, "r").read())
+    conn.commit()
+
+
+def create_timedomain_table():
+    """Creates the time domain links table."""
+
+    def get_dir_size(start_path='.'):
+        total_size = 0
+        for dir_path, dir_names, file_names in os.walk(start_path):
+            for f in file_names:
+                fp = os.path.join(dir_path, f)
+                total_size += os.path.getsize(fp)
+        return total_size
+
+    def get_data_sets(path):
+        sets = 0
+        last_set = ""
+        for f in os.listdir(path):
+            if os.path.isdir(os.path.join(path, f)):
+                sets += 1
+                last_set = os.path.join(path, f)
+        if sets == 1:
+            child_sets = get_data_sets(last_set)
+            if child_sets > 1:
+                return child_sets
+        return sets
+
+    conn, cur = get_postgres_connection()
+    cur.execute('''
+DROP TABLE IF EXISTS web.timedomain_data;
+CREATE TABLE web.timedomain_data (
+ bmrbid text PRIMARY KEY,
+ size numeric,
+ sets numeric);''')
+
+    def td_data_getter():
+        td_dir = configuration['timedomain_directory']
+        for x in os.listdir(td_dir):
+            entry_id = int("".join([_ for _ in x if _.isdigit()]))
+            yield (entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x)))
+
+    execute_values(cur, '''INSERT INTO web.timedomain_data(bmrbid, size, sets) VALUES %s;''', td_data_getter())
     conn.commit()
 
 
@@ -1746,14 +1775,14 @@ def get_pdb_ids_from_bmrb_id(bmrb_id):
     cur = get_postgres_connection()[1]
 
     query = '''
-SELECT pdb_id, 'BMRB Entry Tracking System' AS link_type, null AS comment
+SELECT pdb_id, 'Exact' AS link_type, null AS comment
   FROM web.pdb_link
   WHERE bmrb_id LIKE %s
 UNION
 SELECT "Database_accession_code", 'Author Provided', "Relationship"
   FROM macromolecules."Related_entries"
   WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
-    AND "Relationship" != 'BMRB Entry Tracking System'
+    AND "Relationship" != 'Exact'
 UNION
 SELECT "Accession_code", 'BLAST Match', "Entry_details"
   FROM macromolecules."Entity_db_link"
@@ -1776,14 +1805,15 @@ def get_bmrb_ids_from_pdb_id(pdb_id):
     cur = get_postgres_connection()[1]
 
     query = '''
-SELECT bmrb_id, 'BMRB Entry Tracking System' AS link_type, null as comment
+    SELECT bmrb_id, array_agg(link_type) from 
+(SELECT bmrb_id, 'Exact' AS link_type, null as comment
   FROM web.pdb_link
   WHERE pdb_id LIKE %s
 UNION
 SELECT "Entry_ID", 'Author Provided', "Relationship"
   FROM macromolecules."Related_entries"
   WHERE "Database_accession_code" LIKE %s AND "Database_name" = 'PDB'
-    AND "Relationship" != 'BMRB Entry Tracking System'
+    AND "Relationship" != 'Exact'
 UNION
 SELECT "Entry_ID", 'BLAST Match', "Entry_details"
   FROM macromolecules."Entity_db_link"
@@ -1791,14 +1821,55 @@ SELECT "Entry_ID", 'BLAST Match', "Entry_details"
 UNION
 SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
   FROM macromolecules."Assembly_db_link"
-  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB';'''
+  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB') as sub
+GROUP BY bmrb_id;'''
 
     pdb_id = pdb_id.upper()
     terms = [pdb_id, pdb_id, pdb_id, pdb_id]
     cur.execute(query, terms)
 
-    return [{"bmrb_id": x[0], "match_type": x[1], "comment": x[2]}
-            for x in cur.fetchall()]
+    result = []
+    for x in cur.fetchall():
+        result.append({"bmrb_id": x[0], "match_types": x[1]})
+
+    return result
+
+
+def get_extra_data_available(bmrb_id, cur=None, r_conn=None):
+    """ Returns any additional data associated with the entry. For example:
+
+    Time domain, residual dipolar couplings, pKa values, etc."""
+
+    # Set up the DB cursor
+    if cur is None:
+        cur = get_postgres_connection(dictionary_cursor=True)[1]
+    set_database(cur, get_database_from_entry_id(bmrb_id))
+
+    query = '''
+SELECT "Entry_ID" as entry_id, ed."Type" as type, dic.catgrpviewname as description, "Count"::integer as sets, 0 as size from "Data_set" as ed
+  LEFT JOIN dict.aditcatgrp as dic ON ed."Type" = dic.sfcategory
+ WHERE ed."Entry_ID" like %s
+UNION
+SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timedomain_data where bmrbid like %s;'''
+    cur.execute(query, [bmrb_id, bmrb_id])
+
+    entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
+
+    extra_data = []
+    for row in cur.fetchall():
+        if row['type'] == 'time_domain_data':
+            extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
+                               'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
+                               'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
+        elif row['type'] != "assigned_chemical_shifts":
+            saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
+            url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
+
+            extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],
+                               'data_sfcategory': row['type'],
+                               'urls': [url % (bmrb_id, urlquote(x)) for x in saveframe_names]})
+
+    return extra_data
 
 
 def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
