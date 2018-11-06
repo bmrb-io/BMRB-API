@@ -141,6 +141,9 @@ def get_data_file_types(rev):
             print('Something went wrong when loading the data types mapping.', repr(e))
             return
 
+    if rev >= 229 or rev == "development":
+        yield ['Image file', 'chem_comp', None, 'An image file representing a ligand or the protein.']
+
 
 def get_dict(fob, headers, number_fields, skip):
     """ Returns a dictionary with 'key' and 'value' set to point to the
