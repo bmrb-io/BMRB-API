@@ -608,6 +608,12 @@ def get_tags(**kwargs):
     search_tags = process_nmrstar_query(kwargs)
     result = {}
 
+    # Check the validity of the tags
+    for tag in search_tags:
+        if "." not in tag:
+            raise RequestError("You must provide the tag category to call this method at the entry level. For example, "
+                               "use 'Entry.Title' rather than 'Title'.")
+
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
         result[entry[0]] = entry[1].get_tags(search_tags)
