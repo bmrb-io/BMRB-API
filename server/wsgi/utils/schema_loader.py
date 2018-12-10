@@ -142,7 +142,7 @@ def get_data_file_types(rev):
             return
 
     if rev >= 229 or rev == "development":
-        yield ['Image file', 'chem_comp', None, 'An image file representing a ligand or the protein.']
+        yield ['Image file', 'chem_comp', None, 'An image file representing a ligand or the macromolecule.']
 
 
 def get_dict(fob, headers, number_fields, skip):
