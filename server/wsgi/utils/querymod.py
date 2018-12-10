@@ -1843,7 +1843,12 @@ UNION
 SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timedomain_data where bmrbid like %s;'''
     cur.execute(query, [bmrb_id, bmrb_id])
 
-    entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
+    try:
+        entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
+    # This happens when an entry is valid but isn't available in Redis - for example, when we only have
+    #  2.0 records for an entry.
+    except StopIteration:
+        return []
 
     extra_data = []
     for row in cur.fetchall():
