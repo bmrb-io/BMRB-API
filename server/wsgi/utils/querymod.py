@@ -616,7 +616,11 @@ def get_tags(**kwargs):
 
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry[0]] = entry[1].get_tags(search_tags)
+        try:
+            result[entry[0]] = entry[1].get_tags(search_tags)
+        # They requested a tag that doesn't exist
+        except ValueError as error:
+            raise RequestError(error.message)
 
     return result
 
