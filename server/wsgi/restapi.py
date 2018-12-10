@@ -47,7 +47,7 @@ application = Flask(__name__)
 if application.debug:
     from flask_cors import CORS
 
-    #querymod.configuration['debug'] = True
+    querymod.configuration['debug'] = True
     CORS(application)
 
 application.secret_key = querymod.configuration['secret_key']
@@ -124,8 +124,7 @@ else:
 def handle_our_errors(error):
     """ Handles exceptions we raised ourselves. """
 
-    if not 'does not exist' in error.message:
-        application.logger.warning("Handled error raised in %s: %s", request.url, error.message)
+    # application.logger.warning("Handled error raised in %s: %s", request.url, error.message)
 
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
