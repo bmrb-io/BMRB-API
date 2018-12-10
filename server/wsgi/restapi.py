@@ -174,6 +174,13 @@ def log_request():
         "prettyprint") == "true"
 
 
+@application.route('/favicon.ico')
+def favicon():
+    """ Return the favicon. """
+
+    return redirect(url_for('static', filename='favicon.ico'))
+
+
 @application.route('/')
 def no_params():
     """ Return an error if they have not specified which method type to use."""
@@ -246,7 +253,7 @@ def new_deposition():
     deposition_id = str(uuid4())
     schema = pynmrstar.Schema(pynmrstar._SCHEMA_URL)
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
-    entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.9.development'
+    entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.12'
 
     # Suggest some default sample conditions
     sample_conditions = entry_template.get_loops_by_category('_Sample_condition_variable')[0]
