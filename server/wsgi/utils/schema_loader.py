@@ -188,6 +188,11 @@ def load_schemas(rev):
                                 ['Order of operation'],
                                 1)
 
+    res['category_supergroups'] = get_dict(get_file("adit_cat_grp_o.csv", rev),
+                                ['category_super_group', 'saveframe_category', 'mandatory_number', 'allowed_user_defined_framecode', 'category_group_view_name', 'group_view_help'],
+                                ['mandatory_number'],
+                                2)
+
     # Check for outdated overrides
     if validate_mode:
         for override in res['overrides']:
@@ -216,7 +221,7 @@ def load_schemas(rev):
                 res['tags']['values'][saveframe.name].append(enums)
             except KeyError:
                 if validate_mode:
-                    print("Enumeration for non-existant tag: %s" % saveframe.name)
+                    print("Enumeration for non-existent tag: %s" % saveframe.name)
 
     except ValueError as e:
         if validate_mode:
