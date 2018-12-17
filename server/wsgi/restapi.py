@@ -259,7 +259,7 @@ def new_deposition():
     sample_conditions = entry_template.get_loops_by_category('_Sample_condition_variable')[0]
     sample_conditions.data = [[None for _ in range(len(sample_conditions.tags))] for _ in range(4)]
     sample_conditions['Type'] = ['temperature', 'pH', 'pressure', 'ionic strength']
-    sample_conditions['Val'] = [None, None, 'ambient', None]
+    sample_conditions['Val'] = [None, None, '1', None]
     sample_conditions['Val_units'] = ['K', 'pH', 'atm', 'M']
 
     author_given = None
