@@ -124,7 +124,7 @@ else:
 def handle_our_errors(error):
     """ Handles exceptions we raised ourselves. """
 
-    # application.logger.warning("Handled error raised in %s: %s", request.url, error.message)
+    application.logger.info("Handled error raised in %s: %s", request.url, error.message)
 
     response = jsonify(error.to_dict())
     response.status_code = error.status_code

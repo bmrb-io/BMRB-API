@@ -94,7 +94,12 @@ class DepositionRepo:
         """ Return the NMR-STAR entry for this entry. """
 
         entry_location = os.path.join(self._entry_dir, 'entry.str')
-        return querymod.pynmrstar.Entry.from_file(entry_location)
+
+        try:
+            return querymod.pynmrstar.Entry.from_file(entry_location)
+        except Exception as e:
+            raise querymod.ServerError('Error loading an entry!\nError: %s\nEntry location:%s\nEntry text:\n%s' %
+                                       (e.message, entry_location, open(entry_location, "r").read()))
 
     def write_entry(self, entry):
         """ Save an entry in the standard place. """
