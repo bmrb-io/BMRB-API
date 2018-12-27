@@ -124,7 +124,7 @@ else:
 def handle_our_errors(error):
     """ Handles exceptions we raised ourselves. """
 
-    application.logger.warning("Handled error raised in %s: %s", request.url, error.message)
+    # application.logger.warning("Handled error raised in %s: %s", request.url, error.message)
 
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
@@ -172,6 +172,13 @@ def log_request():
     application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (check_local_ip() and
                                                          querymod.configuration['debug']) or request.args.get(
         "prettyprint") == "true"
+
+
+@application.route('/favicon.ico')
+def favicon():
+    """ Return the favicon. """
+
+    return redirect(url_for('static', filename='favicon.ico'))
 
 
 @application.route('/')
@@ -246,7 +253,14 @@ def new_deposition():
     deposition_id = str(uuid4())
     schema = pynmrstar.Schema(pynmrstar._SCHEMA_URL)
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
-    entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.9.development'
+    entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.12'
+
+    # Suggest some default sample conditions
+    sample_conditions = entry_template.get_loops_by_category('_Sample_condition_variable')[0]
+    sample_conditions.data = [[None for _ in range(len(sample_conditions.tags))] for _ in range(4)]
+    sample_conditions['Type'] = ['temperature', 'pH', 'pressure', 'ionic strength']
+    sample_conditions['Val'] = [None, None, '1', None]
+    sample_conditions['Val_units'] = ['K', 'pH', 'atm', 'M']
 
     author_given = None
     author_family = None

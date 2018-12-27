@@ -618,9 +618,19 @@ def get_tags(**kwargs):
     search_tags = process_nmrstar_query(kwargs)
     result = {}
 
+    # Check the validity of the tags
+    for tag in search_tags:
+        if "." not in tag:
+            raise RequestError("You must provide the tag category to call this method at the entry level. For example, "
+                               "use 'Entry.Title' rather than 'Title'.")
+
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry[0]] = entry[1].get_tags(search_tags)
+        try:
+            result[entry[0]] = entry[1].get_tags(search_tags)
+        # They requested a tag that doesn't exist
+        except ValueError as error:
+            raise RequestError(error.message)
 
     return result
 
@@ -1853,7 +1863,12 @@ UNION
 SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timedomain_data where bmrbid like %s;'''
     cur.execute(query, [bmrb_id, bmrb_id])
 
-    entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
+    try:
+        entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
+    # This happens when an entry is valid but isn't available in Redis - for example, when we only have
+    #  2.0 records for an entry.
+    except StopIteration:
+        return []
 
     extra_data = []
     for row in cur.fetchall():
