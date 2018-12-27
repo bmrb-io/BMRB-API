@@ -211,6 +211,9 @@ def send_validation_email(uuid):
     uuid = str(uuid)
 
     with depositions.DepositionRepo(uuid) as repo:
+        # Already validated, don't re-send the email
+        if repo.metadata['email_validated']:
+            return jsonify({'status': 'validated'})
         # Ask them to confirm their e-mail
         confirm_message = Message("Please validate your e-mail address for BMRBDep.",
                                   recipients=[repo.metadata['author_email']])
@@ -219,8 +222,7 @@ def send_validation_email(uuid):
                                (url_for('validate_user', token=token, _external=True), uuid)
         mail.send(confirm_message)
 
-    return redirect('http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/deposited_data_files/category' % uuid,
-                    code=302)
+    return jsonify({'status': 'unvalidated'})
 
 
 @application.route('/deposition/validate_email/<token>')
