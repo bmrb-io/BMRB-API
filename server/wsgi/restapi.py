@@ -208,6 +208,8 @@ def list_entries():
 def send_validation_email(uuid):
     """ Sends the validation e-mail. """
 
+    uuid = str(uuid)
+
     with depositions.DepositionRepo(uuid) as repo:
         # Ask them to confirm their e-mail
         confirm_message = Message("Please validate your e-mail address for BMRBDep.",
