@@ -68,12 +68,17 @@ data_type_mapping = {'Assigned_chem_shifts': 'assigned_chemical_shifts',
 def schema_emitter():
     """ Yields all the schemas in the SVN repo. """
 
-    cur_rev = remote_svn.info()['commit_revision'] + 1
+    cur_rev = remote_svn.info()['commit_revision']
+    last_schema_version = None
 
-    for rev in range(53, cur_rev):
-        yield load_schemas(rev)
-    if os.path.exists('nmr-star-dictionary'):
-        yield load_schemas('development')
+    for rev in range(cur_rev, 52, -1):
+        next_schema = load_schemas(rev)
+        if next_schema[0] != last_schema_version:
+            yield next_schema
+        last_schema_version = next_schema[0]
+        if rev == cur_rev:
+            if os.path.exists('nmr-star-dictionary'):
+                yield load_schemas('development')
 
 
 def get_file(file_name, revision):
