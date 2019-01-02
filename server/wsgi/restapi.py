@@ -204,6 +204,27 @@ def list_entries():
     return jsonify(entries)
 
 
+@application.route('/deposition/<uuid:uuid>/resend-validation-email')
+def send_validation_email(uuid):
+    """ Sends the validation e-mail. """
+
+    uuid = str(uuid)
+
+    with depositions.DepositionRepo(uuid) as repo:
+        # Already validated, don't re-send the email
+        if repo.metadata['email_validated']:
+            return jsonify({'status': 'validated'})
+        # Ask them to confirm their e-mail
+        confirm_message = Message("Please validate your e-mail address for BMRBDep.",
+                                  recipients=[repo.metadata['author_email']])
+        token = URLSafeSerializer(querymod.configuration['secret_key']).dumps({'deposition_id': uuid})
+        confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.' % \
+                               (url_for('validate_user', token=token, _external=True), uuid)
+        mail.send(confirm_message)
+
+    return jsonify({'status': 'unvalidated'})
+
+
 @application.route('/deposition/validate_email/<token>')
 def validate_user(token):
     """ Validate a user-email. """
@@ -336,12 +357,8 @@ def new_deposition():
         repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])), root=True)
         repo.commit("Entry created.")
 
-    # Ask them to confirm their e-mail
-    confirm_message = Message("Please validate your e-mail address for BMRBDep.", recipients=[author_email])
-    token = URLSafeSerializer(querymod.configuration['secret_key']).dumps({'deposition_id': deposition_id})
-    confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.' % \
-                           (url_for('validate_user', token=token, _external=True), deposition_id)
-    mail.send(confirm_message)
+    # Send the validation e-mail
+    send_validation_email(deposition_id)
 
     return jsonify({'deposition_id': deposition_id})
 
@@ -353,6 +370,9 @@ def deposit_entry(uuid):
     with depositions.DepositionRepo(uuid) as repo:
         if repo.metadata['entry_deposited']:
             raise querymod.RequestError('Entry already deposited, no changes allowed.')
+        if not repo.metadata['email_validated']:
+            raise querymod.RequestError('Please click confirm on the e-mail validation '
+                                        'link you were sent prior to deposition.')
         repo.metadata['entry_deposited'] = True
         repo.commit('Deposition submitted!')
 
@@ -394,11 +414,6 @@ def store_file(uuid):
 
     # Store a data file
     with depositions.DepositionRepo(uuid) as repo:
-        # TODO: Consider re-enabling this with better indication of need to validate in interface
-        #if not repo.metadata['email_validated']:
-        #    raise querymod.RequestError('Uploading file \'%s\': Please validate your e-mail before uploading files.' %
-        #                                file_obj.filename)
-
         if repo.metadata['entry_deposited']:
             raise querymod.RequestError('Entry already deposited, no changes allowed.')
 
@@ -473,7 +488,7 @@ def get_entry(entry_id=None):
 
     # If they are storing
     if request.method == "POST":
-        return jsonify(querymod.store_uploaded_entry(data=request.data))
+        return jsonify(querymod.store_uploaded_entry(request))
 
     # Loading
     else:
