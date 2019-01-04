@@ -249,9 +249,17 @@ def validate_user(token):
 def new_deposition():
     """ Starts a new deposition. """
 
-    request_info = request.get_json()
+    request_info = request.form
+
     if not request_info or 'email' not in request_info:
         raise querymod.RequestError("Must specify user e-mail to start a session.")
+
+    uploaded_entry = None
+    if 'nmrstar_file' in request.files and request.files['nmrstar_file'] and request.files['nmrstar_file'].filename:
+        try:
+            uploaded_entry = pynmrstar.Entry.from_string(request.files['nmrstar_file'].read())
+        except ValueError as e:
+            return querymod.RequestError("Invalid NMR-STAR file. Parse error: %s" % e.message)
 
     author_email = request_info.get('email')
     author_orcid = request_info.get('orcid')
@@ -272,16 +280,40 @@ def new_deposition():
 
     # Create the deposition
     deposition_id = str(uuid4())
-    schema = pynmrstar.Schema(pynmrstar._SCHEMA_URL)
+    schema = pynmrstar.Schema()
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
+
+    # Merge the entries
+    if uploaded_entry:
+        for category in uploaded_entry.category_list:
+            delete_saveframes = entry_template.get_saveframes_by_category(category)
+            for saveframe in delete_saveframes:
+                del entry_template[saveframe]
+            for saveframe in uploaded_entry.get_saveframes_by_category(category):
+                new_saveframe = pynmrstar.Saveframe.from_template(category, saveframe.name, deposition_id, True, schema)
+                frame_prefix_lower = saveframe.tag_prefix.lower()
+                for tag in saveframe.tags:
+                    lower_tag = tag[0].lower()
+                    if lower_tag not in ['sf_category', 'sf_framecode', 'id', 'entry_id', 'nmr_star_version',
+                                         'original_nmr_star_version']:
+                        fqtn = frame_prefix_lower + '.' + lower_tag
+                        if fqtn in schema.schema:
+                            new_saveframe.add_tag(tag[0], tag[1], update=True)
+                for loop in saveframe.loops:
+                    new_saveframe[loop.category] = loop
+                    loop.add_missing_tags(schema=schema, all_tags=True)
+                entry_template.add_saveframe(new_saveframe)
+        entry_template.normalize()
     entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.12'
+    entry_template.get_saveframes_by_category('entry_information')[0]['Original_NMR_STAR_version'] = '3.2.1.12'
 
     # Suggest some default sample conditions
     sample_conditions = entry_template.get_loops_by_category('_Sample_condition_variable')[0]
-    sample_conditions.data = [[None for _ in range(len(sample_conditions.tags))] for _ in range(4)]
-    sample_conditions['Type'] = ['temperature', 'pH', 'pressure', 'ionic strength']
-    sample_conditions['Val'] = [None, None, '1', None]
-    sample_conditions['Val_units'] = ['K', 'pH', 'atm', 'M']
+    if sample_conditions.empty:
+        sample_conditions.data = [[None for _ in range(len(sample_conditions.tags))] for _ in range(4)]
+        sample_conditions['Type'] = ['temperature', 'pH', 'pressure', 'ionic strength']
+        sample_conditions['Val'] = [None, None, '1', None]
+        sample_conditions['Val_units'] = ['K', 'pH', 'atm', 'M']
 
     author_given = None
     author_family = None
@@ -323,8 +355,10 @@ def new_deposition():
     citation_loop.sort_tags()
 
     entry_saveframe = entry_template.get_saveframes_by_category("entry_information")[0]
-    entry_saveframe['_Entry_author'] = author_loop
-    entry_saveframe['_Contact_person'] = citation_loop
+    if entry_saveframe['_Entry_author'].empty:
+        entry_saveframe['_Entry_author'] = author_loop
+    if entry_saveframe['_Contact_person'].empty:
+        entry_saveframe['_Contact_person'] = citation_loop
     entry_saveframe['UUID'] = deposition_id
 
     # Set the loops to have at least one row of data
@@ -347,7 +381,10 @@ def new_deposition():
                                              'ip': request.environ['REMOTE_ADDR']},
                   'email_validated': False,
                   'schema_version': entry_template.get_tag('_Entry.NMR_STAR_version')[0],
-                  'entry_deposited': False}
+                  'entry_deposited': False,
+                  'deposition_from_file': True if uploaded_entry else False}
+    if uploaded_entry:
+        entry_meta['bootstrap_filename'] = request.files['nmrstar_file'].filename
 
     # Initialize the repo
     with depositions.DepositionRepo(deposition_id, initialize=True) as repo:
@@ -355,6 +392,9 @@ def new_deposition():
         repo._live_metadata = entry_meta
         repo.write_entry(entry_template)
         repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])), root=True)
+        if uploaded_entry:
+            request.files['nmrstar_file'].seek(0)
+            repo.write_file('bootstrap_entry.str', request.files['nmrstar_file'].read(), root=True)
         repo.commit("Entry created.")
 
     # Send the validation e-mail
