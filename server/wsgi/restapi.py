@@ -260,6 +260,12 @@ def new_deposition():
             uploaded_entry = pynmrstar.Entry.from_string(request.files['nmrstar_file'].read())
         except ValueError as e:
             return querymod.RequestError("Invalid NMR-STAR file. Parse error: %s" % e.message)
+    # Check if they are bootstrapping from an existing entry - if so, make sure they didn't also upload a file
+    if 'bootstrapID' in request_info and request_info['bootstrapID']:
+        if uploaded_entry:
+            raise querymod.RequestError('Cannot create an entry from an uploaded file and existing entry.')
+    else:
+        uploaded_entry = pynmrstar.Entry.from_database(request_info['bootstrapID'])
 
     author_email = request_info.get('email')
     author_orcid = request_info.get('orcid')
