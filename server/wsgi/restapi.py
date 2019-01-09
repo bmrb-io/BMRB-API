@@ -262,7 +262,7 @@ def new_deposition():
         except ValueError as e:
             return querymod.RequestError("Invalid NMR-STAR file. Parse error: %s" % e.message)
     # Check if they are bootstrapping from an existing entry - if so, make sure they didn't also upload a file
-    if 'bootstrapID' in request_info and request_info['bootstrapID']:
+    if 'bootstrapID' in request_info and request_info['bootstrapID'] != 'null':
         if uploaded_entry:
             raise querymod.RequestError('Cannot create an entry from an uploaded file and existing entry.')
         try:
@@ -381,10 +381,11 @@ def new_deposition():
                 loop.data = [["."] * len(loop.tags)]
 
     # Set the entry_interview tags
+    entry_interview = entry_template.get_saveframes_by_category('entry_interview')[0]
     for tag in data_type_mapping:
-        entry_template['entry_interview_1'][tag] = "no"
-    entry_template['entry_interview_1']['PDB_deposition'] = "no"
-    entry_template['entry_interview_1']['BMRB_deposition'] = "yes"
+        entry_interview[tag] = "no"
+    entry_interview['PDB_deposition'] = "no"
+    entry_interview['BMRB_deposition'] = "yes"
 
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
