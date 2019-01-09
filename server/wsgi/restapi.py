@@ -265,7 +265,10 @@ def new_deposition():
     if 'bootstrapID' in request_info and request_info['bootstrapID']:
         if uploaded_entry:
             raise querymod.RequestError('Cannot create an entry from an uploaded file and existing entry.')
-        uploaded_entry = pynmrstar.Entry.from_database(request_info['bootstrapID'])
+        try:
+            uploaded_entry = pynmrstar.Entry.from_database(request_info['bootstrapID'])
+        except IOError:
+            raise querymod.RequestError('Invalid entry ID specified. No such entry exists, or is released.')
         entry_bootstrap = True
 
     author_email = request_info.get('email')
@@ -306,6 +309,7 @@ def new_deposition():
                         fqtn = frame_prefix_lower + '.' + lower_tag
                         if fqtn in schema.schema:
                             new_saveframe.add_tag(tag[0], tag[1], update=True)
+                # TODO: Pull out the tags from the schema, otherwise old tags could persevere this way
                 for loop in saveframe.loops:
                     new_saveframe[loop.category] = loop
                     loop.add_missing_tags(schema=schema, all_tags=True)
