@@ -309,10 +309,12 @@ def new_deposition():
                         fqtn = frame_prefix_lower + '.' + lower_tag
                         if fqtn in schema.schema:
                             new_saveframe.add_tag(tag[0], tag[1], update=True)
-                # TODO: Pull out the tags from the schema, otherwise old tags could persevere this way
                 for loop in saveframe.loops:
-                    new_saveframe[loop.category] = loop
-                    loop.add_missing_tags(schema=schema, all_tags=True)
+                    lower_tags = [_.lower() for _ in loop.tags]
+                    tags_to_pull = [_ for _ in new_saveframe[loop.category].tags if _.lower() in lower_tags]
+                    filtered_original_loop = loop.filter(tags_to_pull)
+                    filtered_original_loop.add_missing_tags(schema=schema, all_tags=True)
+                    new_saveframe[filtered_original_loop.category] = filtered_original_loop
                 entry_template.add_saveframe(new_saveframe)
         entry_template.normalize()
     entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.12'
