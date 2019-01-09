@@ -255,6 +255,7 @@ def new_deposition():
         raise querymod.RequestError("Must specify user e-mail to start a session.")
 
     uploaded_entry = None
+    entry_bootstrap = False
     if 'nmrstar_file' in request.files and request.files['nmrstar_file'] and request.files['nmrstar_file'].filename:
         try:
             uploaded_entry = pynmrstar.Entry.from_string(request.files['nmrstar_file'].read())
@@ -264,8 +265,8 @@ def new_deposition():
     if 'bootstrapID' in request_info and request_info['bootstrapID']:
         if uploaded_entry:
             raise querymod.RequestError('Cannot create an entry from an uploaded file and existing entry.')
-    else:
         uploaded_entry = pynmrstar.Entry.from_database(request_info['bootstrapID'])
+        entry_bootstrap = True
 
     author_email = request_info.get('email')
     author_orcid = request_info.get('orcid')
@@ -390,7 +391,10 @@ def new_deposition():
                   'entry_deposited': False,
                   'deposition_from_file': True if uploaded_entry else False}
     if uploaded_entry:
-        entry_meta['bootstrap_filename'] = request.files['nmrstar_file'].filename
+        if entry_bootstrap:
+            entry_meta['bootstrap_entry'] = request_info['bootstrapID']
+        else:
+            entry_meta['bootstrap_filename'] = request.files['nmrstar_file'].filename
 
     # Initialize the repo
     with depositions.DepositionRepo(deposition_id, initialize=True) as repo:
@@ -399,8 +403,11 @@ def new_deposition():
         repo.write_entry(entry_template)
         repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])), root=True)
         if uploaded_entry:
-            request.files['nmrstar_file'].seek(0)
-            repo.write_file('bootstrap_entry.str', request.files['nmrstar_file'].read(), root=True)
+            if entry_bootstrap:
+                repo.write_file('bootstrap_entry.str', str(uploaded_entry), root=True)
+            else:
+                request.files['nmrstar_file'].seek(0)
+                repo.write_file('bootstrap_entry.str', request.files['nmrstar_file'].read(), root=True)
         repo.commit("Entry created.")
 
     # Send the validation e-mail
