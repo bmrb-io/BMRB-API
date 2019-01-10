@@ -122,6 +122,10 @@ UNION
 SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/' || UPPER("Entry_ID"), to_tsvector('DOI:10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmse%'
 UNION
 SELECT DISTINCT "Entry_ID", 'BMRB Entry DOI', 'DOI:10.13018/' || UPPER("Entry_ID"), to_tsvector('DOI:10.13018/' || UPPER("Entry_ID")) FROM metabolomics."Entry" WHERE "Entry_ID" like 'bmst%'
+UNION
+SELECT DISTINCT "Entry_ID", 'InChI', "InChI_code", to_tsvector("InChI_code") FROM metabolomics."Chem_comp"
+UNION
+SELECT DISTINCT "Entry_ID", 'Compound description', "Descriptor", to_tsvector("Descriptor") FROM metabolomics."Chem_comp_descriptor"
 
 -- This is here and below to make exact matches show up prior to fuzzy matches, but still allow fuzzy matches
 UNION
@@ -138,15 +142,11 @@ SELECT DISTINCT "Entry_ID", "Name",'Systematic name' FROM metabolomics."Chem_com
 UNION
 SELECT DISTINCT "Entry_ID", regexp_replace("Formula", '\s', '', 'g'),'Formula' FROM metabolomics."Chem_comp"
 UNION
-SELECT DISTINCT "Entry_ID", "InChI_code",'InChI' FROM metabolomics."Chem_comp"
-UNION
 SELECT DISTINCT "Entry_ID", "Name",'Chem Comp name' FROM metabolomics."Chem_comp"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Common name' FROM metabolomics."Chem_comp_common_name"
 UNION
 SELECT DISTINCT "Entry_ID", "String", 'SMILES' FROM metabolomics."Chem_comp_SMILES"
-UNION
-SELECT DISTINCT "Entry_ID", "Descriptor",'Compound desciption' FROM metabolomics."Chem_comp_descriptor"
 UNION
 SELECT DISTINCT "Entry_ID", "Name",'Entity name' FROM metabolomics."Entity"
 UNION
@@ -265,13 +265,13 @@ GROUP BY entry."ID",entry."Title", entry."Submission_date";
 INSERT INTO web.instant_cache_tmp
 SELECT
  accno,
- 'Entry is being processed',
+ 'Entry is being processed.',
  array[]::text[],
  array[]::text[],
  '/data_library/received.shtml',
  received,
  False
-FROM web.procque WHERE onhold='N';
+FROM web.procque WHERE onhold='N' AND status != 'Withdrawn';
 
 -- On hold
 INSERT INTO web.instant_cache_tmp
@@ -283,7 +283,19 @@ SELECT
  '/data_library/held.shtml#' || accno,
  received,
  False
-FROM web.procque WHERE onhold='Y';
+FROM web.procque WHERE onhold='Y' AND status != 'Withdrawn';
+
+-- Withdrawn
+INSERT INTO web.instant_cache_tmp
+SELECT
+ accno,
+ 'Entry has been withdrawn by the author.',
+ array[]::text[],
+ array[]::text[],
+ '/data_library/withdrawn.shtml',
+ received,
+ False
+FROM web.procque WHERE status = 'Withdrawn';
 
 -- Create the index on the tsvector
 CREATE INDEX ON web.instant_cache_tmp USING gin(tsv);
