@@ -193,10 +193,17 @@ def load_schemas(rev):
                                 ['Order of operation'],
                                 1)
 
+    res['supergroup_descriptions'] = get_dict(get_file('adit_super_grp_o.csv', rev),
+                                              ['super_group_ID', 'super_group_name', 'Description'],
+                                              ['super_group_ID'],
+                                              2)
+
     res['category_supergroups'] = get_dict(get_file("adit_cat_grp_o.csv", rev),
-                                ['category_super_group', 'saveframe_category', 'mandatory_number', 'allowed_user_defined_framecode', 'category_group_view_name', 'group_view_help'],
-                                ['mandatory_number'],
-                                2)
+                                           ['category_super_group', 'saveframe_category', 'mandatory_number',
+                                            'allowed_user_defined_framecode', 'category_group_view_name',
+                                            'group_view_help', 'category_super_group_ID'],
+                                           ['mandatory_number', 'category_super_group_ID'],
+                                           2)
 
     # Check for outdated overrides
     if validate_mode:
