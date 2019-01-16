@@ -307,9 +307,21 @@ def new_deposition():
                     if lower_tag not in ['sf_category', 'sf_framecode', 'id', 'entry_id', 'nmr_star_version',
                                          'original_nmr_star_version']:
                         fqtn = frame_prefix_lower + '.' + lower_tag
+                        # Make the experimental method capitalized - for old entries
+                        if fqtn == "_Entry.Experimental_method_subtype":
+                            tag[1] = tag[1].upper()
                         if fqtn in schema.schema:
                             new_saveframe.add_tag(tag[0], tag[1], update=True)
+                    if lower_tag == 'sf_framecode':
+                        try:
+                            fqtn = frame_prefix_lower + '.' + lower_tag
+                            if fqtn in schema.schema:
+                                new_saveframe.add_tag('Name', tag[1].replace("_", " "), update=False)
+                        except ValueError:
+                            pass
                 for loop in saveframe.loops:
+                    if loop.category == "_Upload_data":
+                        continue
                     lower_tags = [_.lower() for _ in loop.tags]
                     tags_to_pull = [_ for _ in new_saveframe[loop.category].tags if _.lower() in lower_tags]
                     filtered_original_loop = loop.filter(tags_to_pull)
@@ -345,6 +357,9 @@ def new_deposition():
         author_given = orcid_json['person']['name']['given-names']['value']
         author_family = orcid_json['person']['name']['family-name']['value']
 
+    entry_saveframe = entry_template.get_saveframes_by_category("entry_information")[0]
+    entry_saveframe['UUID'] = deposition_id
+
     # Update the loops with the data we have
     author_loop = pynmrstar.Loop.from_scratch()
     author_loop.add_tag(['_Entry_author.Given_name',
@@ -353,26 +368,35 @@ def new_deposition():
     author_loop.add_data([author_given,
                           author_family,
                           author_orcid])
-    author_loop.add_missing_tags(all_tags=True)
-    author_loop.sort_tags()
-    citation_loop = pynmrstar.Loop.from_scratch()
-    citation_loop.add_tag(['_Contact_person.Given_name',
-                           '_Contact_person.Family_name',
-                           '_Contact_person.ORCID',
-                           '_Contact_person.Email_address'])
-    citation_loop.add_data([author_given,
-                            author_family,
-                            author_orcid,
-                            author_email])
-    citation_loop.add_missing_tags(all_tags=True)
-    citation_loop.sort_tags()
+    if not entry_saveframe['_Entry_author'].empty:
+        for row in entry_saveframe['_Entry_author'].get_tag(['_Entry_author.Given_name',
+                                                                       '_Entry_author.Family_name',
+                                                                       '_Entry_author.ORCID']):
+            author_loop.add_data(row)
 
-    entry_saveframe = entry_template.get_saveframes_by_category("entry_information")[0]
-    if entry_saveframe['_Entry_author'].empty:
-        entry_saveframe['_Entry_author'] = author_loop
-    if entry_saveframe['_Contact_person'].empty:
-        entry_saveframe['_Contact_person'] = citation_loop
-    entry_saveframe['UUID'] = deposition_id
+    author_loop.add_missing_tags(all_tags=True, schema=schema)
+    author_loop.sort_tags()
+    entry_saveframe['_Entry_author'] = author_loop
+
+    contact_loop = pynmrstar.Loop.from_scratch()
+    contact_loop.add_tag(['_Contact_person.Given_name',
+                          '_Contact_person.Family_name',
+                          '_Contact_person.ORCID',
+                          '_Contact_person.Email_address'])
+    contact_loop.add_data([author_given,
+                           author_family,
+                           author_orcid,
+                           author_email])
+    # Merge the uploaded data
+    if not entry_saveframe['_Contact_person'].empty:
+        for row in entry_saveframe['_Contact_person'].get_tag(['_Contact_person.Given_name',
+                                                                          '_Contact_person.Family_name',
+                                                                          '_Contact_person.ORCID',
+                                                                          '_Contact_person.Email_address']):
+            contact_loop.add_data(row)
+    contact_loop.add_missing_tags(all_tags=True, schema=schema)
+    contact_loop.sort_tags()
+    entry_saveframe['_Contact_person'] = contact_loop
 
     # Set the loops to have at least one row of data
     for saveframe in entry_template:
