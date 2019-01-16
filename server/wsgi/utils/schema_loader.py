@@ -61,7 +61,9 @@ data_type_mapping = {'Assigned_chem_shifts': 'assigned_chemical_shifts',
                      'Timedomain_data': None,
                      'Molecular_interactions': None,
                      'Secondary_structure_orientations': 'secondary_structs',
-                     'Metabolite_coordinates': None
+                     'Metabolite_coordinates': None,
+                     'Tensor': None,
+                     'Mass_spec_data': None
                      }
 
 
