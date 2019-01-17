@@ -329,8 +329,10 @@ def new_deposition():
                     new_saveframe[filtered_original_loop.category] = filtered_original_loop
                 entry_template.add_saveframe(new_saveframe)
         entry_template.normalize()
-    entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = '3.2.1.12'
-    entry_template.get_saveframes_by_category('entry_information')[0]['Original_NMR_STAR_version'] = '3.2.1.12'
+
+        # We only need to manually reset these if they were copied over by an old entry
+        entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = schema.version
+        entry_template.get_saveframes_by_category('entry_information')[0]['Original_NMR_STAR_version'] = schema.version
 
     # Suggest some default sample conditions
     sample_conditions = entry_template.get_loops_by_category('_Sample_condition_variable')[0]
