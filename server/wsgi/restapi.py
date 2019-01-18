@@ -300,25 +300,29 @@ def new_deposition():
             for saveframe in delete_saveframes:
                 del entry_template[saveframe]
             for saveframe in uploaded_entry.get_saveframes_by_category(category):
+                # Don't copy over the entry interview at all
+                if saveframe.category == "entry_interview":
+                    continue
                 new_saveframe = pynmrstar.Saveframe.from_template(category, saveframe.name, deposition_id, True, schema)
                 frame_prefix_lower = saveframe.tag_prefix.lower()
-                for tag in saveframe.tags:
-                    lower_tag = tag[0].lower()
-                    if lower_tag not in ['sf_category', 'sf_framecode', 'id', 'entry_id', 'nmr_star_version',
-                                         'original_nmr_star_version']:
-                        fqtn = frame_prefix_lower + '.' + lower_tag
-                        # Make the experimental method capitalized - for old entries
-                        if fqtn in ["_Entry.Experimental_method_subtype", "_Entry.Dep_release_code_nmr_exptl"]:
-                            tag[1] = tag[1].upper()
-                        if fqtn in schema.schema:
-                            new_saveframe.add_tag(tag[0], tag[1], update=True)
-                    if lower_tag == 'sf_framecode':
-                        try:
+
+                # Don't copy the tags from entry_information
+                if saveframe.category != "entry_information":
+                    for tag in saveframe.tags:
+                        lower_tag = tag[0].lower()
+                        if lower_tag not in ['sf_category', 'sf_framecode', 'id', 'entry_id', 'nmr_star_version',
+                                             'original_nmr_star_version']:
                             fqtn = frame_prefix_lower + '.' + lower_tag
                             if fqtn in schema.schema:
-                                new_saveframe.add_tag('Name', tag[1].replace("_", " "), update=False)
-                        except ValueError:
-                            pass
+                                new_saveframe.add_tag(tag[0], tag[1], update=True)
+                        if lower_tag == 'sf_framecode':
+                            try:
+                                fqtn = frame_prefix_lower + '.' + lower_tag
+                                if fqtn in schema.schema:
+                                    new_saveframe.add_tag('Name', tag[1].replace("_", " "), update=False)
+                            except ValueError:
+                                pass
+
                 for loop in saveframe.loops:
                     if loop.category == "_Upload_data":
                         continue
@@ -330,9 +334,10 @@ def new_deposition():
                 entry_template.add_saveframe(new_saveframe)
         entry_template.normalize()
 
-        # We only need to manually reset these if they were copied over by an old entry
-        entry_template.get_saveframes_by_category('entry_information')[0]['NMR_STAR_version'] = schema.version
-        entry_template.get_saveframes_by_category('entry_information')[0]['Original_NMR_STAR_version'] = schema.version
+    # Set the entry information tags
+    entry_information = entry_template.get_saveframes_by_category('entry_information')[0]
+    entry_information['NMR_STAR_version'] = schema.version
+    entry_information['Original_NMR_STAR_version'] = schema.version
 
     # Suggest some default sample conditions
     sample_conditions = entry_template.get_loops_by_category('_Sample_condition_variable')[0]
@@ -372,8 +377,8 @@ def new_deposition():
                           author_orcid])
     if not entry_saveframe['_Entry_author'].empty:
         for row in entry_saveframe['_Entry_author'].get_tag(['_Entry_author.Given_name',
-                                                                       '_Entry_author.Family_name',
-                                                                       '_Entry_author.ORCID']):
+                                                             '_Entry_author.Family_name',
+                                                             '_Entry_author.ORCID']):
             author_loop.add_data(row)
 
     author_loop.add_missing_tags(all_tags=True, schema=schema)
@@ -392,9 +397,9 @@ def new_deposition():
     # Merge the uploaded data
     if not entry_saveframe['_Contact_person'].empty:
         for row in entry_saveframe['_Contact_person'].get_tag(['_Contact_person.Given_name',
-                                                                          '_Contact_person.Family_name',
-                                                                          '_Contact_person.ORCID',
-                                                                          '_Contact_person.Email_address']):
+                                                               '_Contact_person.Family_name',
+                                                               '_Contact_person.ORCID',
+                                                               '_Contact_person.Email_address']):
             contact_loop.add_data(row)
     contact_loop.add_missing_tags(all_tags=True, schema=schema)
     contact_loop.sort_tags()
@@ -412,6 +417,9 @@ def new_deposition():
         entry_interview[tag] = "no"
     entry_interview['PDB_deposition'] = "no"
     entry_interview['BMRB_deposition'] = "yes"
+    # Set the tag to store that this entry was bootstrapped
+    if entry_bootstrap:
+        entry_interview['Previous_BMRB_entry_used'] = request_info['bootstrapID']
 
     entry_meta = {'deposition_id': deposition_id,
                   'author_email': author_email,
