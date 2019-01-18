@@ -316,7 +316,7 @@ def new_deposition():
                             if fqtn in schema.schema:
                                 new_saveframe.add_tag(tag[0], tag[1], update=True)
                         if lower_tag == 'sf_framecode':
-                            if frame_prefix_lower + '.Name' in schema.schema and saveframe.category != "assembly":
+                            if frame_prefix_lower + '.Name' in schema.schema:
                                 new_saveframe.add_tag('Name', tag[1].replace("_", " "), update=False)
 
                 for loop in saveframe.loops:
