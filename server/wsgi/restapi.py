@@ -308,7 +308,7 @@ def new_deposition():
                                          'original_nmr_star_version']:
                         fqtn = frame_prefix_lower + '.' + lower_tag
                         # Make the experimental method capitalized - for old entries
-                        if fqtn == "_Entry.Experimental_method_subtype":
+                        if fqtn in ["_Entry.Experimental_method_subtype", "_Entry.Dep_release_code_nmr_exptl"]:
                             tag[1] = tag[1].upper()
                         if fqtn in schema.schema:
                             new_saveframe.add_tag(tag[0], tag[1], update=True)
