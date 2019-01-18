@@ -63,7 +63,10 @@ data_type_mapping = {'Assigned_chem_shifts': 'assigned_chemical_shifts',
                      'Secondary_structure_orientations': 'secondary_structs',
                      'Metabolite_coordinates': None,
                      'Tensor': None,
-                     'Mass_spec_data': None
+                     'Mass_spec_data': None,
+                     'Chem_shift_perturbation': 'chem_shift_perturbation',
+                     'Chem_shift_isotope_effect': 'chem_shift_isotope_effect',
+                     'Image_file': 'chem_comp'
                      }
 
 
@@ -126,7 +129,7 @@ def get_main_schema(rev):
 
 
 def get_data_file_types(rev):
-    """ Returns the list of enabled data file [description, sf_category, entry_interview.$tagname. """
+    """ Returns the list of enabled data file [description, sf_category, entry_interview.tag_name. """
 
     try:
         enabled_types_file = csv.reader(get_file("adit_nmr_upload_tags.csv", rev))
@@ -141,15 +144,19 @@ def get_data_file_types(rev):
             sf = types_description[data_type[1]]
             type_description = sf['_Adit_item_view_name'][0].strip()
             interview_tag = pynmrstar._format_tag(sf['_Tag'][0])
-            sf_category = data_type_mapping.get(interview_tag, None)
+            # Try to get the data mapping from the dictionary if possible
+            if len(data_type) > 2:
+                if data_type[2] == "?":
+                    sf_category = None
+                else:
+                    sf_category = data_type[2]
+            else:
+                sf_category = data_type_mapping.get(interview_tag, None)
             description = sf['_Description'][0]
             yield [type_description, sf_category, interview_tag, description]
         except Exception as e:
             print('Something went wrong when loading the data types mapping.', repr(e))
             return
-
-    if rev >= 229 or rev == "development":
-        yield ['Image file', 'chem_comp', None, 'An image file representing a ligand or the macromolecule.']
 
 
 def get_dict(fob, headers, number_fields, skip):

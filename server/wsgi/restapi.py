@@ -38,7 +38,6 @@ sys.path.append(local_dir)
 from utils import querymod
 pynmrstar = querymod.pynmrstar
 from utils import depositions
-from utils.schema_loader import data_type_mapping
 
 # Set up the flask application
 application = Flask(__name__)
@@ -291,6 +290,7 @@ def new_deposition():
     # Create the deposition
     deposition_id = str(uuid4())
     schema = pynmrstar.Schema()
+    json_schema = querymod.get_schema(schema.version)
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
 
     # Merge the entries
@@ -413,8 +413,8 @@ def new_deposition():
 
     # Set the entry_interview tags
     entry_interview = entry_template.get_saveframes_by_category('entry_interview')[0]
-    for tag in data_type_mapping:
-        entry_interview[tag] = "no"
+    for tag in json_schema['file_upload_types']:
+        entry_interview[tag[2]] = "no"
     entry_interview['PDB_deposition'] = "no"
     entry_interview['BMRB_deposition'] = "yes"
     # Set the tag to store that this entry was bootstrapped
@@ -428,7 +428,7 @@ def new_deposition():
                   'deposition_origination': {'request': dict(request.headers),
                                              'ip': request.environ['REMOTE_ADDR']},
                   'email_validated': False,
-                  'schema_version': entry_template.get_tag('_Entry.NMR_STAR_version')[0],
+                  'schema_version': schema.version,
                   'entry_deposited': False,
                   'deposition_from_file': True if uploaded_entry else False}
     if uploaded_entry:
@@ -442,7 +442,7 @@ def new_deposition():
         # Manually set the metadata during object creation - never should be done this way elsewhere
         repo._live_metadata = entry_meta
         repo.write_entry(entry_template)
-        repo.write_file('schema.json', json.dumps(querymod.get_schema(entry_meta['schema_version'])), root=True)
+        repo.write_file('schema.json', json.dumps(json_schema), root=True)
         if uploaded_entry:
             if entry_bootstrap:
                 repo.write_file('bootstrap_entry.str', str(uploaded_entry), root=True)
