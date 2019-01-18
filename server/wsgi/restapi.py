@@ -316,12 +316,8 @@ def new_deposition():
                             if fqtn in schema.schema:
                                 new_saveframe.add_tag(tag[0], tag[1], update=True)
                         if lower_tag == 'sf_framecode':
-                            try:
-                                fqtn = frame_prefix_lower + '.' + lower_tag
-                                if fqtn in schema.schema:
-                                    new_saveframe.add_tag('Name', tag[1].replace("_", " "), update=False)
-                            except ValueError:
-                                pass
+                            if frame_prefix_lower + '.Name' in schema.schema and saveframe.category != "assembly":
+                                new_saveframe.add_tag('Name', tag[1].replace("_", " "), update=False)
 
                 for loop in saveframe.loops:
                     if loop.category == "_Upload_data":
