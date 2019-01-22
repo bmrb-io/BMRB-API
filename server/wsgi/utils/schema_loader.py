@@ -76,14 +76,16 @@ def schema_emitter():
     cur_rev = remote_svn.info()['commit_revision']
     last_schema_version = None
 
+    if os.path.exists('nmr-star-dictionary'):
+        next_schema = load_schemas('development')
+        last_schema_version = next_schema[0]
+        yield next_schema
+
     for rev in range(cur_rev, 52, -1):
         next_schema = load_schemas(rev)
         if next_schema[0] != last_schema_version:
             yield next_schema
         last_schema_version = next_schema[0]
-        if rev == cur_rev:
-            if os.path.exists('nmr-star-dictionary'):
-                yield load_schemas('development')
 
 
 def get_file(file_name, revision):
