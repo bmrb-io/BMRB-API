@@ -292,7 +292,8 @@ def new_deposition():
     deposition_id = str(uuid4())
     schema = pynmrstar.Schema()
     json_schema = querymod.get_schema(schema.version)
-    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, schema=schema)
+    entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, default_values=True,
+                                                   schema=schema)
 
     # Merge the entries
     if uploaded_entry:
