@@ -217,7 +217,8 @@ def send_validation_email(uuid):
         confirm_message = Message("Please validate your e-mail address for BMRBDep.",
                                   recipients=[repo.metadata['author_email']])
         token = URLSafeSerializer(querymod.configuration['secret_key']).dumps({'deposition_id': uuid})
-        confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.' % \
+        confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.'\
+                               ' You can also use this link to return to your deposition later.' % \
                                (url_for('validate_user', token=token, _external=True), uuid)
         mail.send(confirm_message)
 
