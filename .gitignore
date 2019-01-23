@@ -65,3 +65,4 @@ target/
 api_config.json
 
 .idea/
+.DS_STORE
