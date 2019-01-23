@@ -408,7 +408,14 @@ def new_deposition():
     for saveframe in entry_template:
         for loop in saveframe:
             if not loop.data:
-                loop.data = [["."] * len(loop.tags)]
+                row_data = []
+                for tag in loop.tags:
+                    fqtn = (loop.category + '.' + tag).lower()
+                    if schema.schema[fqtn]['default value'] not in ["?", '']:
+                        row_data.append(schema.schema[fqtn]['default value'])
+                    else:
+                        row_data.append('.')
+                loop.data = [row_data]
 
     # Set the entry_interview tags
     entry_interview = entry_template.get_saveframes_by_category('entry_interview')[0]
