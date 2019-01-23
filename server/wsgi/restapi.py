@@ -388,6 +388,7 @@ def new_deposition():
                           '_Contact_person.Family_name',
                           '_Contact_person.ORCID',
                           '_Contact_person.Email_address'])
+    contact_loop.add_data([None, None, None, None])
     contact_loop.add_data([author_given,
                            author_family,
                            author_orcid,
