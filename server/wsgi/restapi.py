@@ -9,6 +9,7 @@ from __future__ import print_function
 import os
 import sys
 import time
+import datetime
 import traceback
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
@@ -215,12 +216,29 @@ def send_validation_email(uuid):
         if repo.metadata['email_validated']:
             return jsonify({'status': 'validated'})
         # Ask them to confirm their e-mail
-        confirm_message = Message("Please validate your e-mail address for BMRBDep.",
+        confirm_message = Message("Please validate your e-mail address for BMRBDep deposition '%s'." %
+                                  repo.metadata['deposition_nickname'],
                                   recipients=[repo.metadata['author_email']])
         token = URLSafeSerializer(querymod.configuration['secret_key']).dumps({'deposition_id': uuid})
-        confirm_message.html = 'Please click <a href="%s">here</a> to validate your e-mail for BMRBDep session %s.'\
-                               ' You can also use this link to return to your deposition later.' % \
-                               (url_for('validate_user', token=token, _external=True), uuid)
+
+        confirm_message.html = \
+"""Thank you for your deposition '%s' created %s (UTC).
+<br><br>
+Please click <a href="%s">here</a> to validate your e-mail for this session. This is required to proceed.
+<br><br>
+You can use <a href="%s">this link</a> to return to your deposition later if you close the page before it is complete.
+<br><br>
+If you wish to share access with collaborators, simply forward them this e-mail. Be aware that anyone you
+share this e-mail with will have access to the full contents of your in-progress deposition and can make
+changes to it.
+<br><br>
+Thank you,
+<br>
+BMRBDep System""" % (repo.metadata['deposition_nickname'], repo.metadata['creation_date'],
+                     url_for('validate_user', token=token, _external=True),
+                     # TODO: Make this URL configurable
+                     'http://dev-bmrbdep.bmrb.wisc.edu/entry/%s/saveframe/deposited_data_files/category' % uuid)
+
         mail.send(confirm_message)
 
     return jsonify({'status': 'unvalidated'})
@@ -254,6 +272,9 @@ def new_deposition():
 
     if not request_info or 'email' not in request_info:
         raise querymod.RequestError("Must specify user e-mail to start a session.")
+
+    if 'deposition_nickname' not in request_info:
+        raise querymod.RequestError("Must specify a nickname for the deposition.")
 
     uploaded_entry = None
     entry_bootstrap = False
@@ -437,6 +458,8 @@ def new_deposition():
                   'email_validated': False,
                   'schema_version': schema.version,
                   'entry_deposited': False,
+                  'creation_date': datetime.datetime.utcnow().strftime("%I:%M %p on %B %d, %Y"),
+                  'deposition_nickname': request_info['deposition_nickname'],
                   'deposition_from_file': True if uploaded_entry else False}
     if uploaded_entry:
         if entry_bootstrap:
