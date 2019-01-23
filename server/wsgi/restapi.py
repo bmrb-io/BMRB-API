@@ -109,6 +109,7 @@ if (querymod.configuration.get('smtp')
     # Set up the mail interface
     application.config.update(
         MAIL_SERVER=querymod.configuration['smtp']['server'],
+        # TODO: Make this configurable
         MAIL_DEFAULT_SENDER='noreply@bmrb.wisc.edu'
     )
     mail = Mail(application)
