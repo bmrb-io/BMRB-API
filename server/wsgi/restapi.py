@@ -316,18 +316,31 @@ def new_deposition():
     json_schema = querymod.get_schema(schema.version)
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, default_values=True,
                                                    schema=schema)
+
+    # Merge the entries
+    if uploaded_entry:
+        # Rename the saveframes in the uploaded entry before merging them
+        for category in uploaded_entry.category_list:
+            for x, saveframe in enumerate(uploaded_entry.get_saveframes_by_category(category)):
+                # Set the "Name" tag if it isn't already set
+                if (saveframe.tag_prefix + '.name').lower() in schema.schema:
+                    try:
+                        saveframe.add_tag('Name', saveframe['sf_framecode'][0].replace("_", " "), update=False)
+                    except ValueError:
+                        pass
+                uploaded_entry.rename_saveframe(saveframe.name, "%s_%s" % (saveframe.category, x + 1))
+
     # Merge the entries
     if uploaded_entry:
         for category in uploaded_entry.category_list:
             delete_saveframes = entry_template.get_saveframes_by_category(category)
             for saveframe in delete_saveframes:
                 del entry_template[saveframe]
-            for x, saveframe in enumerate(uploaded_entry.get_saveframes_by_category(category)):
-                new_framecode = "%s_%s" % (saveframe.category, x + 1)
+            for saveframe in uploaded_entry.get_saveframes_by_category(category):
                 # Don't copy over the entry interview at all
                 if saveframe.category == "entry_interview":
                     continue
-                new_saveframe = pynmrstar.Saveframe.from_template(category, new_framecode, deposition_id, True, schema)
+                new_saveframe = pynmrstar.Saveframe.from_template(category, saveframe.name, deposition_id, True, schema)
                 frame_prefix_lower = saveframe.tag_prefix.lower()
 
                 # Don't copy the tags from entry_information
@@ -339,9 +352,6 @@ def new_deposition():
                             fqtn = frame_prefix_lower + '.' + lower_tag
                             if fqtn in schema.schema:
                                 new_saveframe.add_tag(tag[0], tag[1], update=True)
-                        if lower_tag == 'sf_framecode':
-                            if frame_prefix_lower + '.Name' in schema.schema:
-                                new_saveframe.add_tag('Name', tag[1].replace("_", " "), update=False)
 
                 for loop in saveframe.loops:
                     if loop.category == "_Upload_data":
