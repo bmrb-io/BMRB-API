@@ -316,18 +316,18 @@ def new_deposition():
     json_schema = querymod.get_schema(schema.version)
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, default_values=True,
                                                    schema=schema)
-
     # Merge the entries
     if uploaded_entry:
         for category in uploaded_entry.category_list:
             delete_saveframes = entry_template.get_saveframes_by_category(category)
             for saveframe in delete_saveframes:
                 del entry_template[saveframe]
-            for saveframe in uploaded_entry.get_saveframes_by_category(category):
+            for x, saveframe in enumerate(uploaded_entry.get_saveframes_by_category(category)):
+                new_framecode = "%s_%s" % (saveframe.category, x + 1)
                 # Don't copy over the entry interview at all
                 if saveframe.category == "entry_interview":
                     continue
-                new_saveframe = pynmrstar.Saveframe.from_template(category, saveframe.name, deposition_id, True, schema)
+                new_saveframe = pynmrstar.Saveframe.from_template(category, new_framecode, deposition_id, True, schema)
                 frame_prefix_lower = saveframe.tag_prefix.lower()
 
                 # Don't copy the tags from entry_information
