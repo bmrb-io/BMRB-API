@@ -328,7 +328,9 @@ def new_deposition():
                         saveframe.add_tag('Name', saveframe['sf_framecode'][0].replace("_", " "), update=False)
                     except ValueError:
                         pass
-                uploaded_entry.rename_saveframe(saveframe.name, "%s_%s" % (saveframe.category, x + 1))
+                new_name = "%s_%s" % (saveframe.category, x + 1)
+                if saveframe.name != new_name:
+                    uploaded_entry.rename_saveframe(saveframe.name, new_name)
 
     # Merge the entries
     if uploaded_entry:
