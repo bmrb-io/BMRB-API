@@ -428,6 +428,10 @@ def new_deposition():
 
     # Set the loops to have at least one row of data
     for saveframe in entry_template:
+
+        # Add a "deleted" tag to use to track deletion status
+        saveframe.add_tag('_Deleted', 'no')
+
         for loop in saveframe:
             if not loop.data:
                 row_data = []
