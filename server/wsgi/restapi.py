@@ -337,6 +337,8 @@ def new_deposition():
         for category in uploaded_entry.category_list:
             delete_saveframes = entry_template.get_saveframes_by_category(category)
             for saveframe in delete_saveframes:
+                if saveframe.category == "entry_interview":
+                    continue
                 del entry_template[saveframe]
             for saveframe in uploaded_entry.get_saveframes_by_category(category):
                 # Don't copy over the entry interview at all
@@ -365,6 +367,9 @@ def new_deposition():
                     new_saveframe[filtered_original_loop.category] = filtered_original_loop
                 entry_template.add_saveframe(new_saveframe)
         entry_template.normalize()
+
+    entry_interview = entry_template.get_saveframes_by_category('entry_interview')[0]
+
 
     # Set the entry information tags
     entry_information = entry_template.get_saveframes_by_category('entry_information')[0]
