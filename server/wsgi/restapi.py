@@ -413,7 +413,7 @@ def new_deposition():
                           author_orcid])
     if not entry_saveframe['_Entry_author'].empty:
         for row in entry_saveframe['_Entry_author'].get_tag(['_Entry_author.Given_name',
-                                                             '_Entry_author.Middle_initials'
+                                                             '_Entry_author.Middle_initials',
                                                              '_Entry_author.Family_name',
                                                              '_Entry_author.ORCID']):
             author_loop.add_data(row)
