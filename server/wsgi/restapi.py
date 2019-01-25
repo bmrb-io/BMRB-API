@@ -368,9 +368,6 @@ def new_deposition():
                 entry_template.add_saveframe(new_saveframe)
         entry_template.normalize()
 
-    entry_interview = entry_template.get_saveframes_by_category('entry_interview')[0]
-
-
     # Set the entry information tags
     entry_information = entry_template.get_saveframes_by_category('entry_information')[0]
     entry_information['NMR_STAR_version'] = schema.version
@@ -407,13 +404,16 @@ def new_deposition():
     # Update the loops with the data we have
     author_loop = pynmrstar.Loop.from_scratch()
     author_loop.add_tag(['_Entry_author.Given_name',
+                         '_Entry_author.Middle_initials',
                          '_Entry_author.Family_name',
                          '_Entry_author.ORCID'])
     author_loop.add_data([author_given,
+                          None,
                           author_family,
                           author_orcid])
     if not entry_saveframe['_Entry_author'].empty:
         for row in entry_saveframe['_Entry_author'].get_tag(['_Entry_author.Given_name',
+                                                             '_Entry_author.Middle_initials'
                                                              '_Entry_author.Family_name',
                                                              '_Entry_author.ORCID']):
             author_loop.add_data(row)
@@ -424,17 +424,20 @@ def new_deposition():
 
     contact_loop = pynmrstar.Loop.from_scratch()
     contact_loop.add_tag(['_Contact_person.Given_name',
+                          '_Contact_person.Middle_initials',
                           '_Contact_person.Family_name',
                           '_Contact_person.ORCID',
                           '_Contact_person.Email_address'])
     contact_loop.add_data([author_given,
+                           None,
                            author_family,
                            author_orcid,
                            author_email])
-    contact_loop.add_data([None, None, None, None])
+    contact_loop.add_data([None, None, None, None, None])
     # Merge the uploaded data
     if not entry_saveframe['_Contact_person'].empty:
         for row in entry_saveframe['_Contact_person'].get_tag(['_Contact_person.Given_name',
+                                                               '_Contact_person.Middle_initials'
                                                                '_Contact_person.Family_name',
                                                                '_Contact_person.ORCID',
                                                                '_Contact_person.Email_address']):
