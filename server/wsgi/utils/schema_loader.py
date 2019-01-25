@@ -141,6 +141,9 @@ def get_data_file_types(rev):
     pynmrstar.ALLOW_V2_ENTRIES = True
     types_description = pynmrstar.Entry.from_file(get_file('adit_interface_dict.txt', rev))
 
+    interview_list = []
+    data_mapping = {}
+
     for data_type in enabled_types_file:
         try:
             sf = types_description[data_type[1]]
@@ -155,10 +158,17 @@ def get_data_file_types(rev):
             else:
                 sf_category = data_type_mapping.get(interview_tag, None)
             description = sf['_Description'][0]
-            yield [type_description, sf_category, interview_tag, description]
+
+            interview_list.append(interview_tag)
+            if interview_tag not in data_mapping:
+                data_mapping[interview_tag] = [type_description, [sf_category], interview_tag, description]
+            else:
+                data_mapping[interview_tag][1].append(sf_category)
         except Exception as e:
             print('Something went wrong when loading the data types mapping.', repr(e))
-            return
+            continue
+
+    return [data_mapping[x] for x in interview_list]
 
 
 def get_dict(fob, headers, number_fields, skip):
@@ -252,6 +262,6 @@ def load_schemas(rev):
     finally:
         pynmrstar.ALLOW_V2_ENTRIES = False
 
-    res['file_upload_types'] = list(get_data_file_types(rev))
+    res['file_upload_types'] = get_data_file_types(rev)
 
     return res['version'], res
