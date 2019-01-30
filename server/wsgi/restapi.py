@@ -313,7 +313,8 @@ def new_deposition():
     # Create the deposition
     deposition_id = str(uuid4())
     schema = pynmrstar.Schema()
-    json_schema = querymod.get_schema(schema.version)
+    #json_schema = querymod.get_schema(schema.version)
+    json_schema = requests.get('http://webapi.bmrb.wisc.edu/devel/schema/%s' % schema.version).json()
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, default_values=True,
                                                    schema=schema)
 
@@ -427,20 +428,26 @@ def new_deposition():
                           '_Contact_person.Middle_initials',
                           '_Contact_person.Family_name',
                           '_Contact_person.ORCID',
-                          '_Contact_person.Email_address'])
+                          '_Contact_person.Email_address',
+                          '_Contact_person.Role',
+                          '_Contact_person.Organization_type'])
     contact_loop.add_data([author_given,
                            None,
                            author_family,
                            author_orcid,
-                           author_email])
-    contact_loop.add_data([None, None, None, None, None])
+                           author_email,
+                           schema.schema['_contact_person.role']['default value'],
+                           schema.schema['_contact_person.organization_type']['default value']])
+    contact_loop.add_data([None, None, None, None, None, 'responsible scientist', 'academic'])
     # Merge the uploaded data
     if not entry_saveframe['_Contact_person'].empty:
         for row in entry_saveframe['_Contact_person'].get_tag(['_Contact_person.Given_name',
                                                                '_Contact_person.Middle_initials',
                                                                '_Contact_person.Family_name',
                                                                '_Contact_person.ORCID',
-                                                               '_Contact_person.Email_address']):
+                                                               '_Contact_person.Email_address',
+                                                               '_Contact_person.Role',
+                                                               '_Contact_person.Organization_type']):
             contact_loop.add_data(row)
     contact_loop.add_missing_tags(all_tags=True, schema=schema)
     contact_loop.sort_tags()
@@ -615,7 +622,8 @@ def fetch_or_store_deposition(uuid):
             schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
             data_files = repo.get_data_file_list()
         try:
-            schema = querymod.get_schema(schema_version)
+            #schema = querymod.get_schema(schema_version)
+            schema = requests.get('http://webapi.bmrb.wisc.edu/devel/schema/%s' % schema_version).json()
         except querymod.RequestError:
             raise querymod.ServerError("Entry specifies schema that doesn't exist on the "
                                        "server: %s" % schema_version)
