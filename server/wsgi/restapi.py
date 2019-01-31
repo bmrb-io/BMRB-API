@@ -313,8 +313,8 @@ def new_deposition():
     # Create the deposition
     deposition_id = str(uuid4())
     schema = pynmrstar.Schema()
-    #json_schema = querymod.get_schema(schema.version)
-    json_schema = requests.get('http://webapi.bmrb.wisc.edu/devel/schema/%s' % schema.version).json()
+    json_schema = querymod.get_schema(schema.version)
+    # json_schema = requests.get('http://webapi.bmrb.wisc.edu/devel/schema/%s' % schema.version).json()
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, default_values=True,
                                                    schema=schema)
 
@@ -622,8 +622,8 @@ def fetch_or_store_deposition(uuid):
             schema_version = entry.get_tag('_Entry.NMR_STAR_version')[0]
             data_files = repo.get_data_file_list()
         try:
-            #schema = querymod.get_schema(schema_version)
-            schema = requests.get('http://webapi.bmrb.wisc.edu/devel/schema/%s' % schema_version).json()
+            schema = querymod.get_schema(schema_version)
+            # schema = requests.get('http://webapi.bmrb.wisc.edu/devel/schema/%s' % schema_version).json()
         except querymod.RequestError:
             raise querymod.ServerError("Entry specifies schema that doesn't exist on the "
                                        "server: %s" % schema_version)
