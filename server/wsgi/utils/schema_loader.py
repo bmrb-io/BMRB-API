@@ -232,7 +232,7 @@ def load_schemas(rev):
             if override[0] != "*" and override[0] not in res['tags']['values']:
                 print("Missing tag: %s" % override[0])
 
-    sf_category_info = get_dict(get_file("adit_cat_grp_i.csv", rev),
+    sf_category_info = get_dict(get_file("adit_cat_grp_o.csv", rev),
                                 ['saveframe_category', 'category_group_view_name', 'mandatory_number',
                                  'ADIT replicable', 'group_view_help'],
                                 ['mandatory_number'],
