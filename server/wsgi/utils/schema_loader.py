@@ -5,8 +5,9 @@ from __future__ import print_function
 import os
 import re
 import csv
-import svn.remote
-from svn.exception import SvnException
+
+from git import Repo, GitCommandError
+
 from querymod import _QUERYMOD_DIR, pynmrstar
 
 try:
@@ -16,7 +17,8 @@ except ImportError:
     # for Python 3.x
     from io import StringIO
 
-remote_svn = svn.remote.RemoteClient("http://svn.bmrb.wisc.edu/svn/nmr-star-dictionary")
+repo = Repo('/zfs/git/nmr-star-dictionary')
+
 # Load the data types
 dt_path = os.path.join(_QUERYMOD_DIR, "../submodules/PyNMRSTAR/reference_files/data_types.csv")
 data_types = {x[0]: x[1] for x in csv.reader(open(dt_path, "rU"))}
@@ -73,39 +75,41 @@ data_type_mapping = {'Assigned_chem_shifts': 'assigned_chemical_shifts',
 def schema_emitter():
     """ Yields all the schemas in the SVN repo. """
 
-    cur_rev = remote_svn.info()['commit_revision']
     last_schema_version = None
 
-    if os.path.exists('nmr-star-dictionary'):
+    if os.path.exists('/zfs/git/nmr-star-dictionary'):
         next_schema = load_schemas('development')
         last_schema_version = next_schema[0]
         yield next_schema
 
-    for rev in range(cur_rev, 52, -1):
-        next_schema = load_schemas(rev)
+    for commit in repo.iter_commits('master'):
+        next_schema = load_schemas(commit)
+        if next_schema is None:
+            print("Reached old incompatible schemas.")
+            return
         if next_schema[0] != last_schema_version:
             yield next_schema
         last_schema_version = next_schema[0]
 
 
-def get_file(file_name, revision):
+def get_file(file_name, commit):
     """ Returns a file-like object. """
 
     # Handle old schema location
-    schema_loc = "bmrb_only_files/adit_input"
-    if revision < 163:
-        schema_loc = "bmrb_star_v3_files/adit_input"
-
-    if revision == "development":
-        file_ = open('nmr-star-dictionary/bmrb_only_files/adit_input/%s' % file_name, 'r').read().splitlines()
+    if commit == "development":
+        file_ = open('/zfs/git/nmr-star-dictionary/%s' % file_name, 'r').read().splitlines()
     else:
-        file_ = remote_svn.cat("%s/%s" % (schema_loc, file_name), revision=revision).splitlines()
-    file_ = StringIO('\n'.join(file_))
-    return file_
+        file_ = repo.git.show('{}:{}'.format(commit.hexsha, file_name)).splitlines()
+
+    return StringIO('\n'.join(file_))
 
 
-def get_main_schema(rev):
-    schema = csv.reader(get_file("xlschem_ann.csv", rev))
+def get_main_schema(commit):
+
+    try:
+        schema = csv.reader(get_file("xlschem_ann.csv", commit))
+    except GitCommandError:
+        return
     all_headers = schema.next()
     schema.next()
     schema.next()
@@ -135,7 +139,7 @@ def get_data_file_types(rev):
 
     try:
         enabled_types_file = csv.reader(get_file("adit_nmr_upload_tags.csv", rev))
-    except SvnException:
+    except GitCommandError:
         return
 
     pynmrstar.ALLOW_V2_ENTRIES = True
@@ -206,6 +210,8 @@ def load_schemas(rev):
     # Load the schemas into the DB
 
     res = get_main_schema(rev)
+    if not res:
+        return None
 
     res['data_types'] = data_types
     res['overrides'] = get_dict(get_file("adit_man_over.csv", rev),
@@ -228,9 +234,9 @@ def load_schemas(rev):
 
     # Check for outdated overrides
     if validate_mode:
-        for override in res['overrides']:
+        for override in res['overrides']['values']:
             if override[0] != "*" and override[0] not in res['tags']['values']:
-                print("Missing tag: %s" % override[0])
+                print("Override specifies invalid tag: %s" % override[0])
 
     sf_category_info = get_dict(get_file("adit_cat_grp_o.csv", rev),
                                 ['saveframe_category', 'category_group_view_name', 'mandatory_number',
@@ -245,7 +251,8 @@ def load_schemas(rev):
     # Load the enumerations
     try:
         enumerations = get_file('enumerations.txt', rev).read()
-        enumerations = re.sub('_Revision_date.*', '', enumerations.replace('\x00', '').replace('\xd5', ''))
+        enumerations = enumerations.encode().replace('\x00', '').replace('\xd5', '')
+        enumerations = re.sub('_Revision_date.*', '', enumerations)
         pynmrstar.ALLOW_V2_ENTRIES = True
         enum_entry = pynmrstar.Entry.from_string(enumerations)
         for saveframe in enum_entry:
