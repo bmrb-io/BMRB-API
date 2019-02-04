@@ -159,9 +159,9 @@ def get_data_file_types(rev):
                 sf_category = data_type_mapping.get(interview_tag, None)
             description = sf['_Description'][0]
 
-            interview_list.append(interview_tag)
             if interview_tag not in data_mapping:
                 data_mapping[interview_tag] = [type_description, [sf_category], interview_tag, description]
+                interview_list.append(interview_tag)
             else:
                 data_mapping[interview_tag][1].append(sf_category)
         except Exception as e:
