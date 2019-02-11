@@ -318,6 +318,8 @@ def new_deposition():
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, default_values=True,
                                                    schema=schema)
 
+    print(entry_template[3])
+
     # Merge the entries
     if uploaded_entry:
         # Rename the saveframes in the uploaded entry before merging them
@@ -420,7 +422,7 @@ def new_deposition():
             author_loop.add_data(row)
 
     author_loop.add_missing_tags(all_tags=True, schema=schema)
-    author_loop.sort_tags()
+    author_loop.sort_tags(schema=schema)
     entry_saveframe['_Entry_author'] = author_loop
 
     contact_loop = pynmrstar.Loop.from_scratch()
@@ -450,7 +452,7 @@ def new_deposition():
                                                                '_Contact_person.Organization_type']):
             contact_loop.add_data(row)
     contact_loop.add_missing_tags(all_tags=True, schema=schema)
-    contact_loop.sort_tags()
+    contact_loop.sort_tags(schema=schema)
     entry_saveframe['_Contact_person'] = contact_loop
 
     # Set the loops to have at least one row of data
