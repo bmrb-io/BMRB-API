@@ -318,8 +318,6 @@ def new_deposition():
     entry_template = pynmrstar.Entry.from_template(entry_id=deposition_id, all_tags=True, default_values=True,
                                                    schema=schema)
 
-    print(entry_template[3])
-
     # Merge the entries
     if uploaded_entry:
         # Rename the saveframes in the uploaded entry before merging them
