@@ -1,10 +1,8 @@
 -- To support the feature we need
 -- yum install postgresql-contrib
 -- psql -d bmrbeverything -U postgres
---   CREATE EXTENSION pg_trgm;
 
-
-
+CREATE extension IF NOT EXISTS pg_trgm;
 
 -- Update metabolomics and macromolecule entry tables to have "Entry_ID"
 DO $$
@@ -34,16 +32,16 @@ $func$  LANGUAGE plpgsql IMMUTABLE;
 DO $$
 BEGIN
     BEGIN
-        CREATE index error_on_duplicates ON macromolecules."Atom_chem_shift" ("Atom_ID", "Comp_ID", CAST("Val" as float));
-        CLUSTER macromolecules."Atom_chem_shift" USING error_on_duplicates;
-        CREATE INDEX ON macromolecules."Atom_chem_shift" ("Atom_type");
+        -- CREATE index error_on_duplicates ON macromolecules."Atom_chem_shift" ("Atom_ID", "Comp_ID", CAST("Val" as float));
+        -- CLUSTER macromolecules."Atom_chem_shift" USING error_on_duplicates;
+        CREATE INDEX error_on_duplicates ON macromolecules."Atom_chem_shift" ("Atom_type");
         CREATE INDEX ON macromolecules."Atom_chem_shift" ("Atom_ID");
         CREATE INDEX ON macromolecules."Atom_chem_shift" ("Comp_ID");
         CREATE INDEX ON macromolecules."Atom_chem_shift" (CAST("Val" as float));
         ANALYZE macromolecules."Atom_chem_shift";
 
-        CREATE index cluster_metabolomics_shifts ON metabolomics."Atom_chem_shift" ("Atom_ID", "Comp_ID", CAST("Val" as float));
-        CLUSTER metabolomics."Atom_chem_shift" USING cluster_metabolomics_shifts;
+        -- CREATE index cluster_metabolomics_shifts ON metabolomics."Atom_chem_shift" ("Atom_ID", "Comp_ID", CAST("Val" as float));
+        -- CLUSTER metabolomics."Atom_chem_shift" USING cluster_metabolomics_shifts;
         CREATE INDEX ON metabolomics."Atom_chem_shift" ("Atom_type");
         CREATE INDEX ON metabolomics."Atom_chem_shift" ("Atom_ID");
         CREATE INDEX ON metabolomics."Atom_chem_shift" ("Comp_ID");
