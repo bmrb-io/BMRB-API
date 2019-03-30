@@ -42,6 +42,7 @@ from utils import depositions
 
 # Set up the flask application
 application = Flask(__name__)
+application.url_map.strict_slashes = False
 
 # Set debug if running from command line
 if application.debug:
