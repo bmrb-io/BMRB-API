@@ -8,5 +8,5 @@ redis>=2.10.6
 requests>=2.19.1
 gitpython==2.1.11
 Flask-Mail==0.9.1
-git+git://github.com/uwbmrb/validate_email.git@eccaa9aaf0dfe505b97f3e177883362887f456ec
-pyDNS==2.3.6
+pynmrstar==2.6.4.1
+git+git://github.com/uwbmrb/validate_email.git@4f3c8544af83d9e8ef56c44ba0a5a5ea12e7182d
