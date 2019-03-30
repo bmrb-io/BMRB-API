@@ -3,12 +3,6 @@
 # The postgresql10-contrib package is for pg_trgm
 yum install redis python-pip python-virtualenv mod_evasive apache-gzip postgresql10-contrib
 
-# Set up the virtualenv
-source ../wsgi/env/bin/activate
-cd ../wsgi/
-./setup_virtualenv.sh
-cd -
-
 # Configure redis installation
 systemctl enable redis
 systemctl start redis
