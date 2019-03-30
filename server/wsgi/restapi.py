@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """ This code is used to provide the REST API interface. Under the hood
 all of the work is done in utils/querymod.py - this just routes the queries
@@ -14,11 +14,7 @@ import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
 from pythonjsonlogger import jsonlogger
-
-try:
-    import simplejson as json
-except ImportError:
-    import json
+import simplejson as json
 
 # Import flask
 from flask import Flask, request, Response, jsonify, url_for, redirect
@@ -31,7 +27,6 @@ sys.path.append(local_dir)
 
 # Import the functions needed to service requests - must be after path updates
 from utils import querymod
-pynmrstar = querymod.pynmrstar
 
 # Set up the flask application
 application = Flask(__name__)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """ This module provides methods to service the different query types that are
 provided through the REST interface. This is where the real work

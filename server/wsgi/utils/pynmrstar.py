@@ -1,1 +1,0 @@
-../submodules/PyNMRSTAR/bmrb.py

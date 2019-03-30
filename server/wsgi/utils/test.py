@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Standard imports
 import sys
@@ -7,10 +7,7 @@ import unittest
 import requests
 import querymod
 
-if sys.version_info[0] == 3:
-    from io import StringIO
-else:
-    from StringIO import StringIO
+from io import StringIO
 
 url = 'http://localhost'
 
