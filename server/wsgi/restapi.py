@@ -4,8 +4,6 @@
 all of the work is done in utils/querymod.py - this just routes the queries
 to the correct location and passes the results back."""
 
-from __future__ import print_function
-
 import os
 import sys
 import time

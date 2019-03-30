@@ -1,9 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 """ Populate the Redis and PSQL databases. """
-
-# Make sure print functions work in python2 and python3
-from __future__ import print_function
 
 import re
 import os
@@ -11,10 +8,6 @@ import sys
 import time
 import zlib
 
-try:
-    import simplejson as json
-except ImportError:
-    import json
 import optparse
 from multiprocessing import Pipe, cpu_count
 
@@ -36,8 +29,6 @@ opt.add_option("--macromolecules", action="store_true", dest="macromolecules",
                default=False, help="Update the macromolecule entries.")
 opt.add_option("--chemcomps", action="store_true", dest="chemcomps",
                default=False, help="Update the chemcomp entries.")
-opt.add_option("--schema", action="store_true", dest="schema",
-               default=False, help="Update the schemas.")
 opt.add_option("--all", action="store_true", dest="all", default=False,
                help="Update all the entries.")
 opt.add_option("--redis-db", action="store", dest="db", default=1,
@@ -51,8 +42,8 @@ opt.add_option("--flush", action="store_true", dest="flush", default=False,
 
 # Make sure they specify a DB
 if not (options.metabolomics or options.macromolecules or
-        options.chemcomps or options.schema or options.all):
-    print("You must specify which entries to load (or specify the schema).")
+        options.chemcomps or options.all):
+    print("You must specify which entries to load.")
     sys.exit(1)
 
 # Update the values if all is presented
@@ -60,7 +51,6 @@ if options.all:
     options.metabolomics = True
     options.macromolecules = True
     options.chemcomps = True
-    options.schema = True
 
 # Load the metabolomics data
 if options.metabolomics:
@@ -141,18 +131,6 @@ def one_entry(entry_name, entry_location, r_conn):
             key = querymod.locate_entry(entry_name)
             r_conn.set(key, zlib.compress(ent.get_json()))
             return entry_name
-
-
-def load_schemas(redis_conn):
-    import schema_loader
-
-    highest_schema = ""
-    for schema in schema_loader.schema_emitter():
-        redis_conn.set("schema:%s" % schema[0], zlib.compress(json.dumps(schema[1])))
-        highest_schema = schema[0]
-        print("Set schema: %s" % schema[0])
-    redis_conn.set("schema_version", highest_schema)
-
 
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
@@ -282,8 +260,6 @@ if options.macromolecules:
 if options.chemcomps:
     make_entry_list('chemcomps')
     clear_cache(r, 'chemcomps')
-if options.schema:
-    load_schemas(r)
 
 # Make the full list from the existing lists regardless of update type
 loaded['combined'] = (r.lrange('metabolomics:entry_list', 0, -1) +
