@@ -5,9 +5,6 @@ provided through the REST interface. This is where the real work
 is done; restapi.py mainly just calls the methods here and returns the results.
 """
 
-# Make sure print functions work in python2 and python3
-from __future__ import print_function
-
 import os
 import zlib
 import logging
@@ -19,21 +16,12 @@ except ImportError:
     from sys import maxsize as max_integer
 from hashlib import md5
 from decimal import Decimal
-from uuid import UUID
 from time import time as unix_time
 from tempfile import NamedTemporaryFile
+from urllib.parse import quote as urlquote
 
 from flask import url_for
-
-try:
-    import simplejson as json
-except ImportError:
-    import json
-
-try:
-    from urllib import quote as urlquote
-except ImportError:
-    from urllib.parse import quote as urlquote
+import simplejson as json
 
 import psycopg2
 from psycopg2.extensions import AsIs
@@ -123,9 +111,7 @@ def locate_entry(entry_id, r_conn=None):
     """ Determines what the Redis key is for an entry given the database
     provided."""
 
-    if type(entry_id) is UUID:
-        return 'depositions:entry:%s' % entry_id
-    elif entry_id.startswith("bm"):
+    if entry_id.startswith("bm"):
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):
         return "chemcomps:entry:%s" % entry_id

@@ -9,16 +9,11 @@ from __future__ import print_function
 import os
 import sys
 import time
-import datetime
 import traceback
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
-from uuid import uuid4
 
-import requests
-from itsdangerous import URLSafeSerializer, BadSignature
 from pythonjsonlogger import jsonlogger
-from validate_email import validate_email
 
 try:
     import simplejson as json
@@ -26,9 +21,8 @@ except ImportError:
     import json
 
 # Import flask
-from flask import Flask, request, Response, jsonify, url_for, redirect, send_file
-from werkzeug.utils import secure_filename
-from flask_mail import Mail, Message
+from flask import Flask, request, Response, jsonify, url_for, redirect
+from flask_mail import Mail
 
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
@@ -38,7 +32,6 @@ sys.path.append(local_dir)
 # Import the functions needed to service requests - must be after path updates
 from utils import querymod
 pynmrstar = querymod.pynmrstar
-from utils import depositions
 
 # Set up the flask application
 application = Flask(__name__)

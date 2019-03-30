@@ -66,3 +66,5 @@ api_config.json
 
 .idea/
 .DS_STORE
+
+virtual_env
