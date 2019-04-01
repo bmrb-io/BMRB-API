@@ -114,7 +114,7 @@ def handle_our_errors(error):
     return response
 
 
-@application.errorhandler(Exception)
+# @application.errorhandler(Exception)
 def handle_other_errors(error):
     """ Catches any other exceptions and formats them. Only
     displays the actual error to local clients (to prevent disclosing
@@ -400,7 +400,7 @@ def get_id_from_search(tag_name=None, tag_value=None):
     id_field = querymod.get_entry_id_tag(tag_name, database)
     result = querymod.select([id_field], sp[0], where_dict={sp[1]: tag_value},
                              modifiers=['lower'], database=database)
-    return jsonify(result[result.keys()[0]])
+    return jsonify(result[list(result.keys())[0]])
 
 
 @application.route('/search/get_bmrb_ids_from_pdb_id/')
