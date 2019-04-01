@@ -1174,10 +1174,10 @@ FROM "Entity" as entity
     # Use temporary files to store the FASTA search string and FASTA DB
     with NamedTemporaryFile(dir="/dev/shm") as fasta_file, \
             NamedTemporaryFile(dir="/dev/shm") as sequence_file:
-        fasta_file.file.write(">query\n%s" % query.upper())
+        fasta_file.file.write((">query\n%s" % query.upper()).encode())
         fasta_file.flush()
 
-        sequence_file.file.write("".join(seq_strings))
+        sequence_file.file.write(("".join(seq_strings)).encode())
         sequence_file.flush()
 
         # Set up the FASTA arguments
@@ -1187,7 +1187,7 @@ FROM "Entity" as entity
         fargs.extend([fasta_file.name, sequence_file.name])
 
         # Run FASTA
-        res = subprocess.check_output(fargs, stderr=subprocess.STDOUT)
+        res = subprocess.check_output(fargs, stderr=subprocess.STDOUT).decode()
 
     # Combine the results
     results = []
