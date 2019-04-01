@@ -630,7 +630,11 @@ def get_status():
     r = get_redis_connection()
     stats: Dict[str, Union[List[str], Dict[Union[int, str], Any]]] = {}
     for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
-        stats[key] = r.hgetall("%s:meta" % key)
+        stats[key] = {}
+        for k, v in r.hgetall("%s:meta" % key).items():
+            k = k.decode()
+            v = v.decode()
+            stats[key][k] = v
         for skey in stats[key]:
             if skey == "update_time":
                 stats[key][skey] = float(stats[key][skey])
@@ -646,9 +650,7 @@ def get_status():
 
     # Add the available methods
     stats['methods'] = _METHODS
-    stats['version'] = subprocess.check_output(["git",
-                                                "describe",
-                                                "--abbrev=0"]).strip()
+    stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"]).strip()
 
     return stats
 
