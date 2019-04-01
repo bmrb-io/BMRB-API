@@ -5,5 +5,5 @@ if [[ ! -d "${SCRIPT_DIR}/virtual_env" ]]
 then
     python3 -m venv ${SCRIPT_DIR}/virtual_env
     source ${SCRIPT_DIR}/virtual_env/bin/activate
-    pip install -r ${SCRIPT_DIR}/../configs/requirements.txt
+    pip3 install -r ${SCRIPT_DIR}/../configs/requirements.txt
 fi
