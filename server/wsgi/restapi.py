@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 """ This code is used to provide the REST API interface. Under the hood
 all of the work is done in utils/querymod.py - this just routes the queries
@@ -261,7 +261,7 @@ def get_entry(entry_id=None):
 
             # Bypass JSON encode/decode cycle
             if format_ == "json":
-                return Response("""{"%s": %s}""" % (entry_id, entry[entry_id]),
+                return Response("""{"%s": %s}""" % (entry_id, entry[entry_id].decode()),
                                 mimetype="application/json")
 
             # Special case to return raw nmrstar
