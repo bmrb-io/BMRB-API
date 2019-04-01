@@ -37,8 +37,6 @@ if application.debug:
     querymod.configuration['debug'] = True
     CORS(application)
 
-application.secret_key = querymod.configuration['secret_key']
-
 # Set up the logging
 
 # First figure out where to log
