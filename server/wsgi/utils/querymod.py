@@ -10,11 +10,12 @@ import zlib
 import logging
 import textwrap
 import subprocess
-from sys import maxsize as max_integer
 from hashlib import md5
 from decimal import Decimal
 from time import time as unix_time
+from sys import maxsize as max_integer
 from tempfile import NamedTemporaryFile
+from typing import Dict, Union, Any, List
 from urllib.parse import quote as urlquote
 
 from flask import url_for
@@ -322,10 +323,10 @@ def panav_parser(panav_text):
     lines = panav_text.split("\n")
 
     # Initialize the result dictionary
-    result = {'offsets': {},
-              'deviants': [],
-              'suspicious': [],
-              'text': panav_text}
+    result: Dict[str, Union[str, list, dict]] = {'offsets': {},
+                                                 'deviants': [],
+                                                 'suspicious': [],
+                                                 'text': panav_text}
 
     # Variables to keep track of output line numbers
     deviant_line = 5
@@ -379,7 +380,7 @@ def get_citation(entry_id, format_="python"):
         raise RequestError("Invalid format specified. Please choose from the "
                            "following formats: %s" % str(["json-ld", "text", "bibtex"]))
 
-    ent_ret_id, entry = get_valid_entries_from_redis(entry_id).next()
+    ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
 
     # First lets get all the values we need, later we will format them
 
@@ -393,6 +394,8 @@ def get_citation(entry_id, format_="python"):
     # Authors and citations
     authors = []
     citations = []
+    citation_title, citation_journal, citation_volume_issue, citation_pagination, citation_year = '', '', '', '', ''
+
     for citation_frame in entry.get_saveframes_by_category("citations"):
         if get_tag(citation_frame, "Class") == "entry citation":
             cl = citation_frame["_Citation_author"]
@@ -613,7 +616,7 @@ def get_tags(**kwargs):
             result[entry[0]] = entry[1].get_tags(search_tags)
         # They requested a tag that doesn't exist
         except ValueError as error:
-            raise RequestError(error.message)
+            raise RequestError(str(error))
 
     return result
 
@@ -622,7 +625,7 @@ def get_status():
     """ Return some statistics about the server."""
 
     r = get_redis_connection()
-    stats = {}
+    stats: Dict[str, Union[List[str], Dict[Union[int, str], Any]]] = {}
     for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
         stats[key] = r.hgetall("%s:meta" % key)
         for skey in stats[key]:
@@ -725,6 +728,7 @@ WHERE '''
     terms = []
 
     fpeaks = []
+    peak = None
     try:
         for peak in peaks:
             fpeaks.append(float(peak))
@@ -1049,6 +1053,7 @@ CREATE TABLE web.timedomain_data (
     def td_data_getter():
         td_dir = configuration['timedomain_directory']
         for x in os.listdir(td_dir):
+            x: str = x
             entry_id = int("".join([_ for _ in x if _.isdigit()]))
             yield (entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x)))
 
@@ -1532,7 +1537,7 @@ def get_all_values_for_tag(tag_name, database):
     try:
         cur.execute(query, [wrap_it_up(params[1])])
     except psycopg2.ProgrammingError as e:
-        sp = e.message.split('\n')
+        sp = str(e).split('\n')
         if len(sp) > 3:
             if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
                 raise RequestError("Tag not found. Did you mean the tag: '%s'?" %
@@ -1839,7 +1844,8 @@ def get_extra_data_available(bmrb_id, cur=None, r_conn=None):
     set_database(cur, get_database_from_entry_id(bmrb_id))
 
     query = '''
-SELECT "Entry_ID" as entry_id, ed."Type" as type, dic.catgrpviewname as description, "Count"::integer as sets, 0 as size from "Data_set" as ed
+SELECT "Entry_ID" as entry_id, ed."Type" as type, dic.catgrpviewname as description, "Count"::integer as sets,
+       0 as size from "Data_set" as ed
   LEFT JOIN dict.aditcatgrp as dic ON ed."Type" = dic.sfcategory
  WHERE ed."Entry_ID" like %s
 UNION
@@ -1847,7 +1853,7 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
     cur.execute(query, [bmrb_id, bmrb_id])
 
     try:
-        entry = get_valid_entries_from_redis(bmrb_id, r_conn=r_conn).next()[1]
+        entry = next(get_valid_entries_from_redis(bmrb_id, r_conn=r_conn))[1]
     # This happens when an entry is valid but isn't available in Redis - for example, when we only have
     #  2.0 records for an entry.
     except StopIteration:
