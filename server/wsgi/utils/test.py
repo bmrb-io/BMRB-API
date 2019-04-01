@@ -5,6 +5,7 @@ import sys
 import time
 import unittest
 import requests
+import pynmrstar
 import querymod
 
 from io import StringIO
@@ -45,11 +46,11 @@ class TestAPI(unittest.TestCase):
     def test_entries_in_redis(self):
         """ Make sure that one entry in each class is there and parses."""
 
-        self.assertEqual(querymod.pynmrstar.Entry.from_database(15000),
-                         querymod.pynmrstar.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
-        self.assertEqual(querymod.pynmrstar.Entry.from_database("bmse000894"),
-                         querymod.pynmrstar.Entry.from_file("/share/subedit/metabolomics/bmse000894/bmse000894.str"))
-        self.assertEqual(querymod.pynmrstar.Entry.from_database("chemcomp_0EY"),
+        self.assertEqual(pynmrstar.Entry.from_database(15000),
+                         pynmrstar.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
+        self.assertEqual(pynmrstar.Entry.from_database("bmse000894"),
+                         pynmrstar.Entry.from_file("/share/subedit/metabolomics/bmse000894/bmse000894.str"))
+        self.assertEqual(pynmrstar.Entry.from_database("chemcomp_0EY"),
                          querymod.create_chemcomp_from_db("chemcomp_0EY"))
 
     def test_chemical_shifts(self):
@@ -71,7 +72,7 @@ class TestAPI(unittest.TestCase):
     def test_store_entry(self):
         """ See if we can store an entry in the DB and then retrieve it."""
 
-        star_test = str(querymod.pynmrstar.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
+        star_test = str(pynmrstar.Entry.from_file("/share/subedit/entries/bmr15000/clean/bmr15000_3.str"))
         response = self.session.post(url + "/entry/", data=star_test).json()
 
         # Check the response key length
@@ -82,8 +83,8 @@ class TestAPI(unittest.TestCase):
                                      data=star_test).json()
 
         # Make sure the returned entry equals the submitted entry
-        self.assertEquals(querymod.pynmrstar.Entry.from_json(response2[response['entry_id']]),
-                          querymod.pynmrstar.Entry.from_string(star_test))
+        self.assertEquals(pynmrstar.Entry.from_json(response2[response['entry_id']]),
+                          pynmrstar.Entry.from_string(star_test))
 
         # Delete the entry we uploaded
         querymod.get_redis_connection().delete(querymod.locate_entry(response['entry_id']))
@@ -104,9 +105,10 @@ class TestAPI(unittest.TestCase):
             # The local entry has converted datatypes straight from postgres
             #  so make sure to convert datatypes for the loaded entry
             ligand_expo_ent = requests.get(
-                "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_entity=yes&print_chem_comp=yes&%s=Fetch" % key).text
+                "http://octopus.bmrb.wisc.edu/ligand-expo?what=print&print_entity=yes&print_chem_comp=yes&%s=Fetch" %
+                key).text
             ligand_expo_ent = "data_chemcomp_%s\n" % key + ligand_expo_ent
-            ligand_expo_ent = querymod.pynmrstar.Entry.from_string(ligand_expo_ent)
+            ligand_expo_ent = pynmrstar.Entry.from_string(ligand_expo_ent)
 
             self.assertEquals(local, ligand_expo_ent)
 
