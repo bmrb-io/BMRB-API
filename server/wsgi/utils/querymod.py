@@ -320,6 +320,9 @@ def store_uploaded_entry(request):
 def panav_parser(panav_text):
     """ Parses the PANAV data into something jsonify-able."""
 
+    if type(panav_text) == bytes:
+        panav_text = panav_text.decode()
+
     lines = panav_text.split("\n")
 
     # Initialize the result dictionary
@@ -531,7 +534,7 @@ def get_chemical_shift_validation(**kwargs):
         # Put the chemical shift loop in a file
 
         with NamedTemporaryFile(dir="/dev/shm") as star_file:
-            star_file.file.write(str(entry[1]))
+            star_file.file.write(str(entry[1]).encode())
             star_file.flush()
 
             avs_location = os.path.join(_SUBMODULE_DIR, "avs/validate_assignments_31.pl")
@@ -539,7 +542,7 @@ def get_chemical_shift_validation(**kwargs):
                                            "-aromatic", "-std", "-anomalous", "-suspicious",
                                            "-star_output", star_file.name])
 
-            error_loop = pynmrstar.Entry.from_string(res)
+            error_loop = pynmrstar.Entry.from_string(res.decode())
             error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
             error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
                                             "Entity_ID", "Comp_index_ID",
@@ -569,7 +572,7 @@ def get_chemical_shift_validation(**kwargs):
             result[entry[0]]["panav"] = {}
             # Put the chemical shift loop in a file
             with NamedTemporaryFile(dir="/dev/shm") as chem_shifts:
-                chem_shifts.file.write(str(cs_loop))
+                chem_shifts.file.write(str(cs_loop).encode())
                 chem_shifts.flush()
 
                 panav_location = os.path.join(_SUBMODULE_DIR, "panav/panav.jar")
