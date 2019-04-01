@@ -10,10 +10,7 @@ import zlib
 import logging
 import textwrap
 import subprocess
-try:
-    from sys import maxint as max_integer
-except ImportError:
-    from sys import maxsize as max_integer
+from sys import maxsize as max_integer
 from hashlib import md5
 from decimal import Decimal
 from time import time as unix_time
