@@ -4,8 +4,10 @@
 all of the work is done in utils/querymod.py - this just routes the queries
 to the correct location and passes the results back."""
 
+# Import the functions needed to service requests - must be after path updates
+from utils import querymod
+
 import os
-import sys
 import time
 import traceback
 import logging
@@ -18,14 +20,6 @@ import simplejson as json
 from flask import Flask, request, Response, jsonify, url_for, redirect
 from flask_mail import Mail
 
-# Set up paths for imports and such
-local_dir = os.path.dirname(__file__)
-os.chdir(local_dir)
-sys.path.append(local_dir)
-
-# Import the functions needed to service requests - must be after path updates
-from utils import querymod
-
 # Set up the flask application
 application = Flask(__name__)
 application.url_map.strict_slashes = False
@@ -36,6 +30,9 @@ if application.debug:
 
     querymod.configuration['debug'] = True
     CORS(application)
+
+# Set up paths for imports and such
+local_dir = os.path.dirname(__file__)
 
 # Set up the logging
 
