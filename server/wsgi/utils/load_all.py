@@ -95,7 +95,7 @@ def clear_cache(r_conn, db_name):
     """ Delete the cache for a given schema."""
 
     for key in r_conn.scan_iter():
-        if key.startswith("cache:%s" % db_name):
+        if key.decode().startswith("cache:%s" % db_name):
             r_conn.delete(key)
             print("Deleting cached query: %s" % key)
 
@@ -112,7 +112,7 @@ def one_entry(entry_name, entry_location, r_conn):
 
         if ent is not None:
             key = querymod.locate_entry(entry_name)
-            r_conn.set(key, zlib.compress(ent.get_json()))
+            r_conn.set(key, zlib.compress(ent.get_json().encode()))
             print("On %s: loaded" % entry_name)
             return entry_name
     else:
@@ -129,8 +129,9 @@ def one_entry(entry_name, entry_location, r_conn):
 
         if ent is not None:
             key = querymod.locate_entry(entry_name)
-            r_conn.set(key, zlib.compress(ent.get_json()))
+            r_conn.set(key, zlib.compress(ent.get_json().encode()))
             return entry_name
+
 
 # Since we are about to start, tell REDIS it is being updated
 r = querymod.get_redis_connection(db=options.db)
@@ -218,6 +219,9 @@ for thread in range(0, num_threads):
 
 def natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
     """ Use as a key to do a natural sort. 1<12<2<23."""
+
+    if type(s) == bytes:
+        s = s.decode()
 
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split(_nsre, s)]
