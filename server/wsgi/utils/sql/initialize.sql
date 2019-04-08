@@ -338,3 +338,5 @@ GRANT ALL PRIVILEGES ON TABLE web.instant_cache to web;
 GRANT ALL PRIVILEGES ON TABLE web.instant_cache to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to web;
 GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to bmrb;
+GRANT ALL PRIVILEGES ON TABLE web.pdb_link to web;
+GRANT ALL PRIVILEGES ON TABLE web.pdb_link to bmrb;
