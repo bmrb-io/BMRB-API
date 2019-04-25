@@ -340,5 +340,5 @@ GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to web;
 GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.pdb_link to web;
 GRANT ALL PRIVILEGES ON TABLE web.pdb_link to bmrb;
-GRANT ALL PRIVILEGES ON FUNCTION convert_to_numeric to web;
-GRANT ALL PRIVILEGES ON FUNCTION convert_to_numeric to bmrb;
+GRANT ALL PRIVILEGES ON FUNCTION web.convert_to_numeric to web;
+GRANT ALL PRIVILEGES ON FUNCTION web.convert_to_numeric to bmrb;
