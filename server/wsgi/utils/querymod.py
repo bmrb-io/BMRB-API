@@ -652,7 +652,11 @@ def get_status():
 
     # Add the available methods
     stats['methods'] = _METHODS
-    stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"]).strip()
+    try:
+        stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"]).strip()
+    except subprocess.CalledProcessError:
+        with open(os.path.join(_QUERYMOD_DIR, '..', 'version.txt'), 'r') as version_file:
+            stats['version'] = version_file.read().strip()
 
     return stats
 

@@ -7,7 +7,7 @@ sudo docker rm bmrbapi
 
 if [[ $# -eq 0 ]]
   then
-
+    git describe --abbrev=0 > wsgi/version.txt
     if ! sudo docker build -t bmrbapi .; then
       echo "Docker build failed."
       exit 2
