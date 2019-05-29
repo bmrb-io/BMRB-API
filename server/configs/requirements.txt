@@ -7,4 +7,3 @@ redis==3.2.1
 gitpython==2.1.11
 Flask-Mail==0.9.1
 pynmrstar==2.6.4.1
-uwsgi==2.0.18
