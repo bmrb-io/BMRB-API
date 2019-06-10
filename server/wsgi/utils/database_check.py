@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """ Verify the DB load worked. """
 
@@ -7,6 +7,7 @@ import logging
 import optparse
 import psycopg2
 import datetime
+
 
 def get_postgres_connection(user, host, database, port):
     """ Returns a connection to postgres and a cursor."""
@@ -98,3 +99,24 @@ unreleased = set(valid_ids) - released
 if len(unreleased) > 36:
     logging.warning('More than 36 entries show as released in ETS but are missing data in'
                     ' the DB! Number of missing entries: %s' % len(unreleased))
+    sys.exit(2)
+
+# Verify some important tables manually
+db_cur.execute('SELECT count(*) FROM macromolecules."Atom_chem_shift"')
+num_shifts = db_cur.fetchone()[0]
+if num_shifts < 9593166:
+    logging.warning('Fewer macromolecule chemical shifts than expected! Only found %s.' % num_shifts)
+    sys.exit(3)
+
+db_cur.execute('SELECT count(*) FROM macromolecules."Atom_chem_shift"')
+num_shifts = db_cur.fetchone()[0]
+if num_shifts < 65210:
+    logging.warning('Fewer metabolomics chemical shifts than expected! Only found %s.' % num_shifts)
+    sys.exit(4)
+
+db_cur.execute('SELECT count(*) FROM macromolecules."Software"')
+num_shifts = db_cur.fetchone()[0]
+if num_shifts < 34119:
+    logging.warning('Fewer macromolecule software rows than expected! Only found %s.' % num_shifts)
+    sys.exit(5)
+
