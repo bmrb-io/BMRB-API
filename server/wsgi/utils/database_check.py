@@ -102,18 +102,21 @@ if len(unreleased) > 36:
     sys.exit(2)
 
 # Verify some important tables manually
+logging.info('Checking that macromolecules schema contains chemical shifts.')
 db_cur.execute('SELECT count(*) FROM macromolecules."Atom_chem_shift"')
 num_shifts = db_cur.fetchone()[0]
 if num_shifts < 9593166:
     logging.warning('Fewer macromolecule chemical shifts than expected! Only found %s.' % num_shifts)
     sys.exit(3)
 
+logging.info('Checking that metabolomics schema contains chemical shifts.')
 db_cur.execute('SELECT count(*) FROM macromolecules."Atom_chem_shift"')
 num_shifts = db_cur.fetchone()[0]
 if num_shifts < 65210:
     logging.warning('Fewer metabolomics chemical shifts than expected! Only found %s.' % num_shifts)
     sys.exit(4)
 
+logging.info('Checking that macromolecules table contains software values.')
 db_cur.execute('SELECT count(*) FROM macromolecules."Software"')
 num_shifts = db_cur.fetchone()[0]
 if num_shifts < 34119:
