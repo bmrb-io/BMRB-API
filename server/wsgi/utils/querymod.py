@@ -1057,8 +1057,7 @@ def create_timedomain_table():
 
     conn, cur = get_postgres_connection()
     cur.execute('''
-DROP TABLE IF EXISTS web.timedomain_data;
-CREATE TABLE web.timedomain_data (
+CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
  bmrbid text PRIMARY KEY,
  size numeric,
  sets numeric);''')
@@ -1069,7 +1068,12 @@ CREATE TABLE web.timedomain_data (
             entry_id = int("".join([_ for _ in x if _.isdigit()]))
             yield (entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x)))
 
-    execute_values(cur, '''INSERT INTO web.timedomain_data(bmrbid, size, sets) VALUES %s;''', td_data_getter())
+    execute_values(cur, '''INSERT INTO web.timedomain_data_tmp(bmrbid, size, sets) VALUES %s;''', td_data_getter())
+
+    cur.execute('''
+ALTER TABLE IF EXISTS timedomain_data RENAME TO timedomain_data_old;
+ALTER TABLE timedomain_data_tmp RENAME TO timedomain_data;
+DROP TABLE IF EXISTS timedomain_data_old;''')
     conn.commit()
 
 
