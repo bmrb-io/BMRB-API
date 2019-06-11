@@ -1071,9 +1071,9 @@ CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
     execute_values(cur, '''INSERT INTO web.timedomain_data_tmp(bmrbid, size, sets) VALUES %s;''', td_data_getter())
 
     cur.execute('''
-ALTER TABLE IF EXISTS timedomain_data RENAME TO timedomain_data_old;
-ALTER TABLE timedomain_data_tmp RENAME TO timedomain_data;
-DROP TABLE IF EXISTS timedomain_data_old;''')
+ALTER TABLE IF EXISTS web.timedomain_data RENAME TO timedomain_data_old;
+ALTER TABLE web.timedomain_data_tmp RENAME TO timedomain_data;
+DROP TABLE IF EXISTS web.timedomain_data_old;''')
     conn.commit()
 
 
