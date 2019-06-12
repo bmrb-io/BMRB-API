@@ -1877,7 +1877,7 @@ def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
 
     cur.execute("""
 SELECT tagfield
-  FROM dict.val_item_tbl
+  FROM dict.adit_item_tbl
   WHERE entryidflag='Y' AND lower(tagcategory)=lower(%s);""", [tag_category])
 
     try:
@@ -1895,8 +1895,8 @@ def get_printable_tags(category, cur=None):
         cur = get_postgres_connection()[1]
 
     # Figure out the loop tags
-    cur.execute('''SELECT tagfield,internalflag,printflag,dictionaryseq,sfpointerflag
-                FROM dict.val_item_tbl
+    cur.execute('''SELECT a.tagfield,a.internalflag,p.printflag,a.dictionaryseq,a.sfpointerflg
+                FROM dict.adit_item_tbl a JOIN dict.validator_printflags p ON p.dictionaryseq = a.dictionaryseq
                 WHERE tagcategory=%(loop_name)s ORDER BY dictionaryseq''',
                 {"loop_name": category})
 
@@ -1942,9 +1942,9 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
         cur = get_postgres_connection()[1]
 
     # Look up information about the tags to use later
-    # cur.execute('''SELECT val_item_tbl.originaltag,val_item_tbl.internalflag,
-    # printflag,val_item_tbl.dictionaryseq,rowindexflg FROM dict.val_item_tbl,
-    # dict.adit_item_tbl WHERE val_item_tbl.originaltag=
+    # cur.execute('''SELECT adit_item_tbl.originaltag,adit_item_tbl.internalflag,
+    # printflag,adit_item_tbl.dictionaryseq,rowindexflg FROM dict.adit_item_tbl,
+    # dict.adit_item_tbl WHERE adit_item_tbl.originaltag=
     # adit_item_tbl.originaltag''')
 
     # Get the list of which tags should be used to order data
@@ -1972,7 +1972,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
         return None
 
     # Get table name from category name
-    cur.execute("""SELECT DISTINCT tagcategory FROM dict.val_item_tbl
+    cur.execute("""SELECT DISTINCT tagcategory FROM dict.adit_item_tbl
                 WHERE originalcategory=%(category)s AND loopflag<>'Y'""",
                 {"category": category})
     table_name = cur.fetchone()[0]
@@ -2013,7 +2013,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
                 built_frame.add_tag(tag.name, tag_vals[pos])
 
     # Figure out which loops we might need to insert
-    cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.val_item_tbl
+    cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.adit_item_tbl
                 WHERE originalcategory=%(category)s GROUP BY tagcategory ORDER BY seq''',
                 {'category': category})
 
