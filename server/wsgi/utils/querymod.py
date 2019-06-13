@@ -1127,7 +1127,7 @@ SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",
   replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
 FROM "Entity" as entity
   LEFT JOIN "Entry" as entry
-  ON entity."Entry_ID" = entry."Entry_ID"
+  ON entity."Entry_ID" = entry."ID"
   WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [a_type])
 
     sequences = cur.fetchall()
