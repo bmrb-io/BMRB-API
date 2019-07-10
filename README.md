@@ -436,7 +436,9 @@ with the matching shifts, number of shifts matched, and total offset of shifts,
 sorted by number of peaks matched and total offset. Peaks are counted as a match
 if they are within .2 ppm for C and N and if they are within .01 ppm for H.
 
-The titles and links to the matched entries are also returned.
+The titles and links to the matched entries are also returned. Note that for a large
+number of peaks, you should use 's' rather than 'shift' in order to save free up extra
+characters in the URL.
 
 Parameters:
 
