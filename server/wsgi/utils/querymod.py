@@ -39,8 +39,9 @@ __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
            'store_uploaded_entry']
 
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
-            'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/software', 'status',
-            'software/', 'software/package/', 'instant', 'enumerations/',
+            'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/simulate_hsqc',
+            'entry/ENTRY_ID/software', 'status', 'software/',
+            'software/package/', 'instant', 'enumerations/',
             'search/', 'search/chemical_shifts', 'search/fasta/',
             'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
             'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id/',
