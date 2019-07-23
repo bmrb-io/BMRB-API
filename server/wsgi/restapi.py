@@ -7,17 +7,19 @@ to the correct location and passes the results back."""
 # Import the functions needed to service requests - must be after path updates
 from utils import querymod
 
+import tempfile
 import os
 import time
 import traceback
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
+from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 import simplejson as json
 
 # Import flask
-from flask import Flask, request, Response, jsonify, url_for, redirect
+from flask import Flask, request, Response, jsonify, url_for, redirect, send_file
 from flask_mail import Mail
 
 # Set up the flask application
@@ -524,6 +526,17 @@ def get_citation(entry_id):
     # JSON+LD
     else:
         return jsonify(citation)
+
+
+@application.route('/entry/<entry_id>/simulate_hsqc')
+def simulate_hsqc(entry_id):
+    """ Returns the html for a simulated HSQC spectrum. """
+
+    csviz._AUTOOPEN = False
+    with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
+        csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
+
+        return send_file(output_file.name)
 
 
 @application.route('/instant')
