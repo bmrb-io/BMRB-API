@@ -533,6 +533,7 @@ def simulate_hsqc(entry_id):
     """ Returns the html for a simulated HSQC spectrum. """
 
     csviz._AUTOOPEN = False
+    csviz._OPACITY = 1
     with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
         csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
 
