@@ -2,13 +2,13 @@
 
 """ Populate the Redis and PSQL databases. """
 
-import re
+import logging
+import optparse
 import os
+import re
 import sys
 import time
 import zlib
-
-import optparse
 from multiprocessing import Pipe, cpu_count
 
 import querymod
@@ -37,13 +37,21 @@ opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will "
                     "interrupt service until the DB is rebuilt! (So only use it on"
                     " the staging DB.)")
+opt.add_option("--verbose", action="store_true", dest="verbose", default=False, help="Be verbose")
 # Parse the command line input
 (options, cmd_input) = opt.parse_args()
+
+logging.basicConfig()
+logger = logging.getLogger()
+if options.verbose:
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.ERROR)
 
 # Make sure they specify a DB
 if not (options.metabolomics or options.macromolecules or
         options.chemcomps or options.all):
-    print("You must specify which entries to load.")
+    logging.exception("You must specify which entries to load.")
     sys.exit(1)
 
 # Update the values if all is presented
@@ -97,7 +105,7 @@ def clear_cache(r_conn, db_name):
     for key in r_conn.scan_iter():
         if key.decode().startswith("cache:%s" % db_name):
             r_conn.delete(key)
-            print("Deleting cached query: %s" % key)
+            logging.info("Deleting cached query: %s" % key)
 
 
 def one_entry(entry_name, entry_location, r_conn):
@@ -108,24 +116,24 @@ def one_entry(entry_name, entry_location, r_conn):
             ent = querymod.create_chemcomp_from_db(entry_name)
         except Exception as e:
             ent = None
-            print("On %s: error: %s" % (entry_name, str(e)))
+            logging.exception("On %s: error: %s" % (entry_name, str(e)))
 
         if ent is not None:
             key = querymod.locate_entry(entry_name)
             r_conn.set(key, zlib.compress(ent.get_json().encode()))
-            print("On %s: loaded" % entry_name)
+            logging.info("On %s: loaded" % entry_name)
             return entry_name
     else:
         try:
             ent = querymod.pynmrstar.Entry.from_file(entry_location)
 
-            print("On %s: loaded." % entry_name)
+            logging.info("On %s: loaded." % entry_name)
         except IOError:
             ent = None
-            print("On %s: no file." % entry_name)
+            logging.warning("On %s: no file." % entry_name)
         except Exception as e:
             ent = None
-            print("On %s: error: %s" % (entry_name, str(e)))
+            logging.error("On %s: error: %s" % (entry_name, str(e)))
 
         if ent is not None:
             key = querymod.locate_entry(entry_name)
@@ -138,7 +146,7 @@ r = querymod.get_redis_connection(db=options.db)
 
 # Flush the DB
 if options.flush:
-    print("Flushing the DB.")
+    logging.info("Flushing the DB.")
     r.flushdb()
 
 processes = []
@@ -200,8 +208,6 @@ while len(to_process['combined']) > 0:
             if data:
                 if data != "ready":
                     add_to_loaded(data)
-            else:
-                print("Not loaded.")
             process[0].send(to_process['combined'].pop())
             break
 
@@ -240,7 +246,7 @@ def make_entry_list(name):
         if each_entry not in ent_list:
             to_delete = "%s:entry:%s" % (name, each_entry)
             if r.delete(to_delete):
-                print("Deleted stale entry: %s" % to_delete)
+                logging.info("Deleted stale entry: %s" % to_delete)
 
     # Set the update time, ready status, and entry list
     r.hmset("%s:meta" % name, {"update_time": time.time(),
@@ -251,7 +257,7 @@ def make_entry_list(name):
     r.rename(loading, "%s:entry_list" % name)
 
     dropped = [y[0] for y in to_process[name] if y[0] not in set(loaded[name])]
-    print("Entries not loaded in DB %s: %s" % (name, dropped))
+    logging.info("Entries not loaded in DB %s: %s" % (name, dropped))
 
 
 # Use a Redis list so other applications can read the list of entries
