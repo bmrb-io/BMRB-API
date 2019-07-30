@@ -1925,7 +1925,7 @@ def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
     cur.execute("""
 SELECT tagfield
   FROM dict.adit_item_tbl
-  WHERE entryidflag='Y' AND lower(tagcategory)=lower(%s);""", [tag_category])
+  WHERE entryidflg='Y' AND lower(tagcategory)=lower(%s);""", [tag_category])
 
     try:
         return cur.fetchone()[0]
