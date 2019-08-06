@@ -221,7 +221,7 @@ SELECT
  True
 FROM metabolomics."Entry" as entry
 LEFT JOIN metabolomics."Citation" AS citation
-  ON entry."ID"=citation."Entry_ID"
+  ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
 LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
 LEFT JOIN metabolomics."Chem_comp" AS chem_comp
