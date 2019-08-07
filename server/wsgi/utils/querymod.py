@@ -15,10 +15,13 @@ from decimal import Decimal
 from time import time as unix_time
 from sys import maxsize as max_integer
 from tempfile import NamedTemporaryFile
-from typing import Dict, Union, Any, List
-from urllib.parse import quote as urlquote
+try:
+    from urllib.parse import quote as urlquote
+except ImportError:
+    from urllib import pathname2url as urlquote
 
 from flask import url_for
+
 import simplejson as json
 
 import psycopg2
@@ -329,10 +332,10 @@ def panav_parser(panav_text):
     lines = panav_text.split("\n")
 
     # Initialize the result dictionary
-    result: Dict[str, Union[str, list, dict]] = {'offsets': {},
-                                                 'deviants': [],
-                                                 'suspicious': [],
-                                                 'text': panav_text}
+    result = {'offsets': {},
+              'deviants': [],
+              'suspicious': [],
+              'text': panav_text}
 
     # Variables to keep track of output line numbers
     deviant_line = 5
@@ -631,7 +634,7 @@ def get_status():
     """ Return some statistics about the server."""
 
     r = get_redis_connection()
-    stats: Dict[str, Union[List[str], Dict[Union[int, str], Any]]] = {}
+    stats = {}
     for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
         stats[key] = {}
         for k, v in r.hgetall("%s:meta" % key).items():
@@ -1064,7 +1067,6 @@ CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
     def td_data_getter():
         td_dir = configuration['timedomain_directory']
         for x in os.listdir(td_dir):
-            x: str = x
             entry_id = int("".join([_ for _ in x if _.isdigit()]))
             yield (entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x)))
 
