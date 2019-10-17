@@ -5,34 +5,29 @@ provided through the REST interface. This is where the real work
 is done; restapi.py mainly just calls the methods here and returns the results.
 """
 
-import os
-import zlib
+# System modules
 import logging
-import textwrap
+import os
 import subprocess
-from hashlib import md5
+import textwrap
+import zlib
 from decimal import Decimal
-from time import time as unix_time
+from hashlib import md5
 from sys import maxsize as max_integer
 from tempfile import NamedTemporaryFile
-try:
-    from urllib.parse import quote as urlquote
-except ImportError:
-    from urllib import pathname2url as urlquote
+from time import time as unix_time
+from urllib.parse import quote as urlquote
 
-from flask import url_for
-
-import simplejson as json
-
+# From requirements.txt
 import psycopg2
+import pynmrstar
+import redis
+import simplejson as json
+from flask import url_for
+from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values, DictCursor
-from psycopg2 import ProgrammingError
-import redis
 from redis.sentinel import Sentinel
-
-# Local imports
-import pynmrstar
 
 # Module level defines
 __all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
