@@ -20,11 +20,11 @@ from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 
 # Local imports
-from .utils import querymod
-from .utils.querymod import get_db, check_local_ip
+from bmrbapi.utils import querymod
+from bmrbapi.utils.querymod import get_db, check_local_ip
 
-from .search_routes import user_endpoints
-from .molprobity_routes import molprobity_endpoints
+from bmrbapi.search_routes import user_endpoints
+from bmrbapi.molprobity_routes import molprobity_endpoints
 
 # Set up the flask application
 application = Flask(__name__)

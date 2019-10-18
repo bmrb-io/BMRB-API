@@ -2,7 +2,6 @@
 import os
 import subprocess
 import textwrap
-from _pydecimal import Decimal
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
 from typing import List
@@ -10,7 +9,7 @@ from typing import List
 from flask import jsonify, request, Blueprint
 
 # Local modules
-from .utils.querymod import RequestError, ServerError, SUBMODULE_DIR, get_postgres_connection, set_database, \
+from bmrbapi.utils.querymod import RequestError, ServerError, SUBMODULE_DIR, get_postgres_connection, set_database, \
     get_extra_data_available, get_db, get_all_values_for_tag, get_entry_id_tag, select, get_pdb_ids_from_bmrb_id, \
     get_bmrb_ids_from_pdb_id, chemical_shift_search_1d, configuration
 
