@@ -430,10 +430,10 @@ value.
 
 **/search/multiple_shift_search?shift=x.x[&shift=x.x][...][&database=$database]**
 
-Returns all entries that contain at least one of the queried peaks, as well as
-the list of peaks that matched. Results returned as a list of matching entries along
+Returns all entries that contain at least one of the queried shifts, as well as
+the list of shifts that matched. Results returned as a list of matching entries along
 with the matching shifts, number of shifts matched, and total offset of shifts,
-sorted by number of peaks matched and total offset. Peaks are counted as a match
+sorted by number of shifts matched and total offset. Shifts are counted as a match
 if they are within .2 ppm for C and N and if they are within .01 ppm for H.
 
 The titles and links to the matched entries are also returned.
@@ -442,6 +442,9 @@ Parameters:
 
 * `shift` or `s` Specify once for each shift you intend to query against.
 * `database` Which database to query. Metabolomics by default.
+* `cthresh ` The threshold to use for carbon atoms.
+* `nthresh ` The threshold to use for nitrogen atoms.
+* `hthresh ` The threshold to use for protons.
 
 Example: [Search for peaks 2.075, 3.11, and 39.31](http://webapi.bmrb.wisc.edu/v2/search/multiple_shift_search?shift=2.075&shift=3.11&shift=39.31)
 

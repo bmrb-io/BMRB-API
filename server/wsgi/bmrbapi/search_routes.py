@@ -60,6 +60,10 @@ def multiple_shift_search():
     else:
         shifts.extend(list(request.args.getlist('s')))
 
+    c_threshold = float(request.args.get('cthresh', .2))
+    n_threshold = float(request.args.get('nthresh', .2))
+    h_threshold = float(request.args.get('hthresh', .01))
+
     if not shifts:
         raise RequestError("You must specify at least one shift to search for.")
 
@@ -87,14 +91,17 @@ WHERE '''
 
     for shift in shifts:
         sql += '''
-((atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND
- (atom_shift."Atom_type" = 'C' OR atom_shift."Atom_type" = 'N'))
+((atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'C')
+ OR
+ (atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'N')
  OR
  (atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'H')) OR '''
-        terms.append(shift + .2)
-        terms.append(shift - .2)
-        terms.append(shift + .01)
-        terms.append(shift - .01)
+        terms.append(shift + c_threshold)
+        terms.append(shift - c_threshold)
+        terms.append(shift + n_threshold)
+        terms.append(shift - n_threshold)
+        terms.append(shift + h_threshold)
+        terms.append(shift - h_threshold)
 
     # End the OR
     sql += '''
