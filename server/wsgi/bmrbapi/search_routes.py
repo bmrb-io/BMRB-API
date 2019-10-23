@@ -54,17 +54,21 @@ def get_bmrb_data_from_pdb_id(pdb_id=None):
 def multiple_shift_search():
     """ Finds entries that match at least some of the chemical shifts. """
 
-    shifts = request.args.getlist('shift')
-    if not shifts:
-        shifts = request.args.getlist('s')
+    shift_strings: List[str] = request.args.getlist('shift')
+    if not shift_strings:
+        shift_strings = request.args.getlist('s')
     else:
-        shifts.extend(list(request.args.getlist('s')))
+        shift_strings.extend(list(request.args.getlist('s')))
 
-    c_threshold = float(request.args.get('cthresh', .2))
-    n_threshold = float(request.args.get('nthresh', .2))
-    h_threshold = float(request.args.get('hthresh', .01))
+    try:
+        thresholds = {'N': float(request.args.get('nthresh', .2)),
+                      'C': float(request.args.get('cthresh', .2)),
+                      'H': float(request.args.get('hthresh', .01))}
+    except ValueError:
+        raise RequestError("Invalid threshold specified. Please specify the threshold as a float which will be"
+                           " interpreted as a PPM value.")
 
-    if not shifts:
+    if not shift_strings:
         raise RequestError("You must specify at least one shift to search for.")
 
     cur = get_postgres_connection()[1]
@@ -72,7 +76,7 @@ def multiple_shift_search():
 
     sql = '''
 SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,
-  array_agg(DISTINCT atom_shift."Val"::numeric),ent.title,ent.link
+  array_agg(DISTINCT  atom_shift."Val" || ',' ||  atom_shift."Atom_type") as shift_pair,ent.title,ent.link
 FROM "Atom_chem_shift" as atom_shift
 LEFT JOIN web.instant_cache as ent
   ON ent.id = atom_shift."Entry_ID"
@@ -80,28 +84,31 @@ WHERE '''
     terms = []
 
     shift_floats: List[float] = []
+    shift_decimals: List[Decimal] = []
     shift = None
     try:
-        for shift in shifts:
+        for shift in shift_strings:
             shift_floats.append(float(shift))
+            shift_decimals.append(Decimal(shift))
     except ValueError:
         raise RequestError("Invalid shift specified. All shifts must be numbers. Invalid shift: '%s'" % shift)
 
-    shifts = sorted(shift_floats)
+    shift_floats = sorted(shift_floats)
+    shift_decimals = sorted(shift_decimals)
 
-    for shift in shifts:
+    for shift in shift_floats:
         sql += '''
-((atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'C')
+((atom_shift."Val"::float <= %s  AND atom_shift."Val"::float >= %s AND atom_shift."Atom_type" = 'C')
  OR
- (atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'N')
+ (atom_shift."Val"::float <= %s  AND atom_shift."Val"::float >= %s AND atom_shift."Atom_type" = 'N')
  OR
- (atom_shift."Val"::float < %s  AND atom_shift."Val"::float > %s AND atom_shift."Atom_type" = 'H')) OR '''
-        terms.append(shift + c_threshold)
-        terms.append(shift - c_threshold)
-        terms.append(shift + n_threshold)
-        terms.append(shift - n_threshold)
-        terms.append(shift + h_threshold)
-        terms.append(shift - h_threshold)
+ (atom_shift."Val"::float <= %s  AND atom_shift."Val"::float >= %s AND atom_shift."Atom_type" = 'H')) OR '''
+        terms.append(shift + thresholds['C'])
+        terms.append(shift - thresholds['C'])
+        terms.append(shift + thresholds['N'])
+        terms.append(shift - thresholds['N'])
+        terms.append(shift + thresholds['H'])
+        terms.append(shift - thresholds['H'])
 
     # End the OR
     sql += '''
@@ -112,7 +119,6 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 
     # Do the query
     cur.execute(sql, terms)
-
     result = {"data": []}
 
     # Send query string if in debug mode
@@ -121,33 +127,44 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 
     for entry in cur:
         title = entry[3].replace("\n", "") if entry[3] else None
-        result['data'].append({'Entry_ID': entry[0], 'Assigned_chem_shift_list_ID': entry[1], 'Val': entry[2],
-                               'Title': title, 'Link': entry[4]})
+        # Perfect opportunity for walrus operator once using 3.8
+        shifts = [{'Shift': Decimal(y[0]), 'Atom_type': y[1]} for y in [x.split(',') for x in entry[2]]]
 
-    # Convert the search to decimal
-    shifts = [Decimal(x) for x in shifts]
+        result['data'].append({'Entry_ID': entry[0], 'Assigned_chem_shift_list_ID': entry[1], 'Title': title,
+                               'Link': entry[4], 'Val': shifts})
 
     def get_closest(collection, number):
         """ Returns the closest number from a list of numbers. """
         return min(collection, key=lambda _: abs(_ - number))
 
-    def get_sort_key(res):
+    def get_closest_by_atom(collection: dict,
+                            shift_value: Decimal) -> dict:
+        """ Returns the closest [shift,atom_name] pair from the options. """
+
+        # Start with impossibly bad peak of the correct atom type, in case no matches for this peak exist
+        best_match: dict = {'Shift': Decimal('inf'), 'Atom_type': None}
+        for item in collection:
+            if abs(item['Shift'] - shift_value) < best_match['Shift']:
+                best_match = {'Shift': item['Shift'], 'Atom_type': item['Atom_type']}
+        return best_match
+
+    def get_sort_key(res) -> [int, Decimal, str]:
         """ Returns the sort key. """
 
-        key = 0
+        key: Decimal = Decimal(0)
 
         # Add the difference of all the shifts
         for item in res['Val']:
-            key += abs(get_closest(shifts, item) - item)
+            key += abs(get_closest(shift_decimals, item['Shift']) - item['Shift'])
         res['Combined_offset'] = round(key, 3)
 
         # Determine how many of the queried shifts were matched
         num_match = 0
-        for check_peak in shifts:
-            closest = get_closest(res['Val'], check_peak)
-            if abs(check_peak - closest) < .2:
+        for check_peak in shift_decimals:
+            closest = get_closest_by_atom(res['Val'], check_peak)
+            if abs(check_peak - closest['Shift']) <= thresholds[closest['Atom_type']]:
                 num_match += 1
-        res['Peaks_matched'] = num_match
+        res['Shifts_matched'] = num_match
 
         return -num_match, key, res['Entry_ID']
 
