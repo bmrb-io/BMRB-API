@@ -24,16 +24,10 @@ import simplejson as json
 from flask import url_for, request
 from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
-from psycopg2.extras import execute_values, DictCursor
+from psycopg2.extras import execute_values
 from redis.sentinel import Sentinel
 
 # Module level defines
-__all__ = ['create_chemcomp_from_db', 'create_saveframe_from_db', 'get_tags',
-           'get_loops', 'get_saveframes_by_category', 'get_saveframes_by_name',
-           'get_entries', 'get_redis_connection', 'get_postgres_connection',
-           'get_status', 'list_entries', 'select', 'configuration', 'get_enumerations',
-           'store_uploaded_entry', 'check_local_ip', 'get_db', 'RequestError']
-
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/simulate_hsqc',
             'entry/ENTRY_ID/software', 'status', 'software/',
@@ -137,35 +131,46 @@ def get_database_from_entry_id(entry_id):
         return "macromolecules"
 
 
-def get_postgres_connection(user=configuration['postgres']['user'],
-                            host=configuration['postgres']['host'],
-                            database=configuration['postgres']['database'],
-                            port=configuration['postgres']['port'],
-                            dictionary_cursor=False):
-    """ Returns a connection to postgres and a cursor."""
+class PostgresConnection:
+    """ Makes it more convenient to query postgres. It implements a context manager to ensure that the connection
+    is closed.
 
-    # Errors connecting will be handled upstream
-    if dictionary_cursor:
-        conn = psycopg2.connect(user=user, host=host, database=database,
-                                port=port, cursor_factory=DictCursor)
-    else:
-        conn = psycopg2.connect(user=user, host=host, database=database,
-                                port=port)
-    cur = conn.cursor()
+     Since we never write to the DB using this class, no need to commit before closing. """
 
-    return conn, cur
+    def __init__(self,
+                 host=configuration['postgres']['host'],
+                 user=configuration['postgres']['user'],
+                 database=configuration['postgres']['database'],
+                 port=configuration['postgres']['port'],
+                 cursor_factory=psycopg2.extras.DictCursor,
+                 schema=None):
+        self._host = host
+        self._user = user
+        self._database = database
+        self._port = port
+        self._cursor_factory = cursor_factory
 
+        # Check the schema
+        if schema:
+            if schema == "combined":
+                raise RequestError("Combined database not implemented yet.")
+            if schema not in ["metabolomics", "macromolecules", "chemcomps"]:
+                raise RequestError("Invalid database: %s." % schema)
+        self._schema = schema
 
-def set_database(cursor, database):
-    """ Sets the search path to the database the query is for."""
+    def __enter__(self):
+        self._conn = psycopg2.connect(host=self._host, user=self._user, database=self._database,
+                                      port=self._port, cursor_factory=self._cursor_factory)
+        cursor = self._conn.cursor()
+        if self._schema:
+            cursor.execute('SET search_path=public,%s;', [self._schema])
+        return cursor
 
-    if database == "combined":
-        raise RequestError("Combined database not implemented yet.")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._conn.close()
 
-    if database not in ["metabolomics", "macromolecules", "chemcomps"]:
-        raise RequestError("Invalid database: %s." % database)
-
-    cursor.execute('SET search_path=%s;', [database])
+    def commit(self):
+        self._conn.commit()
 
 
 def get_redis_connection(db=None):
@@ -276,7 +281,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
                                 raise RequestError("Invalid format: %s." % format_)
 
 
-def store_uploaded_entry(request):
+def store_uploaded_entry():
     """ Store an uploaded NMR-STAR file in the database."""
 
     uploaded_data = request.data
@@ -334,7 +339,7 @@ def panav_parser(panav_text):
     # Check for unusual output
     if "No reference" in lines[0]:
         # Handle the special case when no offsets
-        result['offsets'] = {'CO': 0, 'CA': 0, 'CB': 0, 'N': 0}
+        result['offsets'] = {'CO': float(0), 'CA': float(0), 'CB': float(0), 'N': float(0)}
         deviant_line = 1
         suspicious_line = 2
     # Normal output
@@ -632,12 +637,12 @@ def get_status():
             else:
                 stats[key][skey] = int(stats[key][skey])
 
-    pg = get_postgres_connection()[1]
-    for key in ['metabolomics', 'macromolecules']:
-        sql = '''SELECT reltuples FROM pg_class
-                 WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
-        pg.execute(sql)
-        stats[key]['num_chemical_shifts'] = int(pg.fetchone()[0])
+    with PostgresConnection() as pg:
+        for key in ['metabolomics', 'macromolecules']:
+            sql = '''SELECT reltuples FROM pg_class
+                     WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
+            pg.execute(sql)
+            stats[key]['num_chemical_shifts'] = int(pg.fetchone()[0])
 
     # Add the available methods
     stats['methods'] = _METHODS
@@ -672,23 +677,21 @@ def get_loops(**kwargs):
     return result
 
 
-def get_enumerations(tag, term=None, cur=None):
+def get_enumerations(tag, term=None):
     """ Returns a list of enumerations for a given tag from the DB. """
-
-    if cur is None:
-        cur = get_postgres_connection(dictionary_cursor=True)[1]
 
     if not tag.startswith("_"):
         tag = "_" + tag
 
-    # Get the list of which tags should be used to order data
-    cur.execute('''
+    with PostgresConnection() as cur:
+        # Get the list of which tags should be used to order data
+        cur.execute('''
 SELECT it.itemenumclosedflg,it.enumeratedflg,array_agg(enum.val) as values
  FROM dict.adit_item_tbl as it
  LEFT JOIN dict.enumerations as enum on enum.seq = it.dictionaryseq
 WHERE originaltag=%s
 GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
-    p_res = cur.fetchone()
+        p_res = cur.fetchone()
     if not p_res:
         raise RequestError("Invalid tag specified.")
 
@@ -716,9 +719,6 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
                              atom_id=None, comp_id=None, conditions=False,
                              database="macromolecules"):
     """ Searches for a given chemical shift. """
-
-    cur = get_postgres_connection()[1]
-    set_database(cur, database)
 
     try:
         threshold = float(threshold)
@@ -785,22 +785,23 @@ WHERE
     # Make sure the SQL query syntax works out
     sql += '''1=1'''
 
-    # Do the query
-    cur.execute(sql, args)
-
     result = {}
 
-    # Send query string if in debug mode
-    if configuration['debug']:
-        result['debug'] = cur.query
+    # Do the query
+    with PostgresConnection(schema=database) as cur:
+        cur.execute(sql, args)
 
-    result['columns'] = ["Atom_chem_shift." + desc[0] for desc in cur.description]
+        # Send query string if in debug mode
+        if configuration['debug']:
+            result['debug'] = cur.query
 
-    if conditions:
-        result['columns'][-2] = 'Sample_conditions.pH'
-        result['columns'][-1] = 'Sample_conditions.Temperature_K'
+        result['columns'] = ["Atom_chem_shift." + desc[0] for desc in cur.description]
 
-    result['data'] = cur.fetchall()
+        if conditions:
+            result['columns'][-2] = 'Sample_conditions.pH'
+            result['columns'][-1] = 'Sample_conditions.Temperature_K'
+
+        result['data'] = cur.fetchall()
     return result
 
 
@@ -809,18 +810,16 @@ def get_entry_software(entry_id):
 
     database = get_database_from_entry_id(entry_id)
 
-    cur = get_postgres_connection()[1]
-    set_database(cur, database)
-
-    cur.execute('''
+    with PostgresConnection(schema=database) as cur:
+        cur.execute('''
 SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
 FROM "Software"
    LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
    LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
 WHERE "Software"."Entry_ID"=%s;''', [entry_id])
 
-    column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "data": cur.fetchall()}
+        column_names = [desc[0] for desc in cur.description]
+        return {"columns": column_names, "data": cur.fetchall()}
 
 
 def get_schema(version=None):
@@ -838,13 +837,11 @@ def get_schema(version=None):
 
 
 def get_software_entries(software_name, database="macromolecules"):
-    """ Returns the entries assosciated with a given piece of software. """
+    """ Returns the entries associated with a given piece of software. """
 
-    cur = get_postgres_connection()[1]
-    set_database(cur, database)
-
-    # Get the list of which tags should be used to order data
-    cur.execute('''
+    with PostgresConnection(schema=database) as cur:
+        # Get the list of which tags should be used to order data
+        cur.execute('''
 SELECT "Software"."Entry_ID","Software"."Name","Software"."Version",vendor."Name" as "Vendor Name",
   vendor."Electronic_address" as "e-mail",task."Task" as "Task"
 FROM "Software"
@@ -854,18 +851,16 @@ FROM "Software"
     ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
 WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
 
-    column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "data": cur.fetchall()}
+        column_names = [desc[0] for desc in cur.description]
+        return {"columns": column_names, "data": cur.fetchall()}
 
 
 def get_software_summary(database="macromolecules"):
     """ Returns all software packages from the DB. """
 
-    cur = get_postgres_connection()[1]
-    set_database(cur, database)
-
-    # Get the list of which tags should be used to order data
-    cur.execute('''
+    with PostgresConnection(schema=database) as cur:
+        # Get the list of which tags should be used to order data
+        cur.execute('''
 SELECT "Software"."Name","Software"."Version",task."Task" as "Task",vendor."Name" as "Vendor Name"
 FROM "Software"
   LEFT JOIN "Vendor" as vendor
@@ -873,26 +868,22 @@ FROM "Software"
   LEFT JOIN "Task" as task
     ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
 
-    column_names = [desc[0] for desc in cur.description]
-    return {"columns": column_names, "data": cur.fetchall()}
+        column_names = [desc[0] for desc in cur.description]
+        return {"columns": column_names, "data": cur.fetchall()}
 
 
-def do_sql_mods(conn=None, cur=None, sql_file=None):
+def do_sql_mods(sql_file=None):
     """ Make sure functions we need are saved in the DB. """
 
-    # Re-use existing connection
-    if not (conn and cur):
-        conn, cur = get_postgres_connection(user=configuration['postgres']['reload_user'])
+    psql = PostgresConnection(user=configuration['postgres']['reload_user'])
+    with psql as cur:
+        if sql_file is None:
+            sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
+        else:
+            sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", sql_file)
 
-    if sql_file is None:
-        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                "sql", "initialize.sql")
-    else:
-        sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                "sql", sql_file)
-
-    cur.execute(open(sql_file, "r").read())
-    conn.commit()
+        cur.execute(open(sql_file, "r").read())
+        psql.commit()
 
 
 def create_timedomain_table():
@@ -919,26 +910,27 @@ def create_timedomain_table():
                 return child_sets
         return sets
 
-    conn, cur = get_postgres_connection()
-    cur.execute('''
-CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
- bmrbid text PRIMARY KEY,
- size numeric,
- sets numeric);''')
-
     def td_data_getter():
         td_dir = configuration['timedomain_directory']
         for x in os.listdir(td_dir):
             entry_id = int("".join([_ for _ in x if _.isdigit()]))
             yield (entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x)))
 
-    execute_values(cur, '''INSERT INTO web.timedomain_data_tmp(bmrbid, size, sets) VALUES %s;''', td_data_getter())
+    psql = PostgresConnection()
+    with psql as cur:
+        cur.execute('''
+CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
+ bmrbid text PRIMARY KEY,
+ size numeric,
+ sets numeric);''')
 
-    cur.execute('''
+        execute_values(cur, '''INSERT INTO web.timedomain_data_tmp(bmrbid, size, sets) VALUES %s;''', td_data_getter())
+
+        cur.execute('''
 ALTER TABLE IF EXISTS web.timedomain_data RENAME TO timedomain_data_old;
 ALTER TABLE web.timedomain_data_tmp RENAME TO timedomain_data;
 DROP TABLE IF EXISTS web.timedomain_data_old;''')
-    conn.commit()
+        psql.commit()
 
 
 def create_csrosetta_table(csrosetta_sqlite_file):
@@ -951,8 +943,9 @@ def create_csrosetta_table(csrosetta_sqlite_file):
 SELECT key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest
   FROM entries;''').fetchall()
 
-    pconn, pcur = get_postgres_connection()
-    pcur.execute('''
+    psql = PostgresConnection()
+    with psql as cur:
+        cur.execute('''
 DROP TABLE IF EXISTS web.bmrb_csrosetta_entries;
 CREATE TABLE web.bmrb_csrosetta_entries (
  key varchar(13) PRIMARY KEY,
@@ -962,45 +955,11 @@ CREATE TABLE web.bmrb_csrosetta_entries (
  csrosetta_version varchar(5),
  rmsd_lowest float);''')
 
-    execute_values(pcur, '''
+        execute_values(cur, '''
 INSERT INTO web.bmrb_csrosetta_entries(key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest)
-VALUES %s;''',
-                   entries)
+VALUES %s;''', entries)
 
-    pconn.commit()
-
-
-def build_fulltext_search():
-    """ Allows querying the full text of an entry. """
-
-    conn, cur = get_postgres_connection()
-
-    # Metabolomics
-    for entry in get_all_entries_from_redis(database="metabolomics"):
-        logging.debug("Inserting %s", entry[0])
-        ent_text = get_bmrb_as_text(entry[1])
-        cur.execute('''
-UPDATE web.instant_cache
-SET
- full_tsv=to_tsvector(%s),
- full_text=%s
-WHERE id=%s;''',
-                    [ent_text, ent_text, entry[0]])
-    conn.commit()
-
-    # Macromolecules
-    for entry in get_all_entries_from_redis(database="macromolecules"):
-        logging.debug("Inserting %s", entry[0])
-        ent_text = get_bmrb_as_text(entry[1])
-        cur.execute('''
-UPDATE web.instant_cache
-SET
- full_tsv=to_tsvector(%s),
- full_text=%s
-WHERE id=%s;''',
-                    [ent_text, ent_text, entry[0]])
-
-    conn.commit()
+        psql.commit()
 
 
 def get_bmrb_as_text(entry):
@@ -1020,16 +979,14 @@ def get_bmrb_as_text(entry):
 def get_experiments(entry):
     """ Returns the experiments for this entry. """
 
-    cur = get_postgres_connection(dictionary_cursor=True)[1]
-    set_database(cur, get_database_from_entry_id(entry))
-
     # First get the sample components
     sql = '''
 SELECT "Mol_common_name", "Isotopic_labeling", "Type", "Concentration_val", "Concentration_val_units", "Sample_ID"
 FROM "Sample_component"
   WHERE "Entry_ID" = %s'''
-    cur.execute(sql, [entry])
-    stored_results = cur.fetchall()
+    with PostgresConnection(schema=get_database_from_entry_id(entry)) as cur:
+        cur.execute(sql, [entry])
+        stored_results = cur.fetchall()
 
     # Then get all of the other information
     sql = '''
@@ -1052,7 +1009,7 @@ FROM "Experiment" as me
 WHERE me."Entry_ID" = %s
 GROUP BY me."Entry_ID", me."Name", me."ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val",
          temp."Val", me."Sample_ID"
-ORDER BY me."Entry_ID" ASC, me."ID" ASC;'''
+ORDER BY me."Entry_ID", me."ID";'''
     cur.execute(sql, [entry])
 
     results = []
@@ -1095,8 +1052,6 @@ ORDER BY me."Entry_ID" ASC, me."ID" ASC;'''
 def get_instant_search(term, database):
     """ Does an instant search and returns results. """
 
-    cur = get_postgres_connection(dictionary_cursor=True)[1]
-
     if database == "metabolomics":
         instant_query_one = '''
 SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,
@@ -1105,7 +1060,7 @@ FROM web.instant_cache
 LEFT JOIN web.metabolomics_summary as ms
   ON instant_cache.id = ms.id
 WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
-ORDER BY instant_cache.id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+ORDER BY instant_cache.id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
         instant_query_two = """
 SELECT set_limit(.5);
@@ -1132,7 +1087,7 @@ WHERE is_metab = 'True'"""
         instant_query_one = '''
 SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'False'
-ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
         instant_query_two = """
 SELECT set_limit(.5);
@@ -1157,7 +1112,7 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
         instant_query_one = '''
 SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY id=%s DESC, is_metab ASC, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
         instant_query_two = """
 SELECT set_limit(.5);
@@ -1177,60 +1132,26 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
     ORDER BY id, similarity(tt.term, %s) DESC) as y
     ORDER BY sml DESC LIMIT 75;"""
 
-    try:
-        cur.execute(instant_query_one, [term, term, term])
-    except ProgrammingError:
-        if configuration['debug']:
-            raise
-        return [{"label": "Instant search temporarily offline.", "value": "error",
-                 "link": "/software/query/"}]
+    with PostgresConnection() as cur:
+        try:
+            cur.execute(instant_query_one, [term, term, term])
+        except ProgrammingError:
+            if configuration['debug']:
+                raise
+            return [{"label": "Instant search temporarily offline.", "value": "error",
+                     "link": "/software/query/"}]
 
-    # First query
-    result = []
-    ids = {}
-    for item in cur.fetchall():
-        res = {"citations": item['citations'],
-               "authors": item['authors'],
-               "link": item['link'],
-               "value": item['id'],
-               "sub_date": str(item['sub_date']),
-               "label": "%s" % (item['title'])}
-
-        if database == "metabolomics":
-            res['formula'] = item['formula']
-            res['smiles'] = item['smiles']
-            res['inchi'] = item['inchi']
-            res['monoisotopic_mass'] = item['monoisotopic_mass']
-            res['average_mass'] = item['average_mass']
-            res['molecular_weight'] = item['molecular_weight']
-
-        result.append(res)
-        ids[item['id']] = 1
-
-    debug = {}
-    if configuration['debug']:
-        debug['query1'] = cur.query
-
-    # Second query
-    try:
-        cur.execute(instant_query_two, [term, term, term, term])
-    except ProgrammingError:
-        if configuration['debug']:
-            raise
-        return [{"label": "Instant search temporarily offline.", "value": "error",
-                 "link": "/software/query/"}]
-
-    for item in cur.fetchall():
-        if item['id'] not in ids:
+        # First query
+        result = []
+        ids = {}
+        for item in cur.fetchall():
             res = {"citations": item['citations'],
                    "authors": item['authors'],
                    "link": item['link'],
                    "value": item['id'],
                    "sub_date": str(item['sub_date']),
-                   "label": "%s" % (item['title']),
-                   "extra": {"term": item['term'],
-                             "termname": item['termname']},
-                   "sml": "%s" % item['sml']}
+                   "label": "%s" % (item['title'])}
+
             if database == "metabolomics":
                 res['formula'] = item['formula']
                 res['smiles'] = item['smiles']
@@ -1240,9 +1161,44 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
                 res['molecular_weight'] = item['molecular_weight']
 
             result.append(res)
-    if configuration['debug']:
-        debug['query2'] = cur.query
-        result.append({"debug": debug})
+            ids[item['id']] = 1
+
+        debug = {}
+        if configuration['debug']:
+            debug['query1'] = cur.query
+
+        # Second query
+        try:
+            cur.execute(instant_query_two, [term, term, term, term])
+        except ProgrammingError:
+            if configuration['debug']:
+                raise
+            return [{"label": "Instant search temporarily offline.", "value": "error",
+                     "link": "/software/query/"}]
+
+        for item in cur.fetchall():
+            if item['id'] not in ids:
+                res = {"citations": item['citations'],
+                       "authors": item['authors'],
+                       "link": item['link'],
+                       "value": item['id'],
+                       "sub_date": str(item['sub_date']),
+                       "label": "%s" % (item['title']),
+                       "extra": {"term": item['term'],
+                                 "termname": item['termname']},
+                       "sml": "%s" % item['sml']}
+                if database == "metabolomics":
+                    res['formula'] = item['formula']
+                    res['smiles'] = item['smiles']
+                    res['inchi'] = item['inchi']
+                    res['monoisotopic_mass'] = item['monoisotopic_mass']
+                    res['average_mass'] = item['average_mass']
+                    res['molecular_weight'] = item['molecular_weight']
+
+                result.append(res)
+        if configuration['debug']:
+            debug['query2'] = cur.query
+            result.append({"debug": debug})
 
     return result
 
@@ -1343,43 +1299,42 @@ def get_all_values_for_tag(tag_name, database):
     """ Returns all the values for a given tag by entry ID as a dictionary. """
 
     params = get_category_and_tag(tag_name)
-    cur = get_postgres_connection()[1]
-    set_database(cur, database)
+    with PostgresConnection(schema=database) as cur:
 
-    # Use Entry_ID normally, but occasionally use ID depending on the context
-    id_field = get_entry_id_tag(tag_name, database, cur=cur)
+        # Use Entry_ID normally, but occasionally use ID depending on the context
+        id_field = get_entry_id_tag(tag_name, database=database)
 
-    query = '''SELECT "%s", array_agg(%%s) from "%s" GROUP BY "%s";'''
-    query = query % (id_field, params[0], id_field)
-    try:
-        cur.execute(query, [wrap_it_up(params[1])])
-    except psycopg2.ProgrammingError as e:
-        sp = str(e).split('\n')
-        if len(sp) > 3:
-            if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
-                raise RequestError("Tag not found. Did you mean the tag: '%s'?" %
-                                   sp[3].split('"')[1])
+        query = '''SELECT "%s", array_agg(%%s) from "%s" GROUP BY "%s";'''
+        query = query % (id_field, params[0], id_field)
+        try:
+            cur.execute(query, [wrap_it_up(params[1])])
+        except psycopg2.ProgrammingError as e:
+            sp = str(e).split('\n')
+            if len(sp) > 3:
+                if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
+                    raise RequestError("Tag not found. Did you mean the tag: '%s'?" %
+                                       sp[3].split('"')[1])
 
-        raise RequestError("Tag not found.")
+            raise RequestError("Tag not found.")
 
-    # Turn the results into a dict
-    res = {}
-    for x in cur.fetchall():
-        sub_res = []
-        for elem in x[1]:
-            if elem and elem != "na":
-                sub_res.append(elem)
-        if len(sub_res) > 0:
-            res[x[0]] = sub_res
+        # Turn the results into a dict
+        res = {}
+        for x in cur.fetchall():
+            sub_res = []
+            for elem in x[1]:
+                if elem and elem != "na":
+                    sub_res.append(elem)
+            if len(sub_res) > 0:
+                res[x[0]] = sub_res
 
-    if configuration['debug']:
-        res['query'] = cur.query
+        if configuration['debug']:
+            res['query'] = cur.query
 
     return res
 
 
 def select(fetch_list, table, where_dict=None, database="macromolecules",
-           modifiers=None, as_hash=True, cur=None):
+           modifiers=None, as_hash=True):
     """ Performs a SELECT query constructed from the supplied arguments."""
 
     # Turn None parameters into the proper empty type
@@ -1392,10 +1347,6 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     # this is not, but there is no way to parametrize a table name...)
     if '"' in table:
         raise RequestError("Invalid 'from' parameter.")
-
-    # Errors connecting will be handled upstream
-    if cur is None:
-        cur = get_postgres_connection()[1]
 
     # Prepare the query
     if len(fetch_list) == 1 and fetch_list[0] == "*":
@@ -1438,36 +1389,37 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
 
     query += ';'
 
-    # Do the query
-    try:
-        cur.execute(query, parameters)
-        rows = cur.fetchall()
-    except psycopg2.ProgrammingError as error:
+    with PostgresConnection() as cur:
+        # Do the query
+        try:
+            cur.execute(query, parameters)
+            rows = cur.fetchall()
+        except psycopg2.ProgrammingError as error:
+            if configuration['debug']:
+                raise error
+            raise RequestError("Invalid 'from' parameter.")
+
+        # Get the column names from the DB
+        col_names = [desc[0] for desc in cur.description]
+
+        if not as_hash:
+            return {'data': rows, 'columns': [table + "." + x for x in col_names]}
+
+        # Turn the results into a dictionary
+        result = {}
+
+        if "count" in modifiers:
+            for pos, search_field in enumerate(fetch_list):
+                result[table + "." + search_field] = rows[0][pos]
+        else:
+            for search_field in col_names:
+                result[table + "." + search_field] = []
+                s_index = col_names.index(search_field)
+                for row in rows:
+                    result[table + "." + search_field].append(row[s_index])
+
         if configuration['debug']:
-            raise error
-        raise RequestError("Invalid 'from' parameter.")
-
-    # Get the column names from the DB
-    col_names = [desc[0] for desc in cur.description]
-
-    if not as_hash:
-        return {'data': rows, 'columns': [table + "." + x for x in col_names]}
-
-    # Turn the results into a dictionary
-    result = {}
-
-    if "count" in modifiers:
-        for pos, search_field in enumerate(fetch_list):
-            result[table + "." + search_field] = rows[0][pos]
-    else:
-        for search_field in col_names:
-            result[table + "." + search_field] = []
-            s_index = col_names.index(search_field)
-            for row in rows:
-                result[table + "." + search_field].append(row[s_index])
-
-    if configuration['debug']:
-        result['debug'] = cur.query
+            result['debug'] = cur.query
 
     return result
 
@@ -1549,7 +1501,7 @@ def process_select(**params):
     return result_list
 
 
-def create_chemcomp_from_db(chemcomp, cur=None):
+def create_chemcomp_from_db(chemcomp):
     """ Create a chem comp entry from the database."""
 
     # Rebuild the chemcomp and generate the cc_id. This way we can work
@@ -1562,16 +1514,12 @@ def create_chemcomp_from_db(chemcomp, cur=None):
     chemcomp = "chemcomp_" + cc_id
 
     # Connect to DB
-    if cur is None:
-        cur = get_postgres_connection()[1]
+    with PostgresConnection() as cur:
+        # Create entry
+        chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp", cc_id, "ID", cur)
+        entity_frame = create_saveframe_from_db("chemcomps", "entity", cc_id, "Nonpolymer_comp_ID", cur)
 
-    # Create entry
     ent = pynmrstar.Entry.from_scratch(chemcomp)
-    chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp",
-                                              cc_id, "ID", cur)
-    entity_frame = create_saveframe_from_db("chemcomps", "entity",
-                                            cc_id,
-                                            "Nonpolymer_comp_ID", cur)
     # This is specifically omitted... long story
     try:
         del entity_frame['_Entity_atom_list']
@@ -1587,9 +1535,8 @@ def create_chemcomp_from_db(chemcomp, cur=None):
 def get_pdb_ids_from_bmrb_id(bmrb_id):
     """ Returns the associated PDB IDs for a BMRB ID. """
 
-    cur = get_postgres_connection()[1]
-
-    query = '''
+    with PostgresConnection() as cur:
+        query = '''
 SELECT pdb_id, 'Exact' AS link_type, null AS comment
   FROM web.pdb_link
   WHERE bmrb_id LIKE %s
@@ -1607,19 +1554,17 @@ SELECT "Accession_code", 'Assembly DB Link', "Entry_details"
   FROM macromolecules."Assembly_db_link"
   WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB';'''
 
-    terms = [bmrb_id, bmrb_id, bmrb_id, bmrb_id]
-    cur.execute(query, terms)
+        terms = [bmrb_id, bmrb_id, bmrb_id, bmrb_id]
+        cur.execute(query, terms)
 
-    return [{"pdb_id": x[0], "match_type": x[1], "comment": x[2]}
-            for x in cur.fetchall()]
+        return [{"pdb_id": x[0], "match_type": x[1], "comment": x[2]} for x in cur.fetchall()]
 
 
 def get_bmrb_ids_from_pdb_id(pdb_id):
     """ Returns the associated BMRB IDs for a PDB ID. """
 
-    cur = get_postgres_connection()[1]
-
-    query = '''
+    with PostgresConnection() as cur:
+        query = '''
     SELECT bmrb_id, array_agg(link_type) from 
 (SELECT bmrb_id, 'Exact' AS link_type, null as comment
   FROM web.pdb_link
@@ -1639,67 +1584,62 @@ SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
   WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB') as sub
 GROUP BY bmrb_id;'''
 
-    pdb_id = pdb_id.upper()
-    terms = [pdb_id, pdb_id, pdb_id, pdb_id]
-    cur.execute(query, terms)
+        pdb_id = pdb_id.upper()
+        terms = [pdb_id, pdb_id, pdb_id, pdb_id]
+        cur.execute(query, terms)
 
-    result = []
-    for x in cur.fetchall():
-        result.append({"bmrb_id": x[0], "match_types": x[1]})
+        result = []
+        for x in cur.fetchall():
+            result.append({"bmrb_id": x[0], "match_types": x[1]})
 
-    return result
+        return result
 
 
-def get_extra_data_available(bmrb_id, cur=None, r_conn=None):
+def get_extra_data_available(bmrb_id):
     """ Returns any additional data associated with the entry. For example:
 
     Time domain, residual dipolar couplings, pKa values, etc."""
 
     # Set up the DB cursor
-    if cur is None:
-        cur = get_postgres_connection(dictionary_cursor=True)[1]
-    set_database(cur, get_database_from_entry_id(bmrb_id))
+    with PostgresConnection(schema=get_database_from_entry_id(bmrb_id)) as cur:
 
-    query = '''
+        query = '''
 SELECT "Entry_ID" as entry_id, ed."Type" as type, dic.catgrpviewname as description, "Count"::integer as sets,
        0 as size from "Data_set" as ed
   LEFT JOIN dict.aditcatgrp as dic ON ed."Type" = dic.sfcategory
  WHERE ed."Entry_ID" like %s
 UNION
 SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timedomain_data where bmrbid like %s;'''
-    cur.execute(query, [bmrb_id, bmrb_id])
+        cur.execute(query, [bmrb_id, bmrb_id])
 
-    try:
-        entry = next(get_valid_entries_from_redis(bmrb_id, r_conn=r_conn))[1]
-    # This happens when an entry is valid but isn't available in Redis - for example, when we only have
-    #  2.0 records for an entry.
-    except StopIteration:
-        return []
+        try:
+            entry = next(get_valid_entries_from_redis(bmrb_id))[1]
+        # This happens when an entry is valid but isn't available in Redis - for example, when we only have
+        #  2.0 records for an entry.
+        except StopIteration:
+            return []
 
-    extra_data = []
-    for row in cur.fetchall():
-        if row['type'] == 'time_domain_data':
-            extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
-                               'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
-                               'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
-        elif row['type'] != "assigned_chemical_shifts":
-            saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
-            url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
+        extra_data = []
+        for row in cur.fetchall():
+            if row['type'] == 'time_domain_data':
+                extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
+                                   'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
+                                   'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
+            elif row['type'] != "assigned_chemical_shifts":
+                saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
+                url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
 
-            extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],
-                               'data_sfcategory': row['type'],
-                               'urls': [url % (bmrb_id, urlquote(x)) for x in saveframe_names]})
+                extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],
+                                   'data_sfcategory': row['type'],
+                                   'urls': [url % (bmrb_id, urlquote(x)) for x in saveframe_names]})
 
     return extra_data
 
 
-def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
+def get_entry_id_tag(tag_or_category, database="macromolecules"):
     """ Returns the tag that contains the logical Entry ID. This isn't always the Entry_ID tag.
 
     You should always provide a Postgres cursor if you've already opened one."""
-
-    if cur is None:
-        cur = get_postgres_connection()[1]
 
     # Determine if this is a fully qualified tag or just the category
     try:
@@ -1723,24 +1663,21 @@ def get_entry_id_tag(tag_or_category, database="macromolecules", cur=None):
         except KeyError:
             raise ServerError("Unknown ID tag for tag: %s" % tag_or_category)
 
-    cur.execute("""
+    with PostgresConnection() as cur:
+        cur.execute("""
 SELECT tagfield
   FROM dict.adit_item_tbl
   WHERE entryidflg='Y' AND lower(tagcategory)=lower(%s);""", [tag_category])
 
-    try:
-        return cur.fetchone()[0]
-    except TypeError:
-        raise RequestError("Invalid tag queried, unable to determine entryidflag.")
+        try:
+            return cur.fetchone()[0]
+        except TypeError:
+            raise RequestError("Invalid tag queried, unable to determine entryidflag.")
 
 
-def get_printable_tags(category, cur=None):
+def get_printable_tags(category, cur):
     """ Returns a list of the tags that should be printed for the given
     category and a list of tags that are pointers."""
-
-    # A cursor should always be provided, but just in case
-    if cur is None:
-        cur = get_postgres_connection()[1]
 
     # Figure out the loop tags
     cur.execute('''SELECT a.tagfield,a.internalflag,p.printflag,a.dictionaryseq,a.sfpointerflg
@@ -1772,8 +1709,7 @@ def get_printable_tags(category, cur=None):
     return tags_to_use, pointer_tags
 
 
-def create_saveframe_from_db(database, category, entry_id, id_search_field,
-                             cur=None):
+def create_saveframe_from_db(database, category, entry_id, id_search_field, cur):
     """ Builds a saveframe from the database. You specify the database:
     (metabolomics, macromolecules, chemcomps, combined), the category of the
     saveframe, the identifier of the saveframe, and the name of the tag that
@@ -1781,13 +1717,6 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field,
 
     You can optionally pass a cursor to reuse an existing postgresql
     connection."""
-
-    # Connect to the database unless passed a handle
-    # Why? If building a whole entry we don't want to have to
-    # reconnect a bunch of times. This allows the calling method to
-    # provide a connection and cursor.
-    if cur is None:
-        cur = get_postgres_connection()[1]
 
     # Look up information about the tags to use later
     # cur.execute('''SELECT adit_item_tbl.originaltag,adit_item_tbl.internalflag,
@@ -1938,59 +1867,60 @@ def create_combined_view():
     """ Create the combined schema from the other three schemas."""
 
     # Connect as the user that has write privileges
-    conn, cur = get_postgres_connection(user="bmrb")
+    psql = PostgresConnection(user=configuration['postgres']['reload_user'])
+    with psql as cur:
 
-    # Create the new schema if needed
-    cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
+        # Create the new schema if needed
+        cur.execute("CREATE SCHEMA IF NOT EXISTS combined;")
 
-    # Get the tables we need to combine
-    cur.execute('''SELECT table_name,table_schema FROM information_schema.tables
-                WHERE table_catalog = 'bmrbeverything' AND
-                (table_schema = 'metabolomics' OR table_schema = 'chemcomps'
-                 OR table_schema = 'macromolecules');''')
-    rows = cur.fetchall()
+        # Get the tables we need to combine
+        cur.execute('''SELECT table_name,table_schema FROM information_schema.tables
+                    WHERE table_catalog = 'bmrbeverything' AND
+                    (table_schema = 'metabolomics' OR table_schema = 'chemcomps'
+                     OR table_schema = 'macromolecules');''')
+        rows = cur.fetchall()
 
-    # Figure out how to combine them
-    combine_dict = {}
-    for row in rows:
-        if row[0] in combine_dict:
-            combine_dict[row[0]].append(row[1])
-        else:
-            combine_dict[row[0]] = [row[1]]
+        # Figure out how to combine them
+        combine_dict = {}
+        for row in rows:
+            if row[0] in combine_dict:
+                combine_dict[row[0]].append(row[1])
+            else:
+                combine_dict[row[0]] = [row[1]]
 
-    for table_name in combine_dict.keys():
-        query = ''
-        if len(combine_dict[table_name]) == 1:
-            print("Warning. Table from only one schema found.")
-        elif len(combine_dict[table_name]) == 2:
-            query = '''
-CREATE OR REPLACE VIEW combined."%s" AS
-select * from %s."%s" t
- union all
-select * from %s."%s" tt;''' % (table_name,
-                                combine_dict[table_name][0], table_name,
-                                combine_dict[table_name][1], table_name)
-        elif len(combine_dict[table_name]) == 3:
-            query = '''
-CREATE OR REPLACE VIEW combined."%s" AS
-select * from %s."%s" t
- union all
-select * from %s."%s" tt
- union all
-select * from %s."%s" ttt;''' % (table_name,
-                                 combine_dict[table_name][0], table_name,
-                                 combine_dict[table_name][1], table_name,
-                                 combine_dict[table_name][2], table_name)
+        for table_name in combine_dict.keys():
+            query = ''
+            if len(combine_dict[table_name]) == 1:
+                print("Warning. Table from only one schema found.")
+            elif len(combine_dict[table_name]) == 2:
+                query = '''
+    CREATE OR REPLACE VIEW combined."%s" AS
+    select * from %s."%s" t
+     union all
+    select * from %s."%s" tt;''' % (table_name,
+                                    combine_dict[table_name][0], table_name,
+                                    combine_dict[table_name][1], table_name)
+            elif len(combine_dict[table_name]) == 3:
+                query = '''
+    CREATE OR REPLACE VIEW combined."%s" AS
+    select * from %s."%s" t
+     union all
+    select * from %s."%s" tt
+     union all
+    select * from %s."%s" ttt;''' % (table_name,
+                                     combine_dict[table_name][0], table_name,
+                                     combine_dict[table_name][1], table_name,
+                                     combine_dict[table_name][2], table_name)
 
-        cur.execute(query)
-        print(query)
+            cur.execute(query)
+            print(query)
 
-    cur.execute("GRANT USAGE ON SCHEMA combined to web;")
-    cur.execute("GRANT SELECT ON ALL TABLES IN SCHEMA combined TO web;")
-    cur.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA combined TO web;")
+        cur.execute("GRANT USAGE ON SCHEMA combined to web;")
+        cur.execute("GRANT SELECT ON ALL TABLES IN SCHEMA combined TO web;")
+        cur.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA combined TO web;")
 
-    # Let web see it
-    conn.commit()
+        # Let web see it
+        psql.commit()
 
 
 # Helper methods

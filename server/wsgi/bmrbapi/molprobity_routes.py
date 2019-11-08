@@ -2,7 +2,7 @@
 from flask import jsonify, request, Blueprint
 
 # Local modules
-from bmrbapi.utils.querymod import get_postgres_connection, configuration, RequestError
+from bmrbapi.utils.querymod import PostgresConnection, configuration, RequestError
 
 # Set up the blueprint
 molprobity_endpoints = Blueprint('molprobity', __name__)
@@ -31,7 +31,6 @@ def get_molprobity_data(pdb_id, residues=None):
     """ Returns the molprobity data."""
 
     pdb_id = pdb_id.lower()
-    cur = get_postgres_connection()[1]
 
     if residues is None:
         sql = '''SELECT * FROM molprobity.oneline where pdb = %s'''
@@ -47,11 +46,12 @@ def get_molprobity_data(pdb_id, residues=None):
                 terms.append(item)
             sql += " 1=2) ORDER BY model, pdb_residue_no"
 
-    cur.execute(sql, terms)
+    with PostgresConnection() as cur:
+        cur.execute(sql, terms)
 
-    res = {"columns": [desc[0] for desc in cur.description], "data": cur.fetchall()}
+        res = {"columns": [desc[0] for desc in cur.description], "data": cur.fetchall()}
 
-    if configuration['debug']:
-        res['debug'] = cur.query
+        if configuration['debug']:
+            res['debug'] = cur.query
 
     return res

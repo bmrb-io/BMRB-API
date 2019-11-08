@@ -1,4 +1,3 @@
-# Requirements.txt
 import os
 import subprocess
 import textwrap
@@ -8,10 +7,9 @@ from typing import List
 
 from flask import jsonify, request, Blueprint
 
-# Local modules
-from bmrbapi.utils.querymod import RequestError, ServerError, SUBMODULE_DIR, get_postgres_connection, set_database, \
+from bmrbapi.utils.querymod import RequestError, ServerError, SUBMODULE_DIR, \
     get_extra_data_available, get_db, get_all_values_for_tag, get_entry_id_tag, select, get_pdb_ids_from_bmrb_id, \
-    get_bmrb_ids_from_pdb_id, chemical_shift_search_1d, configuration
+    get_bmrb_ids_from_pdb_id, chemical_shift_search_1d, configuration, PostgresConnection
 
 # Set up the blueprint
 user_endpoints = Blueprint('search', __name__)
@@ -71,9 +69,6 @@ def multiple_shift_search():
     if not shift_strings:
         raise RequestError("You must specify at least one shift to search for.")
 
-    cur = get_postgres_connection()[1]
-    set_database(cur, get_db("metabolomics"))
-
     sql = '''
 SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,
   array_agg(DISTINCT  atom_shift."Val" || ',' ||  atom_shift."Atom_type") as shift_pair,ent.title,ent.link
@@ -118,20 +113,21 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
     '''
 
     # Do the query
-    cur.execute(sql, terms)
-    result = {"data": []}
+    with PostgresConnection(schema=get_db("metabolomics")) as cur:
+        cur.execute(sql, terms)
+        result = {"data": []}
 
-    # Send query string if in debug mode
-    if configuration['debug']:
-        result['debug'] = cur.query
+        # Send query string if in debug mode
+        if configuration['debug']:
+            result['debug'] = cur.query
 
-    for entry in cur:
-        title = entry[3].replace("\n", "") if entry[3] else None
-        # Perfect opportunity for walrus operator once using 3.8
-        shifts = [{'Shift': Decimal(y[0]), 'Atom_type': y[1]} for y in [x.split(',') for x in entry[2]]]
+        for entry in cur:
+            title = entry[3].replace("\n", "") if entry[3] else None
+            # Perfect opportunity for walrus operator once using 3.8
+            shifts = [{'Shift': Decimal(y[0]), 'Atom_type': y[1]} for y in [x.split(',') for x in entry[2]]]
 
-        result['data'].append({'Entry_ID': entry[0], 'Assigned_chem_shift_list_ID': entry[1], 'Title': title,
-                               'Link': entry[4], 'Val': shifts})
+            result['data'].append({'Entry_ID': entry[0], 'Assigned_chem_shift_list_ID': entry[1], 'Title': title,
+                                   'Link': entry[4], 'Val': shifts})
 
     def get_closest(collection, number):
         """ Returns the closest number from a list of numbers. """
@@ -267,9 +263,8 @@ def fasta_search(query=None):
     if not os.path.isfile(fasta_binary):
         raise ServerError("Unable to perform FASTA search. Server improperly installed.")
 
-    cur = get_postgres_connection()[1]
-    set_database(cur, "macromolecules")
-    cur.execute('''
+    with PostgresConnection(schema="macromolecules") as cur:
+        cur.execute('''
 SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",
   regexp_replace(entity."Polymer_seq_one_letter_code", E'[\\n\\r]+', '', 'g' ),
   replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
@@ -278,7 +273,8 @@ FROM "Entity" as entity
   ON entity."Entry_ID" = entry."ID"
   WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [a_type])
 
-    sequences = cur.fetchall()
+        sequences = cur.fetchall()
+
     wrapper = textwrap.TextWrapper(width=80, expand_tabs=False,
                                    replace_whitespace=False,
                                    drop_whitespace=False, break_on_hyphens=False)

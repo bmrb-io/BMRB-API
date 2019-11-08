@@ -11,7 +11,7 @@ import time
 import zlib
 from multiprocessing import Pipe, cpu_count
 
-import querymod
+from bmrbapi.utils import querymod
 
 loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 to_process = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
@@ -65,19 +65,21 @@ if options.metabolomics:
     entries = querymod.select(["Entry_ID"], "Release", database="metabolomics")
     entries = sorted(set(entries["Release.Entry_ID"]))
     for entry in entries:
-        aent = (entry, "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s/%s.str" % (entry, entry))
-        to_process['metabolomics'].append(aent)
+        an_entry = (entry, "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s/%s.str" % (entry, entry))
+        to_process['metabolomics'].append(an_entry)
 
 # Get the released entries from ETS
 if options.macromolecules:
-    conn, cur = querymod.get_postgres_connection(user=configuration['ets']['user'],
-                                                 host=configuration['ets']['host'],
-                                                 database=configuration['ets']['database'],
-                                                 port=configuration['ets']['port'])
-    cur.execute("SELECT bmrbnum FROM entrylog;")
-    all_ids = [x[0] for x in cur.fetchall()]
-    cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
-    valid_ids = sorted([int(x[0]) for x in cur.fetchall()])
+    with querymod.PostgresConnection(user=configuration['ets']['user'],
+                                     host=configuration['ets']['host'],
+                                     database=configuration['ets']['database'],
+                                     port=configuration['ets']['port']) as cur:
+
+        cur.execute("SELECT bmrbnum FROM entrylog;")
+        all_ids = [x[0] for x in cur.fetchall()]
+
+        cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
+        valid_ids = sorted([int(x[0]) for x in cur.fetchall()])
 
     entry_fs_location = "/share/subedit/entries/bmr%d/clean/bmr%d_3.str"
 

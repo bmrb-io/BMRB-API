@@ -4,7 +4,6 @@
 all of the work is done in utils/querymod.py - this just routes the queries
 to the correct location and passes the results back."""
 
-# Standard modules
 import logging
 import os
 import tempfile
@@ -12,19 +11,16 @@ import time
 import traceback
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
-# Via requirements.txt
 import simplejson as json
 from flask import Flask, request, Response, jsonify, url_for, redirect, send_file
 from flask_mail import Mail
 from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 
-# Local imports
+from bmrbapi.molprobity_routes import molprobity_endpoints
+from bmrbapi.search_routes import user_endpoints
 from bmrbapi.utils import querymod
 from bmrbapi.utils.querymod import get_db, check_local_ip
-
-from bmrbapi.search_routes import user_endpoints
-from bmrbapi.molprobity_routes import molprobity_endpoints
 
 # Set up the flask application
 application = Flask(__name__)
@@ -203,7 +199,7 @@ def get_entry(entry_id=None):
 
     # If they are storing
     if request.method == "POST":
-        return jsonify(querymod.store_uploaded_entry(request))
+        return jsonify(querymod.store_uploaded_entry())
 
     # Loading
     else:

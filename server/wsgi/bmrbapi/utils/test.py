@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-# Standard imports
 import sys
 import time
 import unittest
-import requests
-import pynmrstar
-import querymod
-
 from io import StringIO
+
+import pynmrstar
+import requests
+
+from bmrbapi.utils import querymod
 
 url = 'http://localhost'
 

@@ -42,7 +42,7 @@ RUN apk add --update curl && \
   apk del curl && \
   rm -rf glibc.apk glibc-bin.apk /var/cache/apk/*
 
-COPY configs/requirements.txt /tmp/
+COPY wsgi/requirements.txt /tmp/
 RUN pip install --no-cache -r /tmp/requirements.txt
 
 WORKDIR /opt/wsgi

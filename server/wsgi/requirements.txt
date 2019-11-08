@@ -8,3 +8,4 @@ gitpython==2.1.11
 Flask-Mail==0.9.1
 pynmrstar==2.6.4.1
 pybmrb==1.2.8
+requests==2.22.0
