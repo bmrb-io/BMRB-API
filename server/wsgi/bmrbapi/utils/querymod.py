@@ -89,13 +89,6 @@ if not os.path.isfile(config_loc):
     config_loc = os.path.join(_QUERYMOD_DIR, "..", "configuration.json")
 configuration = json.loads(open(config_loc, "r").read())
 
-# Load local configuration overrides
-config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "..", "api_config.json")
-if os.path.isfile(config_loc):
-    config_overrides = json.loads(open(config_loc, "r").read())
-    for config_param in config_overrides:
-        configuration[config_param] = config_overrides[config_param]
-
 # Determine submodules folder
 SUBMODULE_DIR = os.path.join(os.path.dirname(_QUERYMOD_DIR), "submodules")
 
