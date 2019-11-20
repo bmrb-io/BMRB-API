@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import csv
+import logging
 import xml.etree.ElementTree as ET
 
 import requests
@@ -37,7 +38,7 @@ class UniProtMapper(MappingFile):
          Example: P4R3A_HUMAN -> Q6IN85"""
 
         if nickname:
-            print(f'Getting UniProt from nickname {nickname}')
+            logging.info(f'Getting UniProt from nickname {nickname}')
         else:
             return None
 
@@ -67,32 +68,47 @@ class UniProtMapper(MappingFile):
 class PDBMapper(MappingFile):
 
     def get_uniprot(self, pdb_id: str, chain: str):
-        """ Returns the official uniprot ID from the PDB ID and chain."""
+        """ Returns the official UniProt ID from the PDB ID and chain."""
 
         if pdb_id and chain:
-            print(f'Getting UniProt from PDB {pdb_id}.{chain}')
-        else:
+            logging.info(f'Getting UniProt from PDB {pdb_id}.{chain}')
+
+        if not pdb_id:
             return None
 
-        pdb_id = pdb_id.upper()
-        chain = chain.upper()
-
-        key = f'{pdb_id}.{chain}'
+        if chain:
+            key = f'{pdb_id}.{chain}'
+        else:
+            key = pdb_id
         if key in self.mapping:
             return self.mapping[key]
 
+        # Load the PDB ID chains into the mapping
         mapping_url = f'http://www.rcsb.org/pdb/rest/describeMol?structureId={pdb_id}'
         root = ET.fromstring(requests.get(mapping_url).text)
-
+        num_polymers = len(list(root.iter('polymer')))
         for polymer in root.iter('polymer'):
-            pdb_chain = polymer.findall('chain')[0].attrib.get('id')
-            chain_key = f'{pdb_id}.{pdb_chain}'
+            # Get the UniProt for the polymer
             try:
                 uniprot_accession = polymer.findall('macroMolecule/accession')[0].attrib.get('id', None)
-                if pdb_chain:
-                    self.mapping[chain_key] = uniprot_accession
             except IndexError:
-                self.mapping[chain_key] = None
+                uniprot_accession = None
+
+            # Add each chain
+            for chain_elem in polymer.findall('chain'):
+                pdb_chain = chain_elem.attrib.get('id')
+                chain_key = f'{pdb_id}.{pdb_chain}'
+
+                self.mapping[chain_key] = uniprot_accession
+
+            # Add the whole ID
+            if num_polymers == 1:
+                self.mapping[pdb_id] = uniprot_accession
+
+        # If the chain isn't in the PDB file
+        if key not in self.mapping:
+            logging.warning("Unknown chain: %s", key)
+            self.mapping[key] = None
 
         return self.mapping.get(key, None)
 
@@ -106,21 +122,25 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
     sequences_out.writerow(headers)
     for line in sequences:
         pdb_id = line[3].upper()
-        for chain in line[2].upper().split(','):
-            to_insert = list(line)
+        full_chain_id = line[2].upper()
+        if full_chain_id:
+            chain_id = full_chain_id[0]
+        else:
+            chain_id = None
 
-            uniprot_id = pdb_map.get_uniprot(pdb_id, chain)
-            if uniprot_id:
-                to_insert.insert(5, uniprot_id)
-            else:
-                to_insert.insert(5, None)
-            to_insert[2] = chain
+        uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
+        if uniprot_id:
+            line.insert(5, uniprot_id)
+        else:
+            line.insert(5, None)
+            if len(full_chain_id) > 1 and pdb_id:
+                logging.warning('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
 
-            # Make sure the author didn't provide a nickname
-            if "_" in to_insert[4]:
-                to_insert[4] = uni_name.get_uniprot(to_insert[4])
+        # Make sure the author didn't provide a nickname
+        if "_" in line[4]:
+            line[4] = uni_name.get_uniprot(line[4])
 
-            sequences_out.writerow(to_insert)
+        sequences_out.writerow(line)
 
 
 sql = '''
