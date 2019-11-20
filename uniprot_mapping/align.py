@@ -59,67 +59,76 @@ for line in sequences:
         sequences_out.writerow(to_insert)"""
 
 
-def load_map(file_name: str):
-    """ Returns a dict mapping from a two-column CSV file. """
+class MappingFile:
 
-    try:
-        with open(file_name, 'r') as input_file:
-            return {x[0]: x[1] for x in csv.reader(input_file)}
-    except FileNotFoundError:
-        return {}
+    def __init__(self, file_name):
+        self._file_name = file_name
+        self.mapping = {}
 
+    def __enter__(self):
+        try:
+            with open(self._file_name, 'r') as input_file:
+                self.mapping = {x[0]: x[1] for x in csv.reader(input_file)}
+        except FileNotFoundError:
+            self.mapping = {}
+        return self
 
-def write_map(file_name: str, mapping: dict):
-    """ Writes a dict out as a two-column CSV. """
+    def __exit__(self, exc_type, exc_val, exc_tb):
 
-    with open(file_name, 'w') as out_file:
-        csv_writer = csv.writer(out_file)
-        csv_writer.writerows([[x, mapping[x]] for x in mapping.keys()])
-
-
-def get_uniprot_from_nickname(nickname: str):
-    """ Returns the official uniprot ID from the nickname.
-
-     Example: P4R3A_HUMAN -> Q6IN85"""
-
-    nickname = nickname.upper()
-    if "_" not in nickname:
-        return nickname
-
-    uni_map = load_map('uniname.csv')
-    if nickname in uni_map:
-        return uni_map[nickname]
-
-    mapping_url = f'https://www.uniprot.org/uniprot/?query={nickname}&sort=score&desc=&compress=no&fil=&limit=1&force=no&preview=true&format=tab&columns=id'
-    result = requests.get(mapping_url).text.split('\n')[1]
-
-    uni_map[nickname] = result
-    write_map('uniname.csv', uni_map)
-
-    return result
+        with open(self._file_name, 'w') as out_file:
+            csv_writer = csv.writer(out_file)
+            csv_writer.writerows([[x, self.mapping[x]] for x in self.mapping.keys()])
 
 
-def get_uniprot_from_pdb_chain(pdb_id: str, chain: str):
-    """ Returns the official uniprot ID from the PDB ID and chain."""
+class UniProtMapper(MappingFile):
 
-    pdb_id = pdb_id.upper()
-    chain = chain.upper()
+    def get_uniprot(self, nickname: str):
+        """ Returns the official UniProt ID from the nickname.
 
-    pdb_map = load_map('pdb_uniprot.csv')
+         Example: P4R3A_HUMAN -> Q6IN85"""
 
-    key = f'{pdb_id}.{chain}'
-    if key in pdb_map:
-        return pdb_map[key]
+        nickname = nickname.upper()
+        if "_" not in nickname:
+            return nickname
 
-    mapping_url = f'http://www.rcsb.org/pdb/rest/describeMol?structureId={pdb_id}'
-    root = ET.fromstring(requests.get(mapping_url).text)
+        if nickname in self.mapping:
+            return self.mapping[nickname]
 
-    for polymer in root.iter('polymer'):
-        pdb_chain = polymer.findall('chain')[0].attrib.get('id')
-        uniprot_accession = polymer.findall('macroMolecule/accession')[0].attrib.get('id', None)
-        if pdb_chain and uniprot_accession:
-            pdb_map[f'{pdb_id}.{pdb_chain}'] = uniprot_accession
+        mapping_url = f'https://www.uniprot.org/uniprot/?query={nickname}&sort=score&desc=' \
+                      '&compress=no&fil=&limit=1&force=no&preview=true&format=tab&columns=id'
+        result = requests.get(mapping_url).text.split('\n')[1]
+        self.mapping[nickname] = result
 
-    write_map('pdb_uniprot.csv', pdb_map)
+        return result
 
-    return pdb_map.get(key, None)
+
+class PDBMapper(MappingFile):
+
+    def get_uniprot(self, pdb_id: str, chain: str):
+        """ Returns the official uniprot ID from the PDB ID and chain."""
+
+        pdb_id = pdb_id.upper()
+        chain = chain.upper()
+
+        key = f'{pdb_id}.{chain}'
+        if key in self.mapping:
+            return self.mapping[key]
+
+        mapping_url = f'http://www.rcsb.org/pdb/rest/describeMol?structureId={pdb_id}'
+        root = ET.fromstring(requests.get(mapping_url).text)
+
+        for polymer in root.iter('polymer'):
+            pdb_chain = polymer.findall('chain')[0].attrib.get('id')
+            uniprot_accession = polymer.findall('macroMolecule/accession')[0].attrib.get('id', None)
+            if pdb_chain and uniprot_accession:
+                self.mapping[f'{pdb_id}.{pdb_chain}'] = uniprot_accession
+
+        return self.mapping.get(key, None)
+
+
+
+with UniProtMapper('uniname.csv') as uni_name:
+    print(uni_name.get_uniprot('P4R3A_HUMAN'))
+
+with PDBMapper('pdb_uniprot.csv') as pdb_map:
+    print(pdb_map.get_uniprot('2AST', 'A'))
