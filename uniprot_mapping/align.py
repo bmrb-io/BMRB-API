@@ -45,6 +45,14 @@ class UniProtMapper(MappingFile):
         if "_" not in nickname:
             return nickname
 
+        # In case they specified multiple things
+        if " " in nickname:
+            for item in nickname.split(" "):
+                nick = self.get_uniprot(item)
+                if nick:
+                    return nick
+            return None
+
         if nickname in self.mapping:
             return self.mapping[nickname]
 
