@@ -144,22 +144,24 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
 
 
 sql = '''
-SELECT ent."Entry_ID"                AS "BMRB_ID",
-       "ID"                          AS "Entity_ID",
-       upper("Polymer_strand_ID")    AS "PDB_chain",
-       pdb_id                        AS "PDB_ID",
-       dbl."Accession_code"          AS "Uniprot_ID",
-       "Polymer_seq_one_letter_code" AS "Sequence",
-       "Details"
+SELECT ent."Entry_ID"                                              AS "BMRB_ID",
+       ent."ID"                                                    AS "Entity_ID",
+       upper(coalesce(ea."PDB_chain_ID", ent."Polymer_strand_ID")) AS "PDB_chain",
+       upper(pdb_id)                                               AS "PDB_ID",
+       dbl."Accession_code"                                        AS "Uniprot_ID",
+       "Polymer_seq_one_letter_code"                               AS "Sequence",
+       ent."Details"
 FROM macromolecules."Entity" AS ent
          LEFT JOIN web.pdb_link AS pdb ON pdb.bmrb_id = ent."Entry_ID"
          LEFT JOIN macromolecules."Entity_db_link" AS dbl
                    ON dbl."Entry_ID" = ent."Entry_ID" AND ent."ID" = dbl."Entity_ID"
+         LEFT JOIN macromolecules."Entity_assembly" AS ea
+                   ON ea."Entry_ID" = ent."Entry_ID" AND ea."Entity_ID" = ent."ID"
 WHERE "Polymer_seq_one_letter_code" IS NOT NULL
   AND "Polymer_seq_one_letter_code" != ''
   AND ent."Polymer_type" = 'polypeptide(L)'
-  AND ent."Entry_ID"::int > 3000
   AND (dbl."Accession_code" IS NULL
     OR (dbl."Author_supplied" = 'yes' AND
-        (lower(dbl."Database_code") = 'unp' OR lower(dbl."Database_code") = 'uniprot')))
-ORDER BY ent."Entry_ID"::int, "ID"::int;'''
+        (lower(dbl."Database_code") = 'unp' OR lower(dbl."Database_code") = 'uniprot' OR
+         lower(dbl."Database_code") = 'sp')))
+ORDER BY ent."Entry_ID"::int, ent."ID"::int;'''
