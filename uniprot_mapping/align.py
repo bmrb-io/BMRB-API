@@ -121,3 +121,25 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
                 to_insert[4] = uni_name.get_uniprot(to_insert[4])
 
             sequences_out.writerow(to_insert)
+
+
+sql = '''
+SELECT ent."Entry_ID"                AS "BMRB_ID",
+       "ID"                          AS "Entity_ID",
+       upper("Polymer_strand_ID")    AS "PDB_chain",
+       pdb_id                        AS "PDB_ID",
+       dbl."Accession_code"          AS "Uniprot_ID",
+       "Polymer_seq_one_letter_code" AS "Sequence",
+       "Details"
+FROM macromolecules."Entity" AS ent
+         LEFT JOIN web.pdb_link AS pdb ON pdb.bmrb_id = ent."Entry_ID"
+         LEFT JOIN macromolecules."Entity_db_link" AS dbl
+                   ON dbl."Entry_ID" = ent."Entry_ID" AND ent."ID" = dbl."Entity_ID"
+WHERE "Polymer_seq_one_letter_code" IS NOT NULL
+  AND "Polymer_seq_one_letter_code" != ''
+  AND ent."Polymer_type" = 'polypeptide(L)'
+  AND ent."Entry_ID"::int > 3000
+  AND (dbl."Accession_code" IS NULL
+    OR (dbl."Author_supplied" = 'yes' AND
+        (lower(dbl."Database_code") = 'unp' OR lower(dbl."Database_code") = 'uniprot')))
+ORDER BY ent."Entry_ID"::int, "ID"::int;'''
