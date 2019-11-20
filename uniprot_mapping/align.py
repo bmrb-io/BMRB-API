@@ -6,6 +6,11 @@ import xml.etree.ElementTree as ET
 
 import requests
 
+# Todo: Check that uniprot is valid and not expired
+# See: 26802	1	A	5O6F	D9Q632	D9QDZ8
+
+# Todo: Dealing with when there are chains that aren't perfectly mapped
+
 
 class MappingFile:
 
