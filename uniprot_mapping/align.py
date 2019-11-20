@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 
 import csv
-
+import xml.etree.ElementTree as ET
 import requests
 
+a = """
 sequences = csv.reader(open('sequences.csv', 'r'))
 headers = next(sequences)
 sequences_out = csv.writer(open('sequences_uniprot.csv', 'w'))
@@ -55,7 +56,25 @@ for line in sequences:
                 to_insert.insert(5, None)
         to_insert[2] = chain
 
-        sequences_out.writerow(to_insert)
+        sequences_out.writerow(to_insert)"""
+
+
+def load_map(file_name: str):
+    """ Returns a dict mapping from a two-column CSV file. """
+
+    try:
+        with open(file_name, 'r') as input_file:
+            return {x[0]: x[1] for x in csv.reader(input_file)}
+    except FileNotFoundError:
+        return {}
+
+
+def write_map(file_name: str, mapping: dict):
+    """ Writes a dict out as a two-column CSV. """
+
+    with open(file_name, 'w') as out_file:
+        csv_writer = csv.writer(out_file)
+        csv_writer.writerows([[x, mapping[x]] for x in mapping.keys()])
 
 
 def get_uniprot_from_nickname(nickname: str):
@@ -67,10 +86,7 @@ def get_uniprot_from_nickname(nickname: str):
     if "_" not in nickname:
         return nickname
 
-    try:
-        uni_map = {x[0]: x[1] for x in csv.reader(open('uniname.csv', 'r'))}
-    except FileNotFoundError:
-        uni_map = {}
+    uni_map = load_map('uniname.csv')
     if nickname in uni_map:
         return uni_map[nickname]
 
@@ -78,6 +94,32 @@ def get_uniprot_from_nickname(nickname: str):
     result = requests.get(mapping_url).text.split('\n')[1]
 
     uni_map[nickname] = result
-    writer = csv.writer(open('uniname.csv', 'w'))
-    writer.writerows([[x, uni_map[x]] for x in uni_map.keys()])
+    write_map('uniname.csv', uni_map)
 
+    return result
+
+
+def get_uniprot_from_pdb_chain(pdb_id: str, chain: str):
+    """ Returns the official uniprot ID from the PDB ID and chain."""
+
+    pdb_id = pdb_id.upper()
+    chain = chain.upper()
+
+    pdb_map = load_map('pdb_uniprot.csv')
+
+    key = f'{pdb_id}.{chain}'
+    if key in pdb_map:
+        return pdb_map[key]
+
+    mapping_url = f'http://www.rcsb.org/pdb/rest/describeMol?structureId={pdb_id}'
+    root = ET.fromstring(requests.get(mapping_url).text)
+
+    for polymer in root.iter('polymer'):
+        pdb_chain = polymer.findall('chain')[0].attrib.get('id')
+        uniprot_accession = polymer.findall('macroMolecule/accession')[0].attrib.get('id', None)
+        if pdb_chain and uniprot_accession:
+            pdb_map[f'{pdb_id}.{pdb_chain}'] = uniprot_accession
+
+    write_map('pdb_uniprot.csv', pdb_map)
+
+    return pdb_map.get(key, None)
