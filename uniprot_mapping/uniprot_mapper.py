@@ -210,8 +210,8 @@ uniprot_seq_file.close()
 
 # Put it in postgresql
 def row_gen():
-    with open('sequences_uniprot.csv', 'r') as uniprot_seq_file:
-        csv_reader = csv.reader(uniprot_seq_file)
+    with open('sequences_uniprot.csv', 'r') as seq_file_read:
+        csv_reader = csv.reader(seq_file_read)
         next(csv_reader)
         for each_line in csv_reader:
             yield each_line
