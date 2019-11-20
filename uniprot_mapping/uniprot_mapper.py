@@ -150,12 +150,16 @@ class PDBMapper(MappingFile):
 
 with PostgresHelper() as psql:
     sql = '''
-    SELECT ent."Entry_ID"                                              AS "BMRB_ID",
-           ent."ID"                                                    AS "Entity_ID",
-           upper(coalesce(ea."PDB_chain_ID", ent."Polymer_strand_ID")) AS "PDB_chain",
-           upper(pdb_id)                                               AS "PDB_ID",
-           dbl."Accession_code"                                        AS "Uniprot_ID",
-           "Polymer_seq_one_letter_code"                               AS "Sequence",
+    SELECT ent."Entry_ID"                                              AS bmrb_id,
+           ent."ID"                                                    AS entity_id,
+           upper(coalesce(ea."PDB_chain_ID", ent."Polymer_strand_ID")) AS pdb_chain,
+           upper(pdb_id)                                               AS pdb_id,
+           CASE
+               WHEN dbl."Accession_code" IS NOT NULL THEN 'Author Supplied'
+               ELSE null
+               END                                                     as link_type,
+           dbl."Accession_code"                                        AS uniprot_id,
+           "Polymer_seq_one_letter_code"                               AS sequence,
            ent."Details"
     FROM macromolecules."Entity" AS ent
              LEFT JOIN web.pdb_link AS pdb ON pdb.bmrb_id = ent."Entry_ID"
@@ -182,7 +186,7 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
         open('sequences_uniprot.csv', 'w') as uniprot_seq_file:
     sequences_out = csv.writer(uniprot_seq_file)
     sequences_out.writerow(
-        ['BMRB_ID', 'Entity_ID', 'PDB_chain', 'PDB_ID', 'Uniprot_ID', 'Uniprot_ID_from_pdb_id', 'Sequence', 'Details'])
+        ['bmrb_id', 'entity_id', 'pdb_chain', 'pdb_id', 'link_type', 'uniprot_id', 'protein_sequence', 'details'])
 
     for line in sequences:
         pdb_id = line[3].upper()
@@ -194,15 +198,15 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
 
         uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
         if uniprot_id:
-            line.insert(5, uniprot_id)
+            line[4] = 'PDB Mapping'
+            line[5] = uniprot_id
         else:
-            line.insert(5, None)
             if len(full_chain_id) > 1 and pdb_id:
-                logging.warning('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
+                logging.info('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
 
         # Make sure the author didn't provide a nickname
-        if "_" in line[4]:
-            line[4] = uni_name.get_uniprot(line[4])
+        if "_" in line[5]:
+            line[5] = uni_name.get_uniprot(line[5])
 
         sequences_out.writerow(line)
 uniprot_seq_file.close()
@@ -217,7 +221,7 @@ def row_gen():
             yield each_line
 
 
-with PostgresHelper() as psql:
+with PostgresHelper(database='bmrb', user='bmrb') as psql:
     conn, cur = psql[0], psql[1]
     cur.execute('''
 DROP TABLE IF EXISTS web.uniprot_mappings; 
@@ -227,8 +231,8 @@ CREATE TABLE IF NOT EXISTS web.uniprot_mappings
     entity_id              int,
     pdb_chain              text,
     pdb_id                 text,
+    link_type              text,
     uniprot_id             text,
-    uniprot_id_from_pdb_id text,
     protein_sequence       text,
     details                text
 );
