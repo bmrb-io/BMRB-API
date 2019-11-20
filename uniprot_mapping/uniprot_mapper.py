@@ -4,12 +4,42 @@ import csv
 import logging
 import xml.etree.ElementTree as ET
 
+import psycopg2
+import psycopg2.extras
 import requests
+
 
 # Todo: Check that uniprot is valid and not expired
 # See: 26802	1	A	5O6F	D9Q632	D9QDZ8
 
 # Todo: Dealing with when there are chains that aren't perfectly mapped
+
+
+class PostgresHelper:
+    """ Makes it more convenient to query postgres. It implements a context manager to ensure that the connection
+    is closed.
+
+     Since we never write to the DB using this class, no need to commit before closing. """
+
+    def __init__(self,
+                 host='localhost',
+                 user='bmrb',
+                 database='bmrbeverything',
+                 port='5902',
+                 cursor_factory=psycopg2.extras.DictCursor):
+        self._host = host
+        self._user = user
+        self._database = database
+        self._port = port
+        self._cursor_factory = cursor_factory
+
+    def __enter__(self):
+        self._conn = psycopg2.connect(host=self._host, user=self._user, database=self._database,
+                                      port=self._port, cursor_factory=self._cursor_factory)
+        return self._conn, self._conn.cursor()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._conn.close()
 
 
 class MappingFile:
@@ -118,13 +148,42 @@ class PDBMapper(MappingFile):
         return self.mapping.get(key, None)
 
 
-with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as pdb_map:
-    sequences = csv.reader(open('sequences.csv', 'r'))
-    headers = next(sequences)
-    sequences_out = csv.writer(open('sequences_uniprot.csv', 'w'))
+with PostgresHelper() as psql:
+    sql = '''
+    SELECT ent."Entry_ID"                                              AS "BMRB_ID",
+           ent."ID"                                                    AS "Entity_ID",
+           upper(coalesce(ea."PDB_chain_ID", ent."Polymer_strand_ID")) AS "PDB_chain",
+           upper(pdb_id)                                               AS "PDB_ID",
+           dbl."Accession_code"                                        AS "Uniprot_ID",
+           "Polymer_seq_one_letter_code"                               AS "Sequence",
+           ent."Details"
+    FROM macromolecules."Entity" AS ent
+             LEFT JOIN web.pdb_link AS pdb ON pdb.bmrb_id = ent."Entry_ID"
+             LEFT JOIN macromolecules."Entity_db_link" AS dbl
+                       ON dbl."Entry_ID" = ent."Entry_ID" AND ent."ID" = dbl."Entity_ID"
+             LEFT JOIN macromolecules."Entity_assembly" AS ea
+                       ON ea."Entry_ID" = ent."Entry_ID" AND ea."Entity_ID" = ent."ID"
+    WHERE "Polymer_seq_one_letter_code" IS NOT NULL
+      AND "Polymer_seq_one_letter_code" != ''
+      AND ent."Polymer_type" = 'polypeptide(L)'
+      AND (dbl."Accession_code" IS NULL
+        OR (dbl."Author_supplied" = 'yes' AND
+            (lower(dbl."Database_code") = 'unp' OR lower(dbl."Database_code") = 'uniprot' OR
+             lower(dbl."Database_code") = 'sp')))
+    ORDER BY ent."Entry_ID"::int, ent."ID"::int;'''
+    psql[1].execute(sql)
+    sequences = psql[1].fetchall()
+    for line in sequences:
+        for pos, item in enumerate(line):
+            if item is None:
+                line[pos] = ''
 
-    headers.insert(5, 'Uniprot_ID_from_pdb_id')
-    sequences_out.writerow(headers)
+with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as pdb_map, \
+        open('sequences_uniprot.csv', 'w') as uniprot_seq_file:
+    sequences_out = csv.writer(uniprot_seq_file)
+    sequences_out.writerow(
+        ['BMRB_ID', 'Entity_ID', 'PDB_chain', 'PDB_ID', 'Uniprot_ID', 'Uniprot_ID_from_pdb_id', 'Sequence', 'Details'])
+
     for line in sequences:
         pdb_id = line[3].upper()
         full_chain_id = line[2].upper()
@@ -146,27 +205,35 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
             line[4] = uni_name.get_uniprot(line[4])
 
         sequences_out.writerow(line)
+uniprot_seq_file.close()
 
 
-sql = '''
-SELECT ent."Entry_ID"                                              AS "BMRB_ID",
-       ent."ID"                                                    AS "Entity_ID",
-       upper(coalesce(ea."PDB_chain_ID", ent."Polymer_strand_ID")) AS "PDB_chain",
-       upper(pdb_id)                                               AS "PDB_ID",
-       dbl."Accession_code"                                        AS "Uniprot_ID",
-       "Polymer_seq_one_letter_code"                               AS "Sequence",
-       ent."Details"
-FROM macromolecules."Entity" AS ent
-         LEFT JOIN web.pdb_link AS pdb ON pdb.bmrb_id = ent."Entry_ID"
-         LEFT JOIN macromolecules."Entity_db_link" AS dbl
-                   ON dbl."Entry_ID" = ent."Entry_ID" AND ent."ID" = dbl."Entity_ID"
-         LEFT JOIN macromolecules."Entity_assembly" AS ea
-                   ON ea."Entry_ID" = ent."Entry_ID" AND ea."Entity_ID" = ent."ID"
-WHERE "Polymer_seq_one_letter_code" IS NOT NULL
-  AND "Polymer_seq_one_letter_code" != ''
-  AND ent."Polymer_type" = 'polypeptide(L)'
-  AND (dbl."Accession_code" IS NULL
-    OR (dbl."Author_supplied" = 'yes' AND
-        (lower(dbl."Database_code") = 'unp' OR lower(dbl."Database_code") = 'uniprot' OR
-         lower(dbl."Database_code") = 'sp')))
-ORDER BY ent."Entry_ID"::int, ent."ID"::int;'''
+# Put it in postgresql
+def row_gen():
+    with open('sequences_uniprot.csv', 'r') as uniprot_seq_file:
+        csv_reader = csv.reader(uniprot_seq_file)
+        next(csv_reader)
+        for each_line in csv_reader:
+            yield each_line
+
+
+with PostgresHelper() as psql:
+    conn, cur = psql[0], psql[1]
+    cur.execute('''
+DROP TABLE IF EXISTS web.uniprot_mappings; 
+CREATE TABLE IF NOT EXISTS web.uniprot_mappings
+(
+    bmrb_id                text,
+    entity_id              int,
+    pdb_chain              text,
+    pdb_id                 text,
+    uniprot_id             text,
+    uniprot_id_from_pdb_id text,
+    protein_sequence       text,
+    details                text
+);
+GRANT ALL ON TABLE web.uniprot_mappings TO web;''')
+
+    insert_query = 'INSERT INTO web.uniprot_mappings VALUES %s'
+    psycopg2.extras.execute_values(cur, insert_query, row_gen(), template=None, page_size=100)
+    conn.commit()
