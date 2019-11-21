@@ -223,9 +223,8 @@ def row_gen():
             yield each_line
 
 
-with PostgresHelper() as psql_api, PostgresHelper(database='bmrb', user='bmrb') as psql_web:
+with PostgresHelper() as psql_api:
     api_conn, api_cur = psql_api[0], psql_api[1]
-    web_conn, web_cur = psql_web[0], psql_web[1]
 
     create_sql = '''
 DROP TABLE IF EXISTS web.uniprot_mappings; 
@@ -244,13 +243,10 @@ CREATE TABLE IF NOT EXISTS web.uniprot_mappings
 GRANT ALL ON TABLE web.uniprot_mappings TO web;'''
 
     api_cur.execute(create_sql)
-    web_cur.execute(create_sql)
-
     insert_query = 'INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details) VALUES %s'
     psycopg2.extras.execute_values(api_cur, insert_query, row_gen(), template=None, page_size=100)
-    psycopg2.extras.execute_values(web_cur, insert_query, row_gen(), template=None, page_size=100)
 
-    sql_insert_into_api = '''
+    sql_insert = '''
 INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
     (SELECT dbl."Entry_ID",
             dbl."Entity_ID"::int,
@@ -270,29 +266,7 @@ INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_ty
        AND dbl."Database_code" = 'SP'
     );
 '''
-
-    sql_insert_into_web = '''
-    INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
-        (SELECT dbl."Entry_ID",
-                dbl."Entity_ID"::int,
-                null,
-                null,
-                'BLAST Search',
-                dbl."Accession_code",
-                ent."Polymer_seq_one_letter_code",
-                ent."Details"
-         FROM "Entity_db_link" AS dbl
-                  LEFT JOIN "Entity" AS ent
-                            ON dbl."Entry_ID" = ent."Entry_ID" AND ent."ID" = dbl."Entity_ID"
-                  LEFT JOIN "Entity_assembly" AS ea
-                            ON ea."Entry_ID" = dbl."Entry_ID" AND ea."Entity_ID" = dbl."Entity_ID"
-         WHERE dbl."Author_supplied" = 'no'
-           AND dbl."Database_code" = 'SP'
-        );
-    '''
-
-    api_cur.execute(sql_insert_into_api)
-    web_cur.execute(sql_insert_into_web)
+    api_cur.execute(sql_insert)
 
     remove_dups = '''
 DELETE FROM web.uniprot_mappings
@@ -311,10 +285,8 @@ WHERE id IN (
  
     ) t
 WHERE t.rnum > 1);
+DELETE FROM web.uniprot_mappings WHERE uniprot_id = '' OR uniprot_id IS NULL;
 CREATE UNIQUE INDEX ON web.uniprot_mappings (bmrb_id, pdb_id, entity_id, link_type, uniprot_id);'''
 
     api_cur.execute(remove_dups)
-    web_cur.execute(remove_dups)
-
     api_conn.commit()
-    web_conn.commit()
