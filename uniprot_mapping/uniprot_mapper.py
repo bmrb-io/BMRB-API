@@ -196,13 +196,15 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
         else:
             chain_id = None
 
-        uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
-        if uniprot_id:
-            line[4] = 'PDB Mapping'
-            line[5] = uniprot_id
-        else:
-            if len(full_chain_id) > 1 and pdb_id:
-                logging.info('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
+        # Only search for a UniProt ID if we don't already have an author one
+        if not line[5]:
+            uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
+            if uniprot_id:
+                line[4] = 'PDB Mapping'
+                line[5] = uniprot_id
+            else:
+                if len(full_chain_id) > 1 and pdb_id:
+                    logging.info('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
 
         # Make sure the author didn't provide a nickname
         if "_" in line[5]:
