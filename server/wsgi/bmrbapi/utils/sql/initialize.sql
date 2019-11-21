@@ -316,7 +316,6 @@ ALTER TABLE IF EXISTS web.pdb_link RENAME TO pdb_link_old;
 ALTER TABLE web.pdb_link_tmp RENAME TO pdb_link;
 DROP TABLE IF EXISTS web.pdb_link_old;
 
-
 -- Clean up
 DROP FUNCTION web.clean_title(varchar);
 GRANT ALL PRIVILEGES ON TABLE web.instant_extra_search_terms to web;

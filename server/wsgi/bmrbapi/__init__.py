@@ -17,6 +17,7 @@ from flask_mail import Mail
 from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 
+from bmrbapi.db_links import db_endpoints
 from bmrbapi.molprobity_routes import molprobity_endpoints
 from bmrbapi.search_routes import user_endpoints
 from bmrbapi.utils import querymod
@@ -27,6 +28,7 @@ application = Flask(__name__)
 application.url_map.strict_slashes = False
 application.register_blueprint(user_endpoints)
 application.register_blueprint(molprobity_endpoints)
+application.register_blueprint(db_endpoints)
 
 # Set debug if running from command line
 if application.debug:

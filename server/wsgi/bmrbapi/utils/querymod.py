@@ -78,7 +78,7 @@ class RequestError(Exception):
 _QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
 
 # Load the configuration file
-config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "..", "..", "api_config.json")
+config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "..", "api_config.json")
 if not os.path.isfile(config_loc):
     config_loc = os.path.join(_QUERYMOD_DIR, "..", "configuration.json")
 configuration = json.loads(open(config_loc, "r").read())
