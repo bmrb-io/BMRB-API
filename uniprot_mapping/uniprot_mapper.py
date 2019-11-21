@@ -148,7 +148,7 @@ class PDBMapper(MappingFile):
         return self.mapping.get(key, None)
 
 
-with PostgresHelper() as psql:
+with PostgresHelper() as psql_api:
     sql = '''
     SELECT ent."Entry_ID"                                              AS bmrb_id,
            ent."ID"                                                    AS entity_id,
@@ -175,8 +175,8 @@ with PostgresHelper() as psql:
             (lower(dbl."Database_code") = 'unp' OR lower(dbl."Database_code") = 'uniprot' OR
              lower(dbl."Database_code") = 'sp')))
     ORDER BY ent."Entry_ID"::int, ent."ID"::int;'''
-    psql[1].execute(sql)
-    sequences = psql[1].fetchall()
+    psql_api[1].execute(sql)
+    sequences = psql_api[1].fetchall()
     for line in sequences:
         for pos, item in enumerate(line):
             if item is None:
@@ -223,12 +223,15 @@ def row_gen():
             yield each_line
 
 
-with PostgresHelper(database='bmrb', user='bmrb') as psql:
-    conn, cur = psql[0], psql[1]
-    cur.execute('''
+with PostgresHelper() as psql_api, PostgresHelper(database='bmrb', user='bmrb') as psql_web:
+    api_conn, api_cur = psql_api[0], psql_api[1]
+    web_conn, web_cur = psql_web[0], psql_web[1]
+
+    create_sql = '''
 DROP TABLE IF EXISTS web.uniprot_mappings; 
 CREATE TABLE IF NOT EXISTS web.uniprot_mappings
 (
+    id                     serial primary key,
     bmrb_id                text,
     entity_id              int,
     pdb_chain              text,
@@ -238,8 +241,80 @@ CREATE TABLE IF NOT EXISTS web.uniprot_mappings
     protein_sequence       text,
     details                text
 );
-GRANT ALL ON TABLE web.uniprot_mappings TO web;''')
+GRANT ALL ON TABLE web.uniprot_mappings TO web;'''
 
-    insert_query = 'INSERT INTO web.uniprot_mappings VALUES %s'
-    psycopg2.extras.execute_values(cur, insert_query, row_gen(), template=None, page_size=100)
-    conn.commit()
+    api_cur.execute(create_sql)
+    web_cur.execute(create_sql)
+
+    insert_query = 'INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details) VALUES %s'
+    psycopg2.extras.execute_values(api_cur, insert_query, row_gen(), template=None, page_size=100)
+    psycopg2.extras.execute_values(web_cur, insert_query, row_gen(), template=None, page_size=100)
+
+    sql_insert_into_api = '''
+INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
+    (SELECT dbl."Entry_ID",
+            dbl."Entity_ID"::int,
+            null,
+            pdb_id,
+            'BLAST Search',
+            dbl."Accession_code",
+            ent."Polymer_seq_one_letter_code",
+            ent."Details"
+     FROM macromolecules."Entity_db_link" AS dbl
+              LEFT JOIN macromolecules."Entity" AS ent
+                        ON dbl."Entry_ID" = ent."Entry_ID" AND ent."ID" = dbl."Entity_ID"
+              LEFT JOIN macromolecules."Entity_assembly" AS ea
+                        ON ea."Entry_ID" = dbl."Entry_ID" AND ea."Entity_ID" = dbl."Entity_ID"
+              LEFT JOIN web.pdb_link AS pdb ON pdb.bmrb_id = ent."Entry_ID"
+     WHERE dbl."Author_supplied" = 'no'
+       AND dbl."Database_code" = 'SP'
+    );
+'''
+
+    sql_insert_into_web = '''
+    INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
+        (SELECT dbl."Entry_ID",
+                dbl."Entity_ID"::int,
+                null,
+                null,
+                'BLAST Search',
+                dbl."Accession_code",
+                ent."Polymer_seq_one_letter_code",
+                ent."Details"
+         FROM "Entity_db_link" AS dbl
+                  LEFT JOIN "Entity" AS ent
+                            ON dbl."Entry_ID" = ent."Entry_ID" AND ent."ID" = dbl."Entity_ID"
+                  LEFT JOIN "Entity_assembly" AS ea
+                            ON ea."Entry_ID" = dbl."Entry_ID" AND ea."Entity_ID" = dbl."Entity_ID"
+         WHERE dbl."Author_supplied" = 'no'
+           AND dbl."Database_code" = 'SP'
+        );
+    '''
+
+    api_cur.execute(sql_insert_into_api)
+    web_cur.execute(sql_insert_into_web)
+
+    remove_dups = '''
+DELETE FROM web.uniprot_mappings
+WHERE id IN (
+    SELECT
+        id
+    FROM (
+        SELECT
+            id,
+            ROW_NUMBER() OVER w AS rnum
+        FROM web.uniprot_mappings
+        WINDOW w AS (
+            PARTITION BY bmrb_id, pdb_id, entity_id, link_type, uniprot_id
+            ORDER BY id
+        )
+ 
+    ) t
+WHERE t.rnum > 1);
+CREATE UNIQUE INDEX ON web.uniprot_mappings (bmrb_id, pdb_id, entity_id, link_type, uniprot_id);'''
+
+    api_cur.execute(remove_dups)
+    web_cur.execute(remove_dups)
+
+    api_conn.commit()
+    web_conn.commit()
