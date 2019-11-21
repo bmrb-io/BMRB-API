@@ -77,7 +77,7 @@ class UniProtMapper(MappingFile):
         else:
             return None
 
-        nickname = nickname.upper().replace(".", "-")
+        nickname = nickname.upper()
 
         if "_" not in nickname:
             return nickname
@@ -208,6 +208,8 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
                     logging.info('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
 
         # Make sure the author didn't provide a nickname
+        if "." in line[5]:
+            line[5] = line[5].replace('.', '-')
         if "_" in line[5]:
             line[5] = uni_name.get_uniprot(line[5])
 
@@ -254,7 +256,7 @@ INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, lin
             null,
             pdb_id,
             'Sequence mapping',
-            dbl."Accession_code",
+            REPLACE (dbl."Accession_code", '.', '-'),
             ent."Polymer_seq_one_letter_code",
             ent."Details"
      FROM macromolecules."Entity_db_link" AS dbl
