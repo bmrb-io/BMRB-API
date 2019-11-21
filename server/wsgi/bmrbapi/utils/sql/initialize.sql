@@ -316,6 +316,36 @@ ALTER TABLE IF EXISTS web.pdb_link RENAME TO pdb_link_old;
 ALTER TABLE web.pdb_link_tmp RENAME TO pdb_link;
 DROP TABLE IF EXISTS web.pdb_link_old;
 
+DROP MATERIALIZED VIEW IF EXISTS web.hupo_psi_id;
+CREATE MATERIALIZED VIEW IF NOT EXISTS web.hupo_psi_id AS
+(
+SELECT uni.id,
+       uni.uniprot_id,
+       'bmrb:' || bmrb_id                   AS source,
+       entity."Polymer_seq_one_letter_code" AS "regionSequenceExperimental",
+       'ECO:0001238'                        AS "experimentType",
+       CASE
+           WHEN cit."PubMed_ID" IS NOT NULL THEN 'pubmed:' || cit."PubMed_ID"
+           WHEN cit."DOI" IS NOT NULL THEN 'doi:' || cit."DOI"
+           ELSE null END                    AS "experimentReference",
+       (SELECT "Date"
+        from macromolecules."Release"
+        WHERE "Entry_ID" = entity."Entry_ID"
+        ORDER BY "Release_number"::int DESC
+        LIMIT 1)                            AS "lastModified",
+       uni.link_type                        AS "regionDefinitionSource"
+FROM web.uniprot_mappings AS uni
+         LEFT JOIN macromolecules."Entity" AS entity
+                   ON entity."Entry_ID" = bmrb_id AND entity."ID"::int = entity_id
+         LEFT JOIN macromolecules."Entry" AS entry ON entry."ID" = bmrb_id
+         LEFT JOIN macromolecules."Citation" AS cit ON cit."Entry_ID" = entry."ID"
+    AND cit."Class" = 'entry citation'
+ORDER BY uniprot_id);
+CREATE UNIQUE INDEX IF NOT EXISTS hupo_psi_global_idx ON web.hupo_psi_id (uniprot_id, id, source,
+                                                                          "regionSequenceExperimental",
+                                                                          "experimentType", "experimentReference",
+                                                                          "lastModified", "regionDefinitionSource");
+REFRESH MATERIALIZED VIEW CONCURRENTLY web.hupo_psi_id;
 
 -- Clean up
 DROP FUNCTION web.clean_title(varchar);
@@ -329,3 +359,5 @@ GRANT ALL PRIVILEGES ON TABLE web.pdb_link to web;
 GRANT ALL PRIVILEGES ON TABLE web.pdb_link to bmrb;
 GRANT ALL PRIVILEGES ON FUNCTION web.convert_to_numeric to web;
 GRANT ALL PRIVILEGES ON FUNCTION web.convert_to_numeric to bmrb;
+GRANT ALL PRIVILEGES ON MATERIALIZED VIEW web.hupo_psi_id to web;
+GRANT ALL PRIVILEGES ON MATERIALIZED VIEW web.hupo_psi_id to bmrb;
