@@ -155,7 +155,7 @@ with PostgresHelper() as psql_api:
            upper(coalesce(ea."PDB_chain_ID", ent."Polymer_strand_ID")) AS pdb_chain,
            upper(pdb_id)                                               AS pdb_id,
            CASE
-               WHEN dbl."Accession_code" IS NOT NULL THEN 'Author Supplied'
+               WHEN dbl."Accession_code" IS NOT NULL THEN 'Author supplied'
                ELSE null
                END                                                     as link_type,
            dbl."Accession_code"                                        AS uniprot_id,
@@ -200,7 +200,7 @@ with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as p
         if not line[5]:
             uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
             if uniprot_id:
-                line[4] = 'PDB Mapping'
+                line[4] = 'PDB cross-referencing'
                 line[5] = uniprot_id
             else:
                 if len(full_chain_id) > 1 and pdb_id:
@@ -256,7 +256,7 @@ INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_ty
             dbl."Entity_ID"::int,
             null,
             pdb_id,
-            'BLAST Search',
+            'Sequence mapping',
             dbl."Accession_code",
             ent."Polymer_seq_one_letter_code",
             ent."Details"
