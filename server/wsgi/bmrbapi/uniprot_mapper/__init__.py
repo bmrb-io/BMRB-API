@@ -2,44 +2,20 @@
 
 import csv
 import logging
+import os
 import xml.etree.ElementTree as ET
 
-import psycopg2
 import psycopg2.extras
 import requests
 
-
-# Todo: Check that uniprot is valid and not expired
+# Todo: Check that UniProt is valid and not expired
 # See: 26802	1	A	5O6F	D9Q632	D9QDZ8
 
 # Todo: Dealing with when there are chains that aren't perfectly mapped
 
+from bmrbapi.utils.querymod import PostgresConnection
 
-class PostgresHelper:
-    """ Makes it more convenient to query postgres. It implements a context manager to ensure that the connection
-    is closed.
-
-     Since we never write to the DB using this class, no need to commit before closing. """
-
-    def __init__(self,
-                 host='localhost',
-                 user='bmrb',
-                 database='bmrbeverything',
-                 port='5902',
-                 cursor_factory=psycopg2.extras.DictCursor):
-        self._host = host
-        self._user = user
-        self._database = database
-        self._port = port
-        self._cursor_factory = cursor_factory
-
-    def __enter__(self):
-        self._conn = psycopg2.connect(host=self._host, user=self._user, database=self._database,
-                                      port=self._port, cursor_factory=self._cursor_factory)
-        return self._conn, self._conn.cursor()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._conn.close()
+this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 class MappingFile:
@@ -149,7 +125,7 @@ class PDBMapper(MappingFile):
         return self.mapping.get(key, None)
 
 
-with PostgresHelper() as psql_api:
+with PostgresConnection() as cur:
     sql = '''
     SELECT ent."Entry_ID"                                              AS bmrb_id,
            ent."ID"                                                    AS entity_id,
@@ -176,60 +152,62 @@ with PostgresHelper() as psql_api:
             (lower(dbl."Database_code") = 'unp' OR lower(dbl."Database_code") = 'uniprot' OR
              lower(dbl."Database_code") = 'sp')))
     ORDER BY ent."Entry_ID"::int, ent."ID"::int;'''
-    psql_api[1].execute(sql)
-    sequences = psql_api[1].fetchall()
+    cur.execute(sql)
+    sequences = cur.fetchall()
     for line in sequences:
         for pos, item in enumerate(line):
             if item is None:
                 line[pos] = ''
 
-with UniProtMapper('uniname.csv') as uni_name, PDBMapper('pdb_uniprot.csv') as pdb_map, \
-        open('sequences_uniprot.csv', 'w') as uniprot_seq_file:
-    sequences_out = csv.writer(uniprot_seq_file)
-    sequences_out.writerow(
-        ['bmrb_id', 'entity_id', 'pdb_chain', 'pdb_id', 'link_type', 'uniprot_id', 'protein_sequence', 'details'])
 
-    for line in sequences:
-        pdb_id = line[3].upper()
-        full_chain_id = line[2].upper()
-        if full_chain_id:
-            chain_id = full_chain_id[0]
-        else:
-            chain_id = None
+def map_uniprot():
+    with UniProtMapper(os.path.join(this_dir, 'uniname.csv')) as uni_name, \
+            PDBMapper(os.path.join(this_dir, 'pdb_uniprot.csv')) as pdb_map, \
+            open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'w') as uniprot_seq_file:
+        sequences_out = csv.writer(uniprot_seq_file)
+        sequences_out.writerow(
+            ['bmrb_id', 'entity_id', 'pdb_chain', 'pdb_id', 'link_type', 'uniprot_id', 'protein_sequence', 'details'])
 
-        # Only search for a UniProt ID if we don't already have an author one
-        if not line[5]:
-            uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
-            if uniprot_id:
-                line[4] = 'PDB cross-referencing'
-                line[5] = uniprot_id
+        for line in sequences:
+            pdb_id = line[3].upper()
+            full_chain_id = line[2].upper()
+            if full_chain_id:
+                chain_id = full_chain_id[0]
             else:
-                if len(full_chain_id) > 1 and pdb_id:
-                    logging.info('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
+                chain_id = None
 
-        # Make sure the author didn't provide a nickname
-        if "." in line[5]:
-            line[5] = line[5].replace('.', '-')
-        if "_" in line[5]:
-            line[5] = uni_name.get_uniprot(line[5])
+            # Only search for a UniProt ID if we don't already have an author one
+            if not line[5]:
+                uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
+                if uniprot_id:
+                    line[4] = 'PDB cross-referencing'
+                    line[5] = uniprot_id
+                else:
+                    if len(full_chain_id) > 1 and pdb_id:
+                        logging.info('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
 
-        sequences_out.writerow(line)
-uniprot_seq_file.close()
+            # Make sure the author didn't provide a nickname
+            if "." in line[5]:
+                line[5] = line[5].replace('.', '-')
+            if "_" in line[5]:
+                line[5] = uni_name.get_uniprot(line[5])
 
+            sequences_out.writerow(line)
+    uniprot_seq_file.close()
 
-# Put it in postgresql
-def row_gen():
-    with open('sequences_uniprot.csv', 'r') as seq_file_read:
-        csv_reader = csv.reader(seq_file_read)
-        next(csv_reader)
-        for each_line in csv_reader:
-            yield each_line
+    # Put it in postgresql
+    def row_gen():
+        with open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'r') as seq_file_read:
+            csv_reader = csv.reader(seq_file_read)
+            next(csv_reader)
+            for each_line in csv_reader:
+                yield each_line
 
-
-with PostgresHelper() as psql_api:
-    api_conn, api_cur = psql_api[0], psql_api[1]
-
-    create_sql = '''
+    with PostgresConnection(host='localhost',
+                            user='bmrb',
+                            database='bmrbeverything',
+                            port='5902') as cur:
+        create_sql = '''
 DROP TABLE IF EXISTS web.uniprot_mappings_old CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS web.hupo_psi_id_tmp_old;
 
@@ -245,13 +223,13 @@ CREATE TABLE IF NOT EXISTS web.uniprot_mappings_tmp
     protein_sequence       text,
     details                text
 );
-'''
+    '''
 
-    api_cur.execute(create_sql)
-    insert_query = 'INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details) VALUES %s'
-    psycopg2.extras.execute_values(api_cur, insert_query, row_gen(), template=None, page_size=100)
+        cur.execute(create_sql)
+        insert_query = 'INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details) VALUES %s'
+        psycopg2.extras.execute_values(cur, insert_query, row_gen(), template=None, page_size=100)
 
-    sql_insert = '''
+        sql_insert = '''
 INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
     (SELECT dbl."Entry_ID",
             dbl."Entity_ID"::int,
@@ -270,10 +248,10 @@ INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, lin
      WHERE dbl."Author_supplied" = 'no'
        AND dbl."Database_code" = 'SP'
     );
-'''
-    api_cur.execute(sql_insert)
+    '''
+        cur.execute(sql_insert)
 
-    final_preparation = '''
+        final_preparation = '''
 DELETE FROM web.uniprot_mappings_tmp WHERE uniprot_id = '' OR uniprot_id IS NULL;
 UPDATE web.uniprot_mappings
 SET uniprot_id = REPLACE(uniprot_id, '.', '-')
@@ -332,15 +310,13 @@ GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to web;
 GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to bmrb;
 
 -- Move table and view into place
-DROP TABLE IF EXISTS web.uniprot_mappings_old;
 ALTER TABLE IF EXISTS web.uniprot_mappings RENAME TO uniprot_mappings_old;
 ALTER TABLE web.uniprot_mappings_tmp RENAME TO uniprot_mappings;
-DROP TABLE IF EXISTS web.uniprot_mappings_old;
+DROP TABLE IF EXISTS web.uniprot_mappings_old CASCADE;
 
 ALTER MATERIALIZED VIEW IF EXISTS web.hupo_psi_id RENAME TO hupo_psi_id_tmp_old;
 ALTER MATERIALIZED VIEW web.hupo_psi_id_tmp RENAME TO hupo_psi_id;
 DROP MATERIALIZED VIEW IF EXISTS hupo_psi_id_tmp_old;
-'''
+    '''
 
-    api_cur.execute(sql)
-    api_conn.commit()
+        cur.execute(final_preparation)

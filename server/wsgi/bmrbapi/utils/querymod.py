@@ -133,9 +133,7 @@ def get_database_from_entry_id(entry_id):
 
 class PostgresConnection:
     """ Makes it more convenient to query postgres. It implements a context manager to ensure that the connection
-    is closed.
-
-     Since we never write to the DB using this class, no need to commit before closing. """
+    is closed."""
 
     def __init__(self,
                  host=configuration['postgres']['host'],
