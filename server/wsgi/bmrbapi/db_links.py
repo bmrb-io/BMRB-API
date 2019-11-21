@@ -34,6 +34,7 @@ def uniprot(accession_id=None):
     cur = get_postgres_connection(dictionary_cursor=True)[1]
 
     # Get the format
+    # Note on hupo-psi-id: https://github.com/normandavey/HUPO-PSI-ID/tree/master/ELIXIR_biohackathon
     response_format = request.args.get('format', 'json')
     if response_format not in ['json', 'hupo-psi-id']:
         raise RequestError("Invalid format type. Allowed options: 'json', 'hupo-psi-id'.")
