@@ -170,15 +170,26 @@ def favicon():
     return redirect(url_for('static', filename='favicon.ico'))
 
 
+# Show what routes are available, determined programmatically
 @application.route('/')
-def no_params():
-    """ Return an error if they have not specified which method type to use."""
+def catch_all():
 
-    result = ""
-    for method in querymod._METHODS:
-        result += '<a href="%s">%s</a><br>' % (method, method)
+    links = []
+    for rule in application.url_map.iter_rules():
+        # Don't show the static endpoint
+        if rule.endpoint == 'static':
+            continue
 
-    return result
+        url = url_for(rule.endpoint, **{argument: argument.upper() for argument in rule.arguments})
+        if not url:
+            continue
+        if "GET" in rule.methods:
+            links.append("GET:  <a href='%s'>%s</a>" % (url, url))
+        elif "POST" in rule.methods:
+            links.append("POST: %s" % url)
+        elif "PUT" in rule.methods:
+            links.append("POST: %s" % url)
+    return "<pre>" + "\n".join(links) + "</pre>"
 
 
 @application.route('/list_entries')
