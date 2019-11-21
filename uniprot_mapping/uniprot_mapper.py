@@ -230,7 +230,9 @@ with PostgresHelper() as psql_api:
     api_conn, api_cur = psql_api[0], psql_api[1]
 
     create_sql = '''
-DROP TABLE IF EXISTS web.uniprot_mappings_tmp CASCADE;
+DROP TABLE IF EXISTS web.uniprot_mappings_old CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS web.hupo_psi_id_tmp_old;
+
 CREATE TABLE IF NOT EXISTS web.uniprot_mappings_tmp
 (
     id                     serial primary key,
@@ -272,6 +274,10 @@ INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, lin
     api_cur.execute(sql_insert)
 
     final_preparation = '''
+DELETE FROM web.uniprot_mappings_tmp WHERE uniprot_id = '' OR uniprot_id IS NULL;
+UPDATE web.uniprot_mappings
+SET uniprot_id = REPLACE(uniprot_id, '.', '-')
+WHERE uniprot_id LIKE '%.%';
 DELETE FROM web.uniprot_mappings_tmp
 WHERE id IN (
     SELECT
@@ -288,7 +294,6 @@ WHERE id IN (
  
     ) t
 WHERE t.rnum > 1);
-DELETE FROM web.uniprot_mappings_tmp WHERE uniprot_id = '' OR uniprot_id IS NULL;
 CREATE UNIQUE INDEX ON web.uniprot_mappings_tmp (bmrb_id, pdb_id, entity_id, link_type, uniprot_id);
 
 
@@ -320,21 +325,22 @@ CREATE UNIQUE INDEX ON web.hupo_psi_id_tmp (uniprot_id, id, source, "regionSeque
                                                                     "experimentType", "experimentReference",
                                                                     "lastModified", "regionDefinitionSource");
                                                                     
--- Permissions
+ -- Permissions
 GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp to web;
 GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp to bmrb;
 GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to web;
 GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to bmrb;
 
 -- Move table and view into place
+DROP TABLE IF EXISTS web.uniprot_mappings_old;
 ALTER TABLE IF EXISTS web.uniprot_mappings RENAME TO uniprot_mappings_old;
 ALTER TABLE web.uniprot_mappings_tmp RENAME TO uniprot_mappings;
-DROP TABLE IF EXISTS uniprot_mappings_old;
+DROP TABLE IF EXISTS web.uniprot_mappings_old;
 
 ALTER MATERIALIZED VIEW IF EXISTS web.hupo_psi_id RENAME TO hupo_psi_id_tmp_old;
 ALTER MATERIALIZED VIEW web.hupo_psi_id_tmp RENAME TO hupo_psi_id;
 DROP MATERIALIZED VIEW IF EXISTS hupo_psi_id_tmp_old;
 '''
 
-    api_cur.execute(final_preparation)
+    api_cur.execute(sql)
     api_conn.commit()
