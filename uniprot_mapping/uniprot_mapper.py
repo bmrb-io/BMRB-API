@@ -77,7 +77,8 @@ class UniProtMapper(MappingFile):
         else:
             return None
 
-        nickname = nickname.upper()
+        nickname = nickname.upper().replace(".", "-")
+
         if "_" not in nickname:
             return nickname
 
@@ -227,8 +228,8 @@ with PostgresHelper() as psql_api:
     api_conn, api_cur = psql_api[0], psql_api[1]
 
     create_sql = '''
-DROP TABLE IF EXISTS web.uniprot_mappings; 
-CREATE TABLE IF NOT EXISTS web.uniprot_mappings
+DROP TABLE IF EXISTS web.uniprot_mappings_tmp CASCADE;
+CREATE TABLE IF NOT EXISTS web.uniprot_mappings_tmp
 (
     id                     serial primary key,
     bmrb_id                text,
@@ -240,14 +241,14 @@ CREATE TABLE IF NOT EXISTS web.uniprot_mappings
     protein_sequence       text,
     details                text
 );
-GRANT ALL ON TABLE web.uniprot_mappings TO web;'''
+'''
 
     api_cur.execute(create_sql)
-    insert_query = 'INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details) VALUES %s'
+    insert_query = 'INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details) VALUES %s'
     psycopg2.extras.execute_values(api_cur, insert_query, row_gen(), template=None, page_size=100)
 
     sql_insert = '''
-INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
+INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
     (SELECT dbl."Entry_ID",
             dbl."Entity_ID"::int,
             null,
@@ -268,8 +269,8 @@ INSERT INTO web.uniprot_mappings (bmrb_id, entity_id, pdb_chain, pdb_id, link_ty
 '''
     api_cur.execute(sql_insert)
 
-    remove_dups = '''
-DELETE FROM web.uniprot_mappings
+    final_preparation = '''
+DELETE FROM web.uniprot_mappings_tmp
 WHERE id IN (
     SELECT
         id
@@ -277,7 +278,7 @@ WHERE id IN (
         SELECT
             id,
             ROW_NUMBER() OVER w AS rnum
-        FROM web.uniprot_mappings
+        FROM web.uniprot_mappings_tmp
         WINDOW w AS (
             PARTITION BY bmrb_id, pdb_id, entity_id, link_type, uniprot_id
             ORDER BY id
@@ -285,8 +286,53 @@ WHERE id IN (
  
     ) t
 WHERE t.rnum > 1);
-DELETE FROM web.uniprot_mappings WHERE uniprot_id = '' OR uniprot_id IS NULL;
-CREATE UNIQUE INDEX ON web.uniprot_mappings (bmrb_id, pdb_id, entity_id, link_type, uniprot_id);'''
+DELETE FROM web.uniprot_mappings_tmp WHERE uniprot_id = '' OR uniprot_id IS NULL;
+CREATE UNIQUE INDEX ON web.uniprot_mappings_tmp (bmrb_id, pdb_id, entity_id, link_type, uniprot_id);
 
-    api_cur.execute(remove_dups)
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS web.hupo_psi_id_tmp AS
+(
+SELECT uni.id,
+       uni.uniprot_id,
+       'bmrb:' || bmrb_id                   AS source,
+       entity."Polymer_seq_one_letter_code" AS "regionSequenceExperimental",
+       'ECO:0001238'                        AS "experimentType",
+       CASE
+           WHEN cit."PubMed_ID" IS NOT NULL THEN 'pubmed:' || cit."PubMed_ID"
+           WHEN cit."DOI" IS NOT NULL THEN 'doi:' || cit."DOI"
+           ELSE null END                    AS "experimentReference",
+       (SELECT "Date"
+        from macromolecules."Release"
+        WHERE "Entry_ID" = entity."Entry_ID"
+        ORDER BY "Release_number"::int DESC
+        LIMIT 1)                            AS "lastModified",
+       uni.link_type                        AS "regionDefinitionSource"
+FROM web.uniprot_mappings_tmp AS uni
+         LEFT JOIN macromolecules."Entity" AS entity
+                   ON entity."Entry_ID" = bmrb_id AND entity."ID"::int = entity_id
+         LEFT JOIN macromolecules."Entry" AS entry ON entry."ID" = bmrb_id
+         LEFT JOIN macromolecules."Citation" AS cit ON cit."Entry_ID" = entry."ID"
+    AND cit."Class" = 'entry citation'
+ORDER BY uniprot_id);
+CREATE UNIQUE INDEX ON web.hupo_psi_id_tmp (uniprot_id, id, source, "regionSequenceExperimental",
+                                                                    "experimentType", "experimentReference",
+                                                                    "lastModified", "regionDefinitionSource");
+                                                                    
+-- Permissions
+GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp to web;
+GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp to bmrb;
+GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to web;
+GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to bmrb;
+
+-- Move table and view into place
+ALTER TABLE IF EXISTS web.uniprot_mappings RENAME TO uniprot_mappings_old;
+ALTER TABLE web.uniprot_mappings_tmp RENAME TO uniprot_mappings;
+DROP TABLE IF EXISTS uniprot_mappings_old;
+
+ALTER MATERIALIZED VIEW IF EXISTS web.hupo_psi_id RENAME TO hupo_psi_id_tmp_old;
+ALTER MATERIALIZED VIEW web.hupo_psi_id_tmp RENAME TO hupo_psi_id;
+DROP MATERIALIZED VIEW IF EXISTS hupo_psi_id_tmp_old;
+'''
+
+    api_cur.execute(final_preparation)
     api_conn.commit()
