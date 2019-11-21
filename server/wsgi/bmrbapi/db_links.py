@@ -7,16 +7,68 @@ from bmrbapi.utils.querymod import get_postgres_connection, RequestError
 db_endpoints = Blueprint('db_links', __name__)
 
 
-@db_endpoints.route('/mappings/uniprot')
+@db_endpoints.route('/mappings/uniprot/uniprot')
 def uniprot_mappings():
-    """ Returns a list of the search methods."""
+    """ Returns a list of the UniProt->UniProt where there is a BMRB record
+    for the protein."""
 
     cur = get_postgres_connection()[1]
     cur.execute('''
 SELECT DISTINCT(uniprot_id) FROM web.uniprot_mappings
-    WHERE uniprot_id != ''
     ORDER BY uniprot_id''')
     return Response("\n".join(["%s %s" % (x[0], x[0]) for x in cur.fetchall()]),
+                    mimetype='text/plain')
+
+
+@db_endpoints.route('/mappings/uniprot/bmrb')
+def uniprot_bmrb_map():
+    """ Returns a list of the UniProt->BMRB mappings."""
+
+    cur = get_postgres_connection()[1]
+    cur.execute('''
+SELECT uniprot_id, array_agg(bmrb_id) FROM web.uniprot_mappings
+GROUP BY uniprot_id
+    ORDER BY uniprot_id''')
+    return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
+                    mimetype='text/plain')
+
+
+@db_endpoints.route('/mappings/bmrb/uniprot')
+def bmrb_uniprot_map():
+    """ Returns a list of the BMRB->UniProt mappings."""
+
+    cur = get_postgres_connection()[1]
+    cur.execute('''
+SELECT bmrb_id, array_agg(uniprot_id) FROM web.uniprot_mappings
+GROUP BY bmrb_id
+    ORDER BY bmrb_id''')
+    return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
+                    mimetype='text/plain')
+
+
+@db_endpoints.route('/mappings/pdb/bmrb')
+def pdb_bmrb_map():
+    """ Returns a list of the PDB->BMRB mappings."""
+
+    cur = get_postgres_connection()[1]
+    cur.execute('''
+SELECT pdb_id, array_agg(bmrb_id) FROM web.pdb_link
+GROUP BY pdb_id
+    ORDER BY pdb_id''')
+    return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
+                    mimetype='text/plain')
+
+
+@db_endpoints.route('/mappings/bmrb/pdb')
+def bmrb_pdb_map():
+    """ Returns a list of the BMRB-PDB mappings."""
+
+    cur = get_postgres_connection()[1]
+    cur.execute('''
+SELECT bmrb_id, array_agg(pdb_id) FROM web.pdb_link
+GROUP BY bmrb_id
+    ORDER BY bmrb_id::int''')
+    return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
                     mimetype='text/plain')
 
 
