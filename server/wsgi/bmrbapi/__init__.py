@@ -177,7 +177,7 @@ def catch_all():
     links = []
     for rule in application.url_map.iter_rules():
         # Don't show the static endpoint
-        if rule.endpoint == 'static':
+        if rule.endpoint in ['static', 'favicon']:
             continue
 
         url = url_for(rule.endpoint, **{argument: argument.upper() for argument in rule.arguments})
@@ -299,16 +299,11 @@ def get_enumerations(tag_name=None):
                                              term=request.args.get('term')))
 
 
-@application.route('/select', methods=('GET', 'POST'))
+@application.route('/select', methods=['POST'])
 def select():
     """ Performs an advanced select query. """
 
-    # Check for GET request
-    if request.method == "GET":
-        raise querymod.RequestError("Cannot access this page through GET.")
-
     data = json.loads(request.get_data(cache=False, as_text=True))
-
     return jsonify(querymod.process_select(**data))
 
 
