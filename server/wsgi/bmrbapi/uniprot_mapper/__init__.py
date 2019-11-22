@@ -9,7 +9,8 @@ from psycopg2.extras import execute_values
 from bmrbapi.uniprot_mapper.file_mappers import MappingFile, UniProtMapper, PDBMapper, UniProtValidator
 from bmrbapi.uniprot_mapper.sql_statements import author_and_pdb_links, create_mappings_table, bulk_insert, \
     insert_clean_ready
-from bmrbapi.utils.querymod import PostgresConnection
+from bmrbapi.utils.querymod import PostgresConnection, configuration
+
 
 # Todo: Check that UniProt is valid and not expired
 # See: 26802	1	A	5O6F	D9Q632	D9QDZ8
@@ -18,7 +19,7 @@ from bmrbapi.utils.querymod import PostgresConnection
 
 
 def map_uniprot():
-    psql_conn = PostgresConnection(user='bmrb')
+    psql_conn = PostgresConnection(user=configuration['postgres']['reload_user'])
     this_dir = os.path.dirname(os.path.abspath(__file__))
     with UniProtMapper('uniname.csv') as uni_name, \
             PDBMapper('pdb_uniprot.csv') as pdb_map, \
