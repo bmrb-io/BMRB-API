@@ -74,12 +74,12 @@ UPDATE web.uniprot_mappings
 SET uniprot_id = REPLACE(uniprot_id, '.', '-')
 WHERE uniprot_id LIKE '%.%';
 
-UPDATE web.uniprot_mappings
+UPDATE web.uniprot_mappings_tmp
 SET uniprot_id = 'P9WKD3' WHERE uniprot_id = 'P9WKD3[43 - 307]';
-UPDATE web.uniprot_mappings
+UPDATE web.uniprot_mappings_tmp
 SET uniprot_id = 'P05386' WHERE uniprot_id = 'P05386,P05387';
+DELETE FROM web.uniprot_mappings_tmp WHERE uniprot_id = 'TmpAcc';
 
-DELETE FROM web.uniprot_mappings WHERE uniprot_id = 'TmpAcc';
 DELETE FROM web.uniprot_mappings_tmp
 WHERE id IN (
     SELECT

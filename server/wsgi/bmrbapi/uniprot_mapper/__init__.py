@@ -21,10 +21,11 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def map_uniprot():
+    psql_conn = PostgresConnection(user='bmrb')
     with UniProtMapper(os.path.join(this_dir, 'uniname.csv')) as uni_name, \
             PDBMapper(os.path.join(this_dir, 'pdb_uniprot.csv')) as pdb_map, \
             open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'w') as uniprot_seq_file, \
-            PostgresConnection(user='bmrb') as cur:
+            psql_conn as cur:
 
         cur.execute(author_and_pdb_links)
         sequences = cur.fetchall()
@@ -75,3 +76,4 @@ def map_uniprot():
         cur.execute(create_mappings_table)
         execute_values(cur, bulk_insert, row_gen(), page_size=100)
         cur.execute(insert_clean_ready)
+        psql_conn.commit()
