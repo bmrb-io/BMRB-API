@@ -3,7 +3,7 @@ from flask import jsonify, request, Blueprint
 
 # Local modules
 from bmrbapi.utils.querymod import PostgresConnection, configuration
-from bmrbapi.exceptions import RequestError
+from bmrbapi.exceptions import RequestException
 
 # Set up the blueprint
 molprobity_endpoints = Blueprint('molprobity', __name__)
@@ -16,7 +16,7 @@ def return_molprobity_oneline(pdb_id=None):
     """Returns the molprobity data for a PDB ID. """
 
     if not pdb_id:
-        raise RequestError("You must specify the PDB ID.")
+        raise RequestException("You must specify the PDB ID.")
 
     return jsonify(get_molprobity_data(pdb_id))
 

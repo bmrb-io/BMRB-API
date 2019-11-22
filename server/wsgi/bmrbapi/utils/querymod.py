@@ -28,7 +28,7 @@ from psycopg2.extras import execute_values
 from redis.sentinel import Sentinel
 
 # Module level defines
-from bmrbapi.exceptions import RequestError, ServerError
+from bmrbapi.exceptions import RequestException, ServerException
 
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/simulate_hsqc',
@@ -116,9 +116,9 @@ class PostgresConnection:
         # Check the schema
         if schema:
             if schema == "combined":
-                raise RequestError("Combined database not implemented yet.")
+                raise RequestException("Combined database not implemented yet.")
             if schema not in ["metabolomics", "macromolecules", "chemcomps"]:
-                raise RequestError("Invalid database: %s." % schema)
+                raise RequestException("Invalid database: %s." % schema)
         self._schema = schema
 
     def __enter__(self):
@@ -165,7 +165,7 @@ def get_redis_connection(db=None):
     # Raise an exception if we cannot connect to the database server
     except (redis.exceptions.ConnectionError,
             redis.sentinel.MasterNotFoundError):
-        raise ServerError('Could not connect to database server.')
+        raise ServerException('Could not connect to database server.')
 
     return r
 
@@ -200,7 +200,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
 
     # Make sure there are not too many entries
     if len(search_ids) > max_results:
-        raise RequestError('Too many IDs queried. Please query %s '
+        raise RequestException('Too many IDs queried. Please query %s '
                            'or fewer entries at a time. You attempted to '
                            'query %d IDs.' % (max_results, len(search_ids)))
 
@@ -241,7 +241,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
 
                             # Unknown format
                             else:
-                                raise RequestError("Invalid format: %s." % format_)
+                                raise RequestException("Invalid format: %s." % format_)
 
 
 def store_uploaded_entry():
@@ -250,20 +250,20 @@ def store_uploaded_entry():
     uploaded_data = request.data
 
     if not uploaded_data:
-        raise RequestError("No data uploaded. Please post the "
+        raise RequestException("No data uploaded. Please post the "
                            "NMR-STAR file as the request body.")
 
     if request.content_type == "application/json":
         try:
             parsed_star = pynmrstar.Entry.from_json(uploaded_data)
         except (ValueError, TypeError) as e:
-            raise RequestError("Invalid uploaded JSON NMR-STAR data."
+            raise RequestException("Invalid uploaded JSON NMR-STAR data."
                                " Exception: %s" % str(e))
     else:
         try:
             parsed_star = pynmrstar.Entry.from_string(uploaded_data)
         except ValueError as e:
-            raise RequestError("Invalid uploaded NMR-STAR file."
+            raise RequestException("Invalid uploaded NMR-STAR file."
                                " Exception: %s" % str(e))
 
     key = md5(uploaded_data).digest().encode("hex")
@@ -296,7 +296,7 @@ def panav_parser(panav_text):
 
     # There is an error
     if len(lines) < 3:
-        raise ServerError("PANAV failed to produce expected output."
+        raise ServerException("PANAV failed to produce expected output."
                           " Output: %s" % panav_text)
 
     # Check for unusual output
@@ -339,7 +339,7 @@ def get_citation(entry_id, format_="python"):
 
     # Error if invalid
     if format_ not in ["python", "json-ld", "text", "bibtex"]:
-        raise RequestError("Invalid format specified. Please choose from the "
+        raise RequestException("Invalid format specified. Please choose from the "
                            "following formats: %s" % str(["json-ld", "text", "bibtex"]))
 
     ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
@@ -569,7 +569,7 @@ def get_tags(**kwargs):
     # Check the validity of the tags
     for tag in search_tags:
         if "." not in tag:
-            raise RequestError("You must provide the tag category to call this method at the entry level. For example, "
+            raise RequestException("You must provide the tag category to call this method at the entry level. For example, "
                                "use 'Entry.Title' rather than 'Title'.")
 
     # Go through the IDs
@@ -578,7 +578,7 @@ def get_tags(**kwargs):
             result[entry[0]] = entry[1].get_tags(search_tags)
         # They requested a tag that doesn't exist
         except ValueError as error:
-            raise RequestError(str(error))
+            raise RequestException(str(error))
 
     return result
 
@@ -656,7 +656,7 @@ WHERE originaltag=%s
 GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
         p_res = cur.fetchone()
     if not p_res:
-        raise RequestError("Invalid tag specified.")
+        raise RequestException("Invalid tag specified.")
 
     # Generate the result dictionary
     result = {'values': p_res['values']}
@@ -686,7 +686,7 @@ def chemical_shift_search_1d(shift_val=None, threshold=.03, atom_type=None,
     try:
         threshold = float(threshold)
     except ValueError:
-        raise RequestError("Invalid threshold.")
+        raise RequestException("Invalid threshold.")
 
     sql = '''
 SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
@@ -794,7 +794,7 @@ def get_schema(version=None):
     try:
         schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
     except TypeError:
-        raise RequestError("Invalid schema version.")
+        raise RequestException("Invalid schema version.")
 
     return schema
 
@@ -1236,23 +1236,23 @@ def get_category_and_tag(tag_name):
     queries. Returns an error if an invalid tag is provided. """
 
     if tag_name is None:
-        raise RequestError("You must specify the tag name.")
+        raise RequestException("You must specify the tag name.")
 
     # Note - this is relied on in some queries to prevent SQL injection. Do
     #  not remove it unless you update all functions that use this function.
     if '"' in tag_name:
-        raise RequestError('Tags cannot contain a \'"\'.')
+        raise RequestException('Tags cannot contain a \'"\'.')
 
     sp = tag_name.split(".")
     if sp[0].startswith("_"):
         sp[0] = sp[0][1:]
     if len(sp) < 2:
-        raise RequestError("You must provide a full tag name with "
+        raise RequestException("You must provide a full tag name with "
                            "category included. For example: "
                            "Entry.Experimental_method_subtype")
 
     if len(sp) > 2:
-        raise RequestError("You provided an invalid tag. NMR-STAR tags only "
+        raise RequestException("You provided an invalid tag. NMR-STAR tags only "
                            "contain one period.")
 
     return sp
@@ -1275,10 +1275,10 @@ def get_all_values_for_tag(tag_name, database):
             sp = str(e).split('\n')
             if len(sp) > 3:
                 if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
-                    raise RequestError("Tag not found. Did you mean the tag: '%s'?" %
-                                       sp[3].split('"')[1])
+                    raise RequestException("Tag not found. Did you mean the tag: '%s'?" %
+                                           sp[3].split('"')[1])
 
-            raise RequestError("Tag not found.")
+            raise RequestException("Tag not found.")
 
         # Turn the results into a dict
         res = {}
@@ -1309,7 +1309,7 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     # Make sure they aren't trying to inject (parameterized queries are safe while
     # this is not, but there is no way to parametrize a table name...)
     if '"' in table:
-        raise RequestError("Invalid 'from' parameter.")
+        raise RequestException("Invalid 'from' parameter.")
 
     # Prepare the query
     if len(fetch_list) == 1 and fetch_list[0] == "*":
@@ -1360,7 +1360,7 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
         except psycopg2.ProgrammingError as error:
             if configuration['debug']:
                 raise error
-            raise RequestError("Invalid 'from' parameter.")
+            raise RequestException("Invalid 'from' parameter.")
 
         # Get the column names from the DB
         col_names = [desc[0] for desc in cur.description]
@@ -1393,7 +1393,7 @@ def process_nmrstar_query(params):
 
     # Make sure they have IDS
     if "ids" not in params:
-        raise RequestError('You must specify one or more entry IDs '
+        raise RequestException('You must specify one or more entry IDs '
                            'with the "ids" parameter.')
 
     # Set the keys to the empty list if not specified
@@ -1415,9 +1415,9 @@ def process_select(**params):
     database = params.get("database", "macromolecules")
 
     if database == "combined":
-        raise RequestError('Merged database not yet available.')
+        raise RequestException('Merged database not yet available.')
     if database not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
-        raise RequestError("Invalid database specified.")
+        raise RequestException("Invalid database specified.")
 
     # Okay, now we need to go through each query and get the results
     if not isinstance(params['query'], list):
@@ -1436,7 +1436,7 @@ def process_select(**params):
         if len(params['query']) > 1:
             each_query['select'].append("Entry_ID")
         if "from" not in each_query:
-            raise RequestError('You must specify which table to '
+            raise RequestException('You must specify which table to '
                                'query with the "from" parameter.')
         if "hash" not in each_query:
             each_query['hash'] = True
@@ -1607,7 +1607,7 @@ def get_entry_id_tag(tag_or_category, database="macromolecules"):
     # Determine if this is a fully qualified tag or just the category
     try:
         tag_category = get_category_and_tag(tag_or_category)[0]
-    except RequestError:
+    except RequestException:
         tag_category = tag_or_category.replace(".", "")
         while tag_category.startswith("_"):
             tag_category = tag_category[1:]
@@ -1624,7 +1624,7 @@ def get_entry_id_tag(tag_or_category, database="macromolecules"):
         try:
             return id_tag[tag_category.lower()]
         except KeyError:
-            raise ServerError("Unknown ID tag for tag: %s" % tag_or_category)
+            raise ServerException("Unknown ID tag for tag: %s" % tag_or_category)
 
     with PostgresConnection() as cur:
         cur.execute("""
@@ -1635,7 +1635,7 @@ SELECT tagfield
         try:
             return cur.fetchone()[0]
         except TypeError:
-            raise RequestError("Invalid tag queried, unable to determine entryidflag.")
+            raise RequestException("Invalid tag queried, unable to determine entryidflag.")
 
 
 def get_printable_tags(category, cur):
@@ -1729,7 +1729,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field, cur)
     # There is no matching saveframe found for their search term
     # and search field
     if cur.rowcount == 0:
-        raise RequestError("No matching saveframe found.")
+        raise RequestException("No matching saveframe found.")
     sf_id, sf_framecode = cur.fetchone()
 
     # Create the NMR-STAR saveframe
@@ -1896,7 +1896,7 @@ def get_db(default="macromolecules", valid_list=None):
     database = request.args.get('database', default)
 
     if database not in valid_list:
-        raise RequestError("Invalid database: %s." % database)
+        raise RequestException("Invalid database: %s." % database)
 
     return database
 

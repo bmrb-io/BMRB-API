@@ -11,7 +11,7 @@ from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema
 from bmrbapi.utils.querymod import SUBMODULE_DIR, \
     get_extra_data_available, get_db, get_all_values_for_tag, get_entry_id_tag, select, get_pdb_ids_from_bmrb_id, \
     get_bmrb_ids_from_pdb_id, chemical_shift_search_1d, configuration, PostgresConnection
-from bmrbapi.exceptions import RequestError, ServerError
+from bmrbapi.exceptions import RequestException, ServerException
 
 # Set up the blueprint
 user_endpoints = Blueprint('search', __name__)
@@ -38,7 +38,7 @@ def multiple_shift_search():
 
     errors = ChemicalShiftSearchSchema().validate(request.args)
     if errors:
-        raise RequestError(errors)
+        raise RequestException(errors)
 
     shift_strings: List[str] = request.args.getlist('shift')
     if not shift_strings:
@@ -51,11 +51,11 @@ def multiple_shift_search():
                       'C': float(request.args.get('cthresh', .2)),
                       'H': float(request.args.get('hthresh', .01))}
     except ValueError:
-        raise RequestError("Invalid threshold specified. Please specify the threshold as a float which will be"
+        raise RequestException("Invalid threshold specified. Please specify the threshold as a float which will be"
                            " interpreted as a PPM value.")
 
     if not shift_strings:
-        raise RequestError("You must specify at least one shift to search for.")
+        raise RequestException("You must specify at least one shift to search for.")
 
     sql = '''
 SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,
@@ -74,7 +74,7 @@ WHERE '''
             shift_floats.append(float(shift))
             shift_decimals.append(Decimal(shift))
     except ValueError:
-        raise RequestError("Invalid shift specified. All shifts must be numbers. Invalid shift: '%s'" % shift)
+        raise RequestException("Invalid shift specified. All shifts must be numbers. Invalid shift: '%s'" % shift)
 
     shift_floats = sorted(shift_floats)
     shift_decimals = sorted(shift_decimals)
@@ -187,15 +187,15 @@ def get_id_from_search(tag_name=None, tag_value=None):
     database = get_db('macromolecules', valid_list=['metabolomics', 'macromolecules', 'chemcomps'])
 
     if not tag_name:
-        raise RequestError("You must specify the tag name.")
+        raise RequestException("You must specify the tag name.")
     if not tag_value:
-        raise RequestError("You must specify the tag value.")
+        raise RequestException("You must specify the tag value.")
 
     sp = tag_name.split(".")
     if sp[0].startswith("_"):
         sp[0] = sp[0][1:]
     if len(sp) < 2:
-        raise RequestError("You must provide a full tag name with saveframe included. For example: "
+        raise RequestException("You must provide a full tag name with saveframe included. For example: "
                            "Entry.Experimental_method_subtype")
 
     id_field = get_entry_id_tag(tag_name, database)
@@ -227,12 +227,12 @@ def fasta_search(query):
 
     # Make sure the type is valid
     if a_type not in ["polymer", "rna", "dna"]:
-        raise RequestError("Invalid search type: %s" % a_type)
+        raise RequestException("Invalid search type: %s" % a_type)
     # Map the type to the exact name
     a_type = {'polymer': 'polypeptide(L)', 'rna': 'polyribonucleotide', 'dna': 'polydeoxyribonucleotide'}[a_type]
 
     if not os.path.isfile(fasta_binary):
-        raise ServerError("Unable to perform FASTA search. Server improperly installed.")
+        raise ServerException("Unable to perform FASTA search. Server improperly installed.")
 
     with PostgresConnection(schema="macromolecules") as cur:
         cur.execute('''

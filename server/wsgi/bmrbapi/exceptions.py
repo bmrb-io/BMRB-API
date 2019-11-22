@@ -25,11 +25,11 @@ class APIException(Exception):
         return response
 
 
-class RequestError(APIException):
+class RequestException(APIException):
     """ Something is wrong with the request. """
     status_code = 400
 
 
-class ServerError(APIException):
+class ServerException(APIException):
     """ Something is wrong with the server. """
     status_code = 500

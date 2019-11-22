@@ -17,7 +17,7 @@ from flask_mail import Mail
 from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 
-from bmrbapi.exceptions import RequestError, ServerError
+from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.db_links import db_endpoints
 from bmrbapi.molprobity_routes import molprobity_endpoints
 from bmrbapi.search_routes import user_endpoints
@@ -109,13 +109,13 @@ else:
 
 
 # Set up error handling
-@application.errorhandler(ServerError)
-@application.errorhandler(RequestError)
+@application.errorhandler(ServerException)
+@application.errorhandler(RequestException)
 def handle_our_errors(exception):
     """ Handles exceptions we raised ourselves. """
 
     application.logger.info("Handled error raised in %s: %s", request.url, exception.message)
-    return exception.as_response()
+    return exception.to_response()
 
 
 @application.errorhandler(Exception)
@@ -134,7 +134,7 @@ def handle_other_errors(error):
         raise error
     else:
         # Note! Returning the result of to_response() rather than raising the exception
-        return ServerError("Server error. Contact bmrbhelp@bmrb.wisc.edu.").to_response()
+        return ServerException("Server error. Contact bmrbhelp@bmrb.wisc.edu.").to_response()
 
 
 # Set up logging
@@ -221,15 +221,15 @@ def get_entry(entry_id=None):
         if entry_id is None:
             # They are trying to send an entry using GET
             if request.args.get('data', None):
-                raise RequestError("Cannot access this page through GET.")
+                raise RequestException("Cannot access this page through GET.")
             # They didn't specify an entry ID
             else:
-                raise RequestError("You must specify the entry ID.")
+                raise RequestException("You must specify the entry ID.")
 
         # Make sure it is a valid entry
         if not querymod.check_valid(entry_id):
-            raise RequestError("Entry '%s' does not exist in the public database." % entry_id,
-                               status_code=404)
+            raise RequestException("Entry '%s' does not exist in the public database." % entry_id,
+                                   status_code=404)
 
         # See if they specified more than one of [saveframe, loop, tag]
         args = sum([1 if request.args.get('saveframe_category', None) else 0,
@@ -237,7 +237,7 @@ def get_entry(entry_id=None):
                     1 if request.args.get('loop', None) else 0,
                     1 if request.args.get('tag', None) else 0])
         if args > 1:
-            raise RequestError("Request either loop(s), saveframe(s) by category, saveframe(s) by name, "
+            raise RequestException("Request either loop(s), saveframe(s) by category, saveframe(s) by name, "
                                "or tag(s) but not more than one simultaneously.")
 
         # See if they are requesting one or more saveframe
@@ -295,7 +295,7 @@ def get_enumerations(tag_name=None):
     """ Returns all enumerations for a given tag."""
 
     if not tag_name:
-        raise RequestError("You must specify the tag name.")
+        raise RequestException("You must specify the tag name.")
 
     return jsonify(querymod.get_enumerations(tag=tag_name,
                                              term=request.args.get('term')))
@@ -322,7 +322,7 @@ def get_software_by_entry(entry_id=None):
     """ Returns the software used on a per-entry basis. """
 
     if not entry_id:
-        raise RequestError("You must specify the entry ID.")
+        raise RequestException("You must specify the entry ID.")
 
     return jsonify(querymod.get_entry_software(entry_id))
 
@@ -335,7 +335,7 @@ def get_software_by_package(package_name=None):
     search. """
 
     if not package_name:
-        raise RequestError("You must specify the software package name.")
+        raise RequestException("You must specify the software package name.")
 
     return jsonify(querymod.get_software_entries(package_name,
                                                  database=querymod.get_db('macromolecules')))
@@ -387,7 +387,7 @@ def get_instant():
     """ Do the instant search. """
 
     if not request.args.get('term', None):
-        raise RequestError("You must specify the search term using ?term=search_term")
+        raise RequestException("You must specify the search term using ?term=search_term")
 
     return jsonify(querymod.get_instant_search(term=request.args.get('term'),
                                                database=querymod.get_db('combined')))
@@ -418,6 +418,6 @@ def validate_entry(entry_id=None):
     """ Returns the validation report for the given entry. """
 
     if not entry_id:
-        raise RequestError("You must specify the entry ID.")
+        raise RequestException("You must specify the entry ID.")
 
     return jsonify(querymod.get_chemical_shift_validation(ids=entry_id))

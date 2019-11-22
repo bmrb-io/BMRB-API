@@ -2,7 +2,7 @@ from flask import Blueprint, Response, request, jsonify
 
 # Local modules
 from bmrbapi.utils.querymod import PostgresConnection
-from bmrbapi.exceptions import RequestError
+from bmrbapi.exceptions import RequestException
 
 # Set up the blueprint
 db_endpoints = Blueprint('db_links', __name__)
@@ -90,7 +90,7 @@ def uniprot(accession_id=None):
         # Note on hupo-psi-id: https://github.com/normandavey/HUPO-PSI-ID/tree/master/ELIXIR_biohackathon
         response_format = request.args.get('format', 'json')
         if response_format not in ['json', 'hupo-psi-id']:
-            raise RequestError("Invalid format type. Allowed options: 'json', 'hupo-psi-id'.")
+            raise RequestException("Invalid format type. Allowed options: 'json', 'hupo-psi-id'.")
 
         # Deal with the optional condition
         where, sql, terms = '', '', []
