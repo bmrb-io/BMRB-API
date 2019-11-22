@@ -15,27 +15,9 @@ from bmrbapi.utils.querymod import RequestError, ServerError, SUBMODULE_DIR, \
 user_endpoints = Blueprint('search', __name__)
 
 
-@user_endpoints.route('/search')
-@user_endpoints.route('/search/')
-def print_search_options():
-    """ Returns a list of the search methods."""
-
-    result = ""
-    for method in ["chemical_shifts", "fasta", "get_all_values_for_tag", "get_bmrb_data_from_pdb_id",
-                   "get_id_by_tag_value", "get_bmrb_ids_from_pdb_id",
-                   "get_pdb_ids_from_bmrb_id", "multiple_shift_search"]:
-        result += '<a href="%s">%s</a><br>' % (method, method)
-
-    return result
-
-
-@user_endpoints.route('/search/get_bmrb_data_from_pdb_id/')
 @user_endpoints.route('/search/get_bmrb_data_from_pdb_id/<pdb_id>')
-def get_bmrb_data_from_pdb_id(pdb_id=None):
+def get_bmrb_data_from_pdb_id(pdb_id):
     """ Returns the associated BMRB data for a PDB ID. """
-
-    if not pdb_id:
-        raise RequestError("You must specify a PDB ID.")
 
     result = []
     for item in get_bmrb_ids_from_pdb_id(pdb_id):
@@ -183,7 +165,6 @@ def get_chemical_shifts():
                         database=get_db("macromolecules")))
 
 
-@user_endpoints.route('/search/get_all_values_for_tag/')
 @user_endpoints.route('/search/get_all_values_for_tag/<tag_name>')
 def get_all_values_for_tag(tag_name=None):
     """ Returns all entry numbers and corresponding tag values."""
@@ -192,8 +173,6 @@ def get_all_values_for_tag(tag_name=None):
     return jsonify(result)
 
 
-@user_endpoints.route('/search/get_id_by_tag_value/')
-@user_endpoints.route('/search/get_id_by_tag_value/<tag_name>/')
 @user_endpoints.route('/search/get_id_by_tag_value/<tag_name>/<path:tag_value>')
 def get_id_from_search(tag_name=None, tag_value=None):
     """ Returns all BMRB IDs that were found when querying for entries
@@ -218,37 +197,23 @@ def get_id_from_search(tag_name=None, tag_value=None):
     return jsonify(result[list(result.keys())[0]])
 
 
-@user_endpoints.route('/search/get_bmrb_ids_from_pdb_id/')
 @user_endpoints.route('/search/get_bmrb_ids_from_pdb_id/<pdb_id>')
-def get_bmrb_ids_from_pdb_id(pdb_id=None):
+def get_bmrb_ids_from_pdb_id(pdb_id):
     """ Returns the associated BMRB IDs for a PDB ID. """
 
-    if not pdb_id:
-        raise RequestError("You must specify a PDB ID.")
-
-    result = get_bmrb_ids_from_pdb_id(pdb_id)
-    return jsonify(result)
+    return jsonify(get_bmrb_ids_from_pdb_id(pdb_id))
 
 
-@user_endpoints.route('/search/get_pdb_ids_from_bmrb_id/')
 @user_endpoints.route('/search/get_pdb_ids_from_bmrb_id/<pdb_id>')
 def get_pdb_ids_from_bmrb_id(pdb_id=None):
     """ Returns the associated BMRB IDs for a PDB ID. """
 
-    if not pdb_id:
-        raise RequestError("You must specify a BMRB ID.")
-
-    result = get_pdb_ids_from_bmrb_id(pdb_id)
-    return jsonify(result)
+    return jsonify(get_pdb_ids_from_bmrb_id(pdb_id))
 
 
-@user_endpoints.route('/search/fasta/')
 @user_endpoints.route('/search/fasta/<query>')
-def fasta_search(query=None):
+def fasta_search(query):
     """Performs a FASTA search on the specified query in the BMRB database."""
-
-    if not query:
-        raise RequestError("You must specify a sequence.")
 
     fasta_binary = os.path.join(SUBMODULE_DIR, "fasta36", "bin", "fasta36")
     a_type = request.args.get('type', 'polymer')
