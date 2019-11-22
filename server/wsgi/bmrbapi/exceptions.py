@@ -1,5 +1,7 @@
+from flask import jsonify
+
+
 class APIException(Exception):
-    pass
 
     def __init__(self, message, status_code=None, payload=None):
         Exception.__init__(self)
@@ -14,12 +16,20 @@ class APIException(Exception):
         rv['error'] = self.message
         return rv
 
+    def to_response(self):
+        """ Returns a Flask Response object that can be
+        returned in a view. """
+
+        response = jsonify(self.to_dict())
+        response.status_code = self.status_code
+        return response
+
 
 class RequestError(APIException):
     """ Something is wrong with the request. """
     status_code = 400
 
 
-class ServerError(Exception):
+class ServerError(APIException):
     """ Something is wrong with the server. """
     status_code = 500

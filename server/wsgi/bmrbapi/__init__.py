@@ -111,17 +111,14 @@ else:
 # Set up error handling
 @application.errorhandler(ServerError)
 @application.errorhandler(RequestError)
-def handle_our_errors(error):
+def handle_our_errors(exception):
     """ Handles exceptions we raised ourselves. """
 
-    application.logger.info("Handled error raised in %s: %s", request.url, error.message)
-
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    return response
+    application.logger.info("Handled error raised in %s: %s", request.url, exception.message)
+    return exception.as_response()
 
 
-# @application.errorhandler(Exception)
+@application.errorhandler(Exception)
 def handle_other_errors(error):
     """ Catches any other exceptions and formats them. Only
     displays the actual error to local clients (to prevent disclosing
@@ -133,14 +130,11 @@ def handle_other_errors(error):
                                 request.values,
                                 traceback.format_exc())
 
-    if querymod.check_local_ip():
-        return Response("NOTE: You are seeing this error because your IP was "
-                        "recognized as a local IP:\n%s" %
-                        traceback.format_exc(), mimetype="text/plain")
+    if application.debug:
+        raise error
     else:
-        response = jsonify({"error": "Server error. Contact webmaster@bmrb.wisc.edu."})
-        response.status_code = 500
-        return response
+        # Note! Returning the result of to_response() rather than raising the exception
+        return ServerError("Server error. Contact bmrbhelp@bmrb.wisc.edu.").to_response()
 
 
 # Set up logging
