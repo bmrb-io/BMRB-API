@@ -26,7 +26,7 @@ from bmrbapi.utils import querymod
 
 # Set up the flask application
 application = Flask(__name__)
-application.url_map.strict_slashes = False
+# application.url_map.strict_slashes = False
 application.register_blueprint(user_endpoints)
 application.register_blueprint(molprobity_endpoints)
 application.register_blueprint(db_endpoints)
@@ -153,9 +153,8 @@ def log_request():
                   "local": querymod.check_local_ip(), "time": time.time()})
 
     # Don't pretty-print JSON unless local user and in debug mode
-    application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (querymod.check_local_ip() and
-                                                         querymod.configuration['debug']) or request.args.get(
-        "prettyprint") == "true"
+    if request.args.get("prettyprint") == "true":
+        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
 
 @application.route('/favicon.ico')
@@ -204,8 +203,8 @@ def list_entries():
     return jsonify(entries)
 
 
-@application.route('/entry/', methods=('POST', 'GET'))
-@application.route('/entry/<entry_id>')
+@application.route('/entry/', methods=['POST'])
+@application.route('/entry/<entry_id>', methods=['GET'])
 def get_entry(entry_id=None):
     """ Returns an entry in the specified format."""
 
@@ -238,7 +237,7 @@ def get_entry(entry_id=None):
                     1 if request.args.get('tag', None) else 0])
         if args > 1:
             raise RequestException("Request either loop(s), saveframe(s) by category, saveframe(s) by name, "
-                               "or tag(s) but not more than one simultaneously.")
+                                   "or tag(s) but not more than one simultaneously.")
 
         # See if they are requesting one or more saveframe
         elif request.args.get('saveframe_category', None):
@@ -282,20 +281,15 @@ def get_entry(entry_id=None):
             return jsonify(entry)
 
 
-@application.route('/schema')
 @application.route('/schema/<schema_version>')
 def return_schema(schema_version=None):
     """ Returns the BMRB schema as JSON. """
     return jsonify(querymod.get_schema(schema_version))
 
 
-@application.route('/enumerations/')
 @application.route('/enumerations/<tag_name>')
 def get_enumerations(tag_name=None):
     """ Returns all enumerations for a given tag."""
-
-    if not tag_name:
-        raise RequestException("You must specify the tag name.")
 
     return jsonify(querymod.get_enumerations(tag=tag_name,
                                              term=request.args.get('term')))
@@ -309,7 +303,7 @@ def select():
     return jsonify(querymod.process_select(**data))
 
 
-@application.route('/software/')
+@application.route('/software')
 def get_software_summary():
     """ Returns a summary of all software used in all entries. """
 
@@ -327,7 +321,6 @@ def get_software_by_entry(entry_id=None):
     return jsonify(querymod.get_entry_software(entry_id))
 
 
-@application.route('/software/package/')
 @application.route('/software/package/<package_name>')
 def get_software_by_package(package_name=None):
     """ Returns the entries that used a particular software package. Search
@@ -397,27 +390,12 @@ def get_instant():
 def get_status():
     """ Returns the server status."""
 
-    status = querymod.get_status()
-
-    if querymod.check_local_ip():
-        # Raise an exception to test SMTP error notifications working
-        if request.args.get("exception"):
-            raise Exception("Unhandled exception test.")
-
-        status['URL'] = request.url
-        status['secure'] = request.is_secure
-        status['remote_address'] = request.remote_addr
-        status['debug'] = querymod.configuration.get('debug')
-
-    return jsonify(status)
+    return jsonify(querymod.get_status())
 
 
 # Queries that run commands
 @application.route('/entry/<entry_id>/validate')
-def validate_entry(entry_id=None):
+def validate_entry(entry_id):
     """ Returns the validation report for the given entry. """
-
-    if not entry_id:
-        raise RequestException("You must specify the entry ID.")
 
     return jsonify(querymod.get_chemical_shift_validation(ids=entry_id))
