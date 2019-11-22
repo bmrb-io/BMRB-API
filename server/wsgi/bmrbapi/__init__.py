@@ -175,7 +175,7 @@ def favicon():
 def catch_all():
 
     links = []
-    for rule in application.url_map.iter_rules():
+    for rule in sorted(application.url_map.iter_rules(), key=lambda x: str(x)):
         # Don't show the static endpoint
         if rule.endpoint in ['static', 'favicon']:
             continue
