@@ -201,8 +201,8 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
     # Make sure there are not too many entries
     if len(search_ids) > max_results:
         raise RequestException('Too many IDs queried. Please query %s '
-                           'or fewer entries at a time. You attempted to '
-                           'query %d IDs.' % (max_results, len(search_ids)))
+                               'or fewer entries at a time. You attempted to '
+                               'query %d IDs.' % (max_results, len(search_ids)))
 
     # Get the connection to redis if needed
     if r_conn is None:
@@ -251,20 +251,20 @@ def store_uploaded_entry():
 
     if not uploaded_data:
         raise RequestException("No data uploaded. Please post the "
-                           "NMR-STAR file as the request body.")
+                               "NMR-STAR file as the request body.")
 
     if request.content_type == "application/json":
         try:
             parsed_star = pynmrstar.Entry.from_json(uploaded_data)
         except (ValueError, TypeError) as e:
             raise RequestException("Invalid uploaded JSON NMR-STAR data."
-                               " Exception: %s" % str(e))
+                                   " Exception: %s" % str(e))
     else:
         try:
             parsed_star = pynmrstar.Entry.from_string(uploaded_data)
         except ValueError as e:
             raise RequestException("Invalid uploaded NMR-STAR file."
-                               " Exception: %s" % str(e))
+                                   " Exception: %s" % str(e))
 
     key = md5(uploaded_data).digest().encode("hex")
 
@@ -297,7 +297,7 @@ def panav_parser(panav_text):
     # There is an error
     if len(lines) < 3:
         raise ServerException("PANAV failed to produce expected output."
-                          " Output: %s" % panav_text)
+                              " Output: %s" % panav_text)
 
     # Check for unusual output
     if "No reference" in lines[0]:
@@ -340,7 +340,7 @@ def get_citation(entry_id, format_="python"):
     # Error if invalid
     if format_ not in ["python", "json-ld", "text", "bibtex"]:
         raise RequestException("Invalid format specified. Please choose from the "
-                           "following formats: %s" % str(["json-ld", "text", "bibtex"]))
+                               "following formats: %s" % str(["json-ld", "text", "bibtex"]))
 
     ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
 
@@ -569,8 +569,9 @@ def get_tags(**kwargs):
     # Check the validity of the tags
     for tag in search_tags:
         if "." not in tag:
-            raise RequestException("You must provide the tag category to call this method at the entry level. For example, "
-                               "use 'Entry.Title' rather than 'Title'.")
+            raise RequestException(
+                "You must provide the tag category to call this method at the entry level. For example, "
+                "use 'Entry.Title' rather than 'Title'.")
 
     # Go through the IDs
     for entry in get_valid_entries_from_redis(kwargs['ids']):
@@ -1248,12 +1249,12 @@ def get_category_and_tag(tag_name):
         sp[0] = sp[0][1:]
     if len(sp) < 2:
         raise RequestException("You must provide a full tag name with "
-                           "category included. For example: "
-                           "Entry.Experimental_method_subtype")
+                               "category included. For example: "
+                               "Entry.Experimental_method_subtype")
 
     if len(sp) > 2:
         raise RequestException("You provided an invalid tag. NMR-STAR tags only "
-                           "contain one period.")
+                               "contain one period.")
 
     return sp
 
@@ -1394,7 +1395,7 @@ def process_nmrstar_query(params):
     # Make sure they have IDS
     if "ids" not in params:
         raise RequestException('You must specify one or more entry IDs '
-                           'with the "ids" parameter.')
+                               'with the "ids" parameter.')
 
     # Set the keys to the empty list if not specified
     if 'keys' not in params:
@@ -1437,7 +1438,7 @@ def process_select(**params):
             each_query['select'].append("Entry_ID")
         if "from" not in each_query:
             raise RequestException('You must specify which table to '
-                               'query with the "from" parameter.')
+                                   'query with the "from" parameter.')
         if "hash" not in each_query:
             each_query['hash'] = True
 
