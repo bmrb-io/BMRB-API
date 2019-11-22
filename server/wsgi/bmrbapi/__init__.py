@@ -18,9 +18,9 @@ from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 
 from bmrbapi.exceptions import RequestException, ServerException
-from bmrbapi.db_links import db_endpoints
-from bmrbapi.molprobity_routes import molprobity_endpoints
-from bmrbapi.search_routes import user_endpoints
+from bmrbapi.views.db_links import db_endpoints
+from bmrbapi.views.molprobity import molprobity_endpoints
+from bmrbapi.views.search import user_endpoints
 from bmrbapi.uniprot_mapper import map_uniprot, UniProtValidator
 from bmrbapi.utils import querymod
 
