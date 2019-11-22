@@ -18,11 +18,12 @@ from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 
 from bmrbapi.exceptions import RequestException, ServerException
+from bmrbapi.uniprot_mapper import map_uniprot, UniProtValidator
+from bmrbapi.utils import querymod
+from bmrbapi.utils.configuration import configuration
 from bmrbapi.views.db_links import db_endpoints
 from bmrbapi.views.molprobity import molprobity_endpoints
 from bmrbapi.views.search import user_endpoints
-from bmrbapi.uniprot_mapper import map_uniprot, UniProtValidator
-from bmrbapi.utils import querymod
 
 # Set up the flask application
 application = Flask(__name__)
@@ -35,7 +36,7 @@ application.register_blueprint(db_endpoints)
 if application.debug:
     from flask_cors import CORS
 
-    querymod.configuration['debug'] = True
+    configuration['debug'] = True
     CORS(application)
 
 # Set up paths for imports and such
@@ -48,12 +49,12 @@ request_log_file = os.path.join(local_dir, "logs", "requests.log")
 application_log_file = os.path.join(local_dir, "logs", "application.log")
 request_json_file = os.path.join(local_dir, "logs", "json_requests.log")
 if querymod.configuration.get('log'):
-    if querymod.configuration['log'].get('json'):
-        request_json_file = querymod.configuration['log']['json']
-    if querymod.configuration['log'].get('request'):
-        request_log_file = querymod.configuration['log']['request']
-    if querymod.configuration['log'].get('application'):
-        application_log_file = querymod.configuration['log']['application']
+    if configuration['log'].get('json'):
+        request_json_file = configuration['log']['json']
+    if configuration['log'].get('request'):
+        request_log_file = configuration['log']['request']
+    if configuration['log'].get('application'):
+        application_log_file = configuration['log']['application']
 
 # Set up the standard logger
 app_formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
@@ -84,21 +85,21 @@ jlogger.propagate = False
 
 # Set up the SMTP handler
 if (querymod.configuration.get('smtp')
-        and querymod.configuration['smtp'].get('server')
-        and querymod.configuration['smtp'].get('admins')):
+        and configuration['smtp'].get('server')
+        and configuration['smtp'].get('admins')):
 
     # Don't send error e-mails in debugging mode
-    if not querymod.configuration['debug']:
-        mail_handler = SMTPHandler(mailhost=querymod.configuration['smtp']['server'],
+    if not configuration['debug']:
+        mail_handler = SMTPHandler(mailhost=configuration['smtp']['server'],
                                    fromaddr='apierror@webapi.bmrb.wisc.edu',
-                                   toaddrs=querymod.configuration['smtp']['admins'],
+                                   toaddrs=configuration['smtp']['admins'],
                                    subject='BMRB API Error occurred')
         mail_handler.setLevel(logging.WARNING)
         application.logger.addHandler(mail_handler)
 
     # Set up the mail interface
     application.config.update(
-        MAIL_SERVER=querymod.configuration['smtp']['server'],
+        MAIL_SERVER=configuration['smtp']['server'],
         # TODO: Make this configurable
         MAIL_DEFAULT_SENDER='noreply@bmrb.wisc.edu'
     )

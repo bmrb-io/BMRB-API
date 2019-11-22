@@ -12,12 +12,11 @@ import zlib
 from multiprocessing import Pipe, cpu_count
 
 from bmrbapi.utils import querymod
+from bmrbapi.utils.connections import PostgresConnection
+from bmrbapi.utils.configuration import configuration
 
 loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 to_process = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
-
-# Load the configuration file
-configuration = querymod.configuration
 
 # Specify some basic information about our command
 opt = optparse.OptionParser(usage="usage: %prog", version="1.0",
@@ -70,10 +69,10 @@ if options.metabolomics:
 
 # Get the released entries from ETS
 if options.macromolecules:
-    with querymod.PostgresConnection(user=configuration['ets']['user'],
-                                     host=configuration['ets']['host'],
-                                     database=configuration['ets']['database'],
-                                     port=configuration['ets']['port']) as cur:
+    with PostgresConnection(user=configuration['ets']['user'],
+                            host=configuration['ets']['host'],
+                            database=configuration['ets']['database'],
+                            port=configuration['ets']['port']) as cur:
 
         cur.execute("SELECT bmrbnum FROM entrylog;")
         all_ids = [x[0] for x in cur.fetchall()]

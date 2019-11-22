@@ -1,7 +1,7 @@
 from flask import Blueprint, Response, request, jsonify
 
 # Local modules
-from bmrbapi.utils.querymod import PostgresConnection
+from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.exceptions import RequestException
 
 # Set up the blueprint

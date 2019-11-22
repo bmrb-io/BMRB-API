@@ -7,11 +7,13 @@ from typing import List
 
 from flask import jsonify, request, Blueprint
 
+from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema
+from bmrbapi.utils.configuration import configuration
+from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.querymod import SUBMODULE_DIR, \
     get_extra_data_available, get_db, get_all_values_for_tag, get_entry_id_tag, select, get_pdb_ids_from_bmrb_id, \
-    get_bmrb_ids_from_pdb_id, chemical_shift_search_1d, configuration, PostgresConnection
-from bmrbapi.exceptions import RequestException, ServerException
+    get_bmrb_ids_from_pdb_id, chemical_shift_search_1d
 
 # Set up the blueprint
 user_endpoints = Blueprint('search', __name__)

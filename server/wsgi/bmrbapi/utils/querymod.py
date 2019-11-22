@@ -29,6 +29,8 @@ from redis.sentinel import Sentinel
 
 # Module level defines
 from bmrbapi.exceptions import RequestException, ServerException
+from bmrbapi.utils.connections import PostgresConnection
+from bmrbapi.utils.configuration import configuration
 
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/simulate_hsqc',
@@ -40,15 +42,9 @@ _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'search/get_pdb_ids_from_bmrb_id/', 'search/get_bmrb_data_from_pdb_id/',
             'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
-_QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
-
-# Load the configuration file
-config_loc = os.path.join(_QUERYMOD_DIR, "..", "..", "..", "..", "api_config.json")
-if not os.path.isfile(config_loc):
-    config_loc = os.path.join(_QUERYMOD_DIR, "..", "configuration.json")
-configuration = json.loads(open(config_loc, "r").read())
 
 # Determine submodules folder
+_QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
 SUBMODULE_DIR = os.path.join(os.path.dirname(_QUERYMOD_DIR), "submodules")
 
 # Set up logging
@@ -94,46 +90,6 @@ def get_database_from_entry_id(entry_id):
         return "metabolomics"
     else:
         return "macromolecules"
-
-
-class PostgresConnection:
-    """ Makes it more convenient to query postgres. It implements a context manager to ensure that the connection
-    is closed."""
-
-    def __init__(self,
-                 host=configuration['postgres']['host'],
-                 user=configuration['postgres']['user'],
-                 database=configuration['postgres']['database'],
-                 port=configuration['postgres']['port'],
-                 cursor_factory=psycopg2.extras.DictCursor,
-                 schema=None):
-        self._host = host
-        self._user = user
-        self._database = database
-        self._port = port
-        self._cursor_factory = cursor_factory
-
-        # Check the schema
-        if schema:
-            if schema == "combined":
-                raise RequestException("Combined database not implemented yet.")
-            if schema not in ["metabolomics", "macromolecules", "chemcomps"]:
-                raise RequestException("Invalid database: %s." % schema)
-        self._schema = schema
-
-    def __enter__(self):
-        self._conn = psycopg2.connect(host=self._host, user=self._user, database=self._database,
-                                      port=self._port, cursor_factory=self._cursor_factory)
-        cursor = self._conn.cursor()
-        if self._schema:
-            cursor.execute('SET search_path=public,%s;', [self._schema])
-        return cursor
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._conn.close()
-
-    def commit(self):
-        self._conn.commit()
 
 
 def get_redis_connection(db=None):

@@ -9,7 +9,8 @@ from psycopg2.extras import execute_values
 from bmrbapi.uniprot_mapper.file_mappers import MappingFile, UniProtMapper, PDBMapper, UniProtValidator
 from bmrbapi.uniprot_mapper.sql_statements import author_and_pdb_links, create_mappings_table, bulk_insert, \
     insert_clean_ready
-from bmrbapi.utils.querymod import PostgresConnection, configuration
+from bmrbapi.utils.configuration import configuration
+from bmrbapi.utils.connections import PostgresConnection
 
 
 # Todo: Check that UniProt is valid and not expired
