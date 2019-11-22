@@ -6,7 +6,7 @@ import os
 
 from psycopg2.extras import execute_values
 
-from bmrbapi.uniprot_mapper.file_mappers import MappingFile, UniProtMapper, PDBMapper
+from bmrbapi.uniprot_mapper.file_mappers import MappingFile, UniProtMapper, PDBMapper, UniProtValidator
 from bmrbapi.uniprot_mapper.sql_statements import author_and_pdb_links, create_mappings_table, bulk_insert, \
     insert_clean_ready
 from bmrbapi.utils.querymod import PostgresConnection
@@ -17,13 +17,12 @@ from bmrbapi.utils.querymod import PostgresConnection
 # Todo: Dealing with when there are chains that aren't perfectly mapped
 
 
-this_dir = os.path.dirname(os.path.abspath(__file__))
-
-
 def map_uniprot():
     psql_conn = PostgresConnection(user='bmrb')
-    with UniProtMapper(os.path.join(this_dir, 'uniname.csv')) as uni_name, \
-            PDBMapper(os.path.join(this_dir, 'pdb_uniprot.csv')) as pdb_map, \
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    with UniProtMapper('uniname.csv') as uni_name, \
+            PDBMapper('pdb_uniprot.csv') as pdb_map, \
+            UniProtValidator('uniprot_validate.csv') as uniprot_validator, \
             open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'w') as uniprot_seq_file, \
             psql_conn as cur:
 
@@ -61,6 +60,9 @@ def map_uniprot():
                 line[5] = line[5].replace('.', '-')
             if "_" in line[5]:
                 line[5] = uni_name.get_uniprot(line[5])
+
+            # Validate the uniprot
+            line[5] = uniprot_validator.validate_uniprot(line[5])
 
             sequences_out.writerow(line)
         uniprot_seq_file.close()

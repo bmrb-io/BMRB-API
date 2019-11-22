@@ -1,14 +1,19 @@
 import csv
 import logging
+import os
+import xml
 from xml.etree import ElementTree as ET
 
 import requests
 
 
+this_dir = os.path.dirname(os.path.abspath(__file__))
+
+
 class MappingFile:
 
     def __init__(self, file_name):
-        self._file_name = file_name
+        self._file_name = os.path.join(this_dir, file_name)
         self.mapping = {}
 
     def __enter__(self):
@@ -110,3 +115,39 @@ class PDBMapper(MappingFile):
             self.mapping[key] = None
 
         return self.mapping.get(key, None)
+
+
+class UniProtValidator(MappingFile):
+
+    def validate_uniprot(self, uniprot_id: str):
+        """ Returns the official UniProt ID from a UniProt ID. """
+
+        if uniprot_id:
+            logging.info(f'Validating UniProt {uniprot_id}.')
+        else:
+            return None
+        if uniprot_id in self.mapping:
+            return self.mapping[uniprot_id]
+
+        # Get the UniProt XML
+        mapping_url = f'http://www.uniprot.org/uniprot/{uniprot_id}.xml'
+
+        try:
+            root = ET.fromstring(requests.get(mapping_url).text)
+            # Add all the mappings found
+            for entry in root.iter('{http://uniprot.org/uniprot}entry'):
+                for accession in entry.iter('{http://uniprot.org/uniprot}accession'):
+                    self.mapping[uniprot_id] = accession.text
+        except xml.etree.ElementTree.ParseError:
+            pass
+            # Use https://www.uniprot.org/uniparc/?query=Q7U294&format=tab&limit=10&columns=id,kb&sort=score
+            #  with taxonomy ID to map these
+
+        # If the UniProt ID wasn't found
+        if uniprot_id not in self.mapping:
+            logging.warning('Invalid UniProt ID found: %s', uniprot_id)
+            self.mapping[uniprot_id] = None
+
+        return self.mapping[uniprot_id]
+
+
