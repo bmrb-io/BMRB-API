@@ -2,7 +2,8 @@
 from flask import jsonify, request, Blueprint
 
 # Local modules
-from bmrbapi.utils.querymod import PostgresConnection, configuration, RequestError
+from bmrbapi.utils.querymod import PostgresConnection, configuration
+from bmrbapi.exceptions import RequestError
 
 # Set up the blueprint
 molprobity_endpoints = Blueprint('molprobity', __name__)

@@ -28,6 +28,8 @@ from psycopg2.extras import execute_values
 from redis.sentinel import Sentinel
 
 # Module level defines
+from bmrbapi.exceptions import RequestError, ServerError
+
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/simulate_hsqc',
             'entry/ENTRY_ID/software', 'status', 'software/',
@@ -37,43 +39,6 @@ _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id/',
             'search/get_pdb_ids_from_bmrb_id/', 'search/get_bmrb_data_from_pdb_id/',
             'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
-
-
-class ServerError(Exception):
-    """ Something is wrong with the server. """
-    status_code = 500
-
-    def __init__(self, message, status_code=None, payload=None):
-        Exception.__init__(self)
-        self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-        self.payload = payload
-
-    def to_dict(self):
-        """ Converts the payload to a dictionary."""
-        rv = dict(self.payload or ())
-        rv['error'] = self.message
-        return rv
-
-
-class RequestError(Exception):
-    """ Something is wrong with the request. """
-    status_code = 400
-
-    def __init__(self, message, status_code=None, payload=None):
-        Exception.__init__(self)
-        self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-        self.payload = payload
-
-    def to_dict(self):
-        """ Converts the payload to a dictionary."""
-        rv = dict(self.payload or ())
-        rv['error'] = self.message
-        return rv
-
 
 _QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
 
