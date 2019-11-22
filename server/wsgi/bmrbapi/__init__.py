@@ -23,7 +23,6 @@ from bmrbapi.molprobity_routes import molprobity_endpoints
 from bmrbapi.search_routes import user_endpoints
 from bmrbapi.uniprot_mapper import map_uniprot, UniProtValidator
 from bmrbapi.utils import querymod
-from bmrbapi.utils.querymod import get_db, check_local_ip
 
 # Set up the flask application
 application = Flask(__name__)
@@ -134,7 +133,7 @@ def handle_other_errors(error):
                                 request.values,
                                 traceback.format_exc())
 
-    if check_local_ip():
+    if querymod.check_local_ip():
         return Response("NOTE: You are seeing this error because your IP was "
                         "recognized as a local IP:\n%s" %
                         traceback.format_exc(), mimetype="text/plain")
@@ -157,10 +156,10 @@ def log_request():
                   "method": request.method, "endpoint": request.endpoint,
                   "application": request.headers.get('Application'),
                   "path": request.full_path, "ip": request.remote_addr,
-                  "local": check_local_ip(), "time": time.time()})
+                  "local": querymod.check_local_ip(), "time": time.time()})
 
     # Don't pretty-print JSON unless local user and in debug mode
-    application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (check_local_ip() and
+    application.config['JSONIFY_PRETTYPRINT_REGULAR'] = (querymod.check_local_ip() and
                                                          querymod.configuration['debug']) or request.args.get(
         "prettyprint") == "true"
 
@@ -205,9 +204,9 @@ def refresh_uniprot_internal():
 def list_entries():
     """ Return a list of all valid BMRB entries."""
 
-    entries = querymod.list_entries(database=get_db("combined",
-                                                    valid_list=['metabolomics', 'macromolecules', 'chemcomps',
-                                                                'combined']))
+    valid_list = ['metabolomics', 'macromolecules', 'chemcomps', 'combined']
+    entries = querymod.list_entries(database=querymod.get_db("combined",
+                                                             valid_list=valid_list))
     return jsonify(entries)
 
 
@@ -345,7 +344,7 @@ def get_software_by_package(package_name=None):
         raise RequestError("You must specify the software package name.")
 
     return jsonify(querymod.get_software_entries(package_name,
-                                                 database=get_db('macromolecules')))
+                                                 database=querymod.get_db('macromolecules')))
 
 
 @application.route('/entry/<entry_id>/experiments')
@@ -397,7 +396,7 @@ def get_instant():
         raise RequestError("You must specify the search term using ?term=search_term")
 
     return jsonify(querymod.get_instant_search(term=request.args.get('term'),
-                                               database=get_db('combined')))
+                                               database=querymod.get_db('combined')))
 
 
 @application.route('/status')
@@ -406,7 +405,7 @@ def get_status():
 
     status = querymod.get_status()
 
-    if check_local_ip():
+    if querymod.check_local_ip():
         # Raise an exception to test SMTP error notifications working
         if request.args.get("exception"):
             raise Exception("Unhandled exception test.")
