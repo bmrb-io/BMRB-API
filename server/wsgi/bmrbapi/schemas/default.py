@@ -1,5 +1,7 @@
 from marshmallow import Schema, fields
 
+__all__ = ['JSONResponseSchema', 'DatabaseSchema']
+
 
 class JSONResponseSchema(Schema):
     """ A schema for routes that return JSON """

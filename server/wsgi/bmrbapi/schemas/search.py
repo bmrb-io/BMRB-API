@@ -2,8 +2,8 @@ from marshmallow import fields
 
 from bmrbapi.schemas.default import JSONResponseSchema, DatabaseSchema
 
-
-# TODO: Figure out how to do enumerations on the database fields
+__all__ = ['GetBmrbDataFromPdbId', 'MultipleShiftSearch', 'GetChemicalShifts', 'GetAllValuesForTag', 'GetIdFromSearch',
+           'GetBmrbIdsFromPdbId', 'GetPdbIdsFromBmrbId', 'FastaSearch', 'Instant', 'Select']
 
 
 class GetBmrbDataFromPdbId(JSONResponseSchema):

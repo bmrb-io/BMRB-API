@@ -2,12 +2,11 @@ from flask import request
 from marshmallow import Schema
 
 from bmrbapi.exceptions import ServerException, RequestException
-from bmrbapi.utils.configuration import configuration
-
 # Keep the schema imports separate
-from bmrbapi.schemas.default import JSONResponseSchema
+from bmrbapi.schemas.default import *
 from bmrbapi.schemas.molprobity import *
 from bmrbapi.schemas.search import *
+from bmrbapi.utils.configuration import configuration
 
 
 def validate_parameters():
