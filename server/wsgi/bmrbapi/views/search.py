@@ -4,19 +4,60 @@ import textwrap
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
 from typing import List
+from urllib.parse import quote
 
-from flask import jsonify, request, Blueprint
+from flask import jsonify, request, Blueprint, url_for
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema, ChemicalShiftList
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
-from bmrbapi.utils.querymod import SUBMODULE_DIR, \
-    get_extra_data_available, get_db, get_all_values_for_tag, get_entry_id_tag, select, get_pdb_ids_from_bmrb_id, \
-    get_bmrb_ids_from_pdb_id
+from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_all_values_for_tag, get_entry_id_tag, select, \
+    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis
 
 # Set up the blueprint
 user_endpoints = Blueprint('search', __name__)
+
+
+def get_extra_data_available(bmrb_id):
+    """ Returns any additional data associated with the entry. For example:
+
+    Time domain, residual dipolar couplings, pKa values, etc."""
+
+    # Set up the DB cursor
+    with PostgresConnection(schema=get_database_from_entry_id(bmrb_id)) as cur:
+
+        query = '''
+SELECT "Entry_ID" as entry_id, ed."Type" as type, dic.catgrpviewname as description, "Count"::integer as sets,
+       0 as size from "Data_set" as ed
+  LEFT JOIN dict.aditcatgrp as dic ON ed."Type" = dic.sfcategory
+ WHERE ed."Entry_ID" like %s
+UNION
+SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timedomain_data where bmrbid like %s;'''
+        cur.execute(query, [bmrb_id, bmrb_id])
+
+        try:
+            entry = next(get_valid_entries_from_redis(bmrb_id))[1]
+        # This happens when an entry is valid but isn't available in Redis - for example, when we only have
+        #  2.0 records for an entry.
+        except StopIteration:
+            return []
+
+        extra_data = []
+        for row in cur.fetchall():
+            if row['type'] == 'time_domain_data':
+                extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
+                                   'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
+                                   'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
+            elif row['type'] != "assigned_chemical_shifts":
+                saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
+                url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
+
+                extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],
+                                   'data_sfcategory': row['type'],
+                                   'urls': [url % (bmrb_id, quote(x)) for x in saveframe_names]})
+
+    return extra_data
 
 
 @user_endpoints.route('/search/get_bmrb_data_from_pdb_id/<pdb_id>')
@@ -294,11 +335,31 @@ def get_bmrb_ids_from_pdb_id(pdb_id):
     return jsonify(get_bmrb_ids_from_pdb_id(pdb_id))
 
 
-@user_endpoints.route('/search/get_pdb_ids_from_bmrb_id/<pdb_id>')
-def get_pdb_ids_from_bmrb_id(pdb_id=None):
-    """ Returns the associated BMRB IDs for a PDB ID. """
+@user_endpoints.route('/search/get_pdb_ids_from_bmrb_id/<bmrb_id>')
+def get_pdb_ids_from_bmrb_id(bmrb_id=None):
+    """ Returns the associated PDB IDs for a BMRB ID. """
 
-    return jsonify(get_pdb_ids_from_bmrb_id(pdb_id))
+    with PostgresConnection() as cur:
+        query = '''
+    SELECT pdb_id, 'Exact' AS link_type, null AS comment
+      FROM web.pdb_link
+      WHERE bmrb_id LIKE %s
+    UNION
+    SELECT "Database_accession_code", 'Author Provided', "Relationship"
+      FROM macromolecules."Related_entries"
+      WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
+        AND "Relationship" != 'Exact'
+    UNION
+    SELECT "Accession_code", 'BLAST Match', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB'
+    UNION
+    SELECT "Accession_code", 'Assembly DB Link', "Entry_details"
+      FROM macromolecules."Assembly_db_link"
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB';'''
+
+        cur.execute(query, [bmrb_id, bmrb_id, bmrb_id, bmrb_id])
+        return jsonify([{"pdb_id": x[0], "match_type": x[1], "comment": x[2]} for x in cur.fetchall()])
 
 
 @user_endpoints.route('/search/fasta/<query>')

@@ -14,13 +14,12 @@ from hashlib import md5
 from sys import maxsize as max_integer
 from tempfile import NamedTemporaryFile
 from time import time as unix_time
-from urllib.parse import quote as urlquote
 
 # From requirements.txt
 import psycopg2
 import pynmrstar
 import simplejson as json
-from flask import url_for, request
+from flask import request
 from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values
@@ -1319,34 +1318,6 @@ def create_chemcomp_from_db(chemcomp):
     return ent
 
 
-def get_pdb_ids_from_bmrb_id(bmrb_id):
-    """ Returns the associated PDB IDs for a BMRB ID. """
-
-    with PostgresConnection() as cur:
-        query = '''
-SELECT pdb_id, 'Exact' AS link_type, null AS comment
-  FROM web.pdb_link
-  WHERE bmrb_id LIKE %s
-UNION
-SELECT "Database_accession_code", 'Author Provided', "Relationship"
-  FROM macromolecules."Related_entries"
-  WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
-    AND "Relationship" != 'Exact'
-UNION
-SELECT "Accession_code", 'BLAST Match', "Entry_details"
-  FROM macromolecules."Entity_db_link"
-  WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB'
-UNION
-SELECT "Accession_code", 'Assembly DB Link', "Entry_details"
-  FROM macromolecules."Assembly_db_link"
-  WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB';'''
-
-        terms = [bmrb_id, bmrb_id, bmrb_id, bmrb_id]
-        cur.execute(query, terms)
-
-        return [{"pdb_id": x[0], "match_type": x[1], "comment": x[2]} for x in cur.fetchall()]
-
-
 def get_bmrb_ids_from_pdb_id(pdb_id):
     """ Returns the associated BMRB IDs for a PDB ID. """
 
@@ -1380,47 +1351,6 @@ GROUP BY bmrb_id;'''
             result.append({"bmrb_id": x[0], "match_types": x[1]})
 
         return result
-
-
-def get_extra_data_available(bmrb_id):
-    """ Returns any additional data associated with the entry. For example:
-
-    Time domain, residual dipolar couplings, pKa values, etc."""
-
-    # Set up the DB cursor
-    with PostgresConnection(schema=get_database_from_entry_id(bmrb_id)) as cur:
-
-        query = '''
-SELECT "Entry_ID" as entry_id, ed."Type" as type, dic.catgrpviewname as description, "Count"::integer as sets,
-       0 as size from "Data_set" as ed
-  LEFT JOIN dict.aditcatgrp as dic ON ed."Type" = dic.sfcategory
- WHERE ed."Entry_ID" like %s
-UNION
-SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timedomain_data where bmrbid like %s;'''
-        cur.execute(query, [bmrb_id, bmrb_id])
-
-        try:
-            entry = next(get_valid_entries_from_redis(bmrb_id))[1]
-        # This happens when an entry is valid but isn't available in Redis - for example, when we only have
-        #  2.0 records for an entry.
-        except StopIteration:
-            return []
-
-        extra_data = []
-        for row in cur.fetchall():
-            if row['type'] == 'time_domain_data':
-                extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
-                                   'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
-                                   'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
-            elif row['type'] != "assigned_chemical_shifts":
-                saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
-                url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
-
-                extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],
-                                   'data_sfcategory': row['type'],
-                                   'urls': [url % (bmrb_id, urlquote(x)) for x in saveframe_names]})
-
-    return extra_data
 
 
 def get_entry_id_tag(tag_or_category, database="macromolecules"):
