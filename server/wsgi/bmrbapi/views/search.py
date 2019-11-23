@@ -11,11 +11,10 @@ from flask import jsonify, request, Blueprint, url_for
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema, ChemicalShiftList
-from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_all_values_for_tag, get_entry_id_tag, select, \
-    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis
+    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, process_select
 
 # Set up the blueprint
 search_endpoints = Blueprint('search', __name__)
@@ -440,7 +439,7 @@ def get_instant():
         raise RequestException("You must specify the search term using ?term=search_term")
 
     term = request.args.get('term')
-    database = querymod.get_db('combined')
+    database = get_db('combined')
 
     if database == "metabolomics":
         instant_query_one = '''
@@ -591,3 +590,10 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
             result.append({"debug": debug})
 
     return jsonify(result)
+
+
+@search_endpoints.route('/select', methods=['POST'])
+def select():
+    """ Performs an advanced select query. """
+
+    return jsonify(process_select(**request.json))

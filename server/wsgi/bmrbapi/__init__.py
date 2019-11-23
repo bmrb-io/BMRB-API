@@ -10,7 +10,6 @@ import time
 import traceback
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
-import simplejson as json
 from flask import Flask, request, jsonify, url_for
 from flask_mail import Mail
 from pythonjsonlogger import jsonlogger
@@ -19,15 +18,14 @@ from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.views.db_links import db_endpoints
+from bmrbapi.views.dictionary import dictionary_endpoints
 from bmrbapi.views.entry import entry_endpoints
 from bmrbapi.views.internal import internal_endpoints
 from bmrbapi.views.molprobity import molprobity_endpoints
 from bmrbapi.views.search import search_endpoints
-from bmrbapi.views.dictionary import dictionary_endpoints
 
 # Set up the flask application
 application = Flask(__name__)
-# application.url_map.strict_slashes = False
 application.register_blueprint(search_endpoints)
 application.register_blueprint(molprobity_endpoints)
 application.register_blueprint(db_endpoints)
@@ -103,7 +101,6 @@ if (querymod.configuration.get('smtp')
     # Set up the mail interface
     application.config.update(
         MAIL_SERVER=configuration['smtp']['server'],
-        # TODO: Make this configurable
         MAIL_DEFAULT_SENDER='noreply@bmrb.wisc.edu'
     )
     mail = Mail(application)
@@ -167,7 +164,7 @@ def catch_all():
     links = []
     for rule in sorted(application.url_map.iter_rules(), key=lambda x: str(x)):
         # Don't show the static endpoint
-        if rule.endpoint in ['static', 'favicon'] or 'internal' in rule.endpoint:
+        if 'internal' in rule.endpoint:
             continue
 
         url = url_for(rule.endpoint, **{argument: argument.upper() for argument in rule.arguments})
@@ -180,14 +177,6 @@ def catch_all():
         elif "PUT" in rule.methods:
             links.append("POST: %s" % url)
     return "<pre>" + "\n".join(links) + "</pre>"
-
-
-@application.route('/select', methods=['POST'])
-def select():
-    """ Performs an advanced select query. """
-
-    data = json.loads(request.get_data(cache=False, as_text=True))
-    return jsonify(querymod.process_select(**data))
 
 
 @application.route('/status')
