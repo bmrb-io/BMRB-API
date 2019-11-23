@@ -204,7 +204,7 @@ def list_entries():
     return jsonify(entries)
 
 
-@application.route('/entry/', methods=['POST'])
+@application.route('/entry', methods=['POST'])
 @application.route('/entry/<entry_id>', methods=['GET'])
 def get_entry(entry_id=None):
     """ Returns an entry in the specified format."""
