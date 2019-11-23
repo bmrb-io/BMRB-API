@@ -1,8 +1,8 @@
 from flask import Blueprint, jsonify, redirect, url_for
 
 from bmrbapi.uniprot_mapper import map_uniprot
+from bmrbapi.utils.decorators import require_local
 
-# Set up the blueprint
 internal_endpoints = Blueprint('internal', __name__)
 
 
@@ -14,6 +14,7 @@ def favicon_internal():
 
 
 @internal_endpoints.route('/refresh/uniprot')
+@require_local
 def refresh_uniprot_internal():
     """ Refresh the UniProt links. """
 

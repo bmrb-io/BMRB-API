@@ -13,6 +13,7 @@ from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema, ChemicalShiftList
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
+from bmrbapi.utils.decorators import require_content_type_json
 from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_all_values_for_tag, get_entry_id_tag, select, \
     get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, process_select
 
@@ -593,6 +594,7 @@ SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title
 
 
 @search_endpoints.route('/select', methods=['POST'])
+@require_content_type_json
 def select():
     """ Performs an advanced select query. """
 
