@@ -10,7 +10,6 @@ import psycopg2
 from flask import jsonify, request, Blueprint, url_for
 
 from bmrbapi.exceptions import RequestException, ServerException
-from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema, ChemicalShiftList
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.decorators import require_content_type_json
@@ -81,23 +80,15 @@ def get_bmrb_data_from_pdb_id(pdb_id):
 def multiple_shift_search():
     """ Finds entries that match at least some of the chemical shifts. """
 
-    errors = ChemicalShiftSearchSchema().validate(request.args)
-    if errors:
-        raise RequestException(errors)
-
     shift_strings: List[str] = request.args.getlist('shift')
     if not shift_strings:
         shift_strings = request.args.getlist('s')
     else:
         shift_strings.extend(list(request.args.getlist('s')))
 
-    try:
-        thresholds = {'N': float(request.args.get('nthresh', .2)),
-                      'C': float(request.args.get('cthresh', .2)),
-                      'H': float(request.args.get('hthresh', .01))}
-    except ValueError:
-        raise RequestException("Invalid threshold specified. Please specify the threshold as a float which will be"
-                               " interpreted as a PPM value.")
+    thresholds = {'N': float(request.args.get('nthresh', .2)),
+                  'C': float(request.args.get('cthresh', .2)),
+                  'H': float(request.args.get('hthresh', .01))}
 
     if not shift_strings:
         raise RequestException("You must specify at least one shift to search for.")
@@ -205,10 +196,6 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 @search_endpoints.route('/search/chemical_shifts')
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
-
-    errors = ChemicalShiftList().validate(request.args)
-    if errors:
-        raise RequestException(errors)
 
     shift_val = request.args.getlist('shift')
     threshold = request.args.get('threshold', .03)
@@ -364,8 +351,8 @@ def get_pdb_ids_from_bmrb_id(bmrb_id=None):
         return jsonify([{"pdb_id": x[0], "match_type": x[1], "comment": x[2]} for x in cur.fetchall()])
 
 
-@search_endpoints.route('/search/fasta/<query>')
-def fasta_search(query):
+@search_endpoints.route('/search/fasta/<sequence>')
+def fasta_search(sequence):
     """Performs a FASTA search on the specified query in the BMRB database."""
 
     fasta_binary = os.path.join(SUBMODULE_DIR, "fasta36", "bin", "fasta36")
@@ -401,7 +388,7 @@ FROM "Entity" as entity
     # Use temporary files to store the FASTA search string and FASTA DB
     with NamedTemporaryFile(dir="/dev/shm") as fasta_file, \
             NamedTemporaryFile(dir="/dev/shm") as sequence_file:
-        fasta_file.file.write((">query\n%s" % query.upper()).encode())
+        fasta_file.file.write((">query\n%s" % sequence.upper()).encode())
         fasta_file.flush()
 
         sequence_file.file.write(("".join(seq_strings)).encode())

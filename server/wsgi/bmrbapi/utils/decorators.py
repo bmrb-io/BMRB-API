@@ -24,14 +24,3 @@ def require_local(function):
         return function(*args, **kwargs)
 
     return wrapper
-
-
-def validate_schema(function, schema):
-    @wraps(function)
-    def wrapper(*args, **kwargs):
-        errors = schema().validate(request.args)
-        if errors:
-            raise RequestException(errors)
-        return function(*args, **kwargs)
-
-    return wrapper

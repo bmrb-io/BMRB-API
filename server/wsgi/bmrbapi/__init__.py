@@ -15,6 +15,7 @@ from flask_mail import Mail
 from pythonjsonlogger import jsonlogger
 
 from bmrbapi.exceptions import RequestException, ServerException
+from bmrbapi.schemas import validate_parameters
 from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.views.db_links import db_endpoints
@@ -142,6 +143,7 @@ def handle_other_errors(error):
 @application.before_request
 def log_request():
     """ Log all requests. """
+
     rlogger.info("%s %s %s %s %s", request.remote_addr, request.method,
                  request.full_path,
                  request.headers.get('User-Agent', '?').split()[0],
@@ -157,6 +159,9 @@ def log_request():
     if request.args.get("pretty_print") == "true":
         application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
+    # Run the custom validator on all requests
+    validate_parameters()
+
 
 # Show what routes are available, determined programmatically
 @application.route('/')
@@ -164,7 +169,7 @@ def catch_all():
     links = []
     for rule in sorted(application.url_map.iter_rules(), key=lambda x: str(x)):
         # Don't show the static endpoint
-        if 'internal' in rule.endpoint:
+        if 'internal' in rule.endpoint or rule.endpoint == 'static':
             continue
 
         url = url_for(rule.endpoint, **{argument: argument.upper() for argument in rule.arguments})
