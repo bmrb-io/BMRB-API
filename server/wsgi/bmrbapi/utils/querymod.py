@@ -19,17 +19,15 @@ from urllib.parse import quote as urlquote
 # From requirements.txt
 import psycopg2
 import pynmrstar
-import redis
 import simplejson as json
 from flask import url_for, request
 from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values
-from redis.sentinel import Sentinel
 
 # Module level defines
 from bmrbapi.exceptions import RequestException, ServerException
-from bmrbapi.utils.connections import PostgresConnection
+from bmrbapi.utils.connections import PostgresConnection, get_redis_connection, RedisConnection
 from bmrbapi.utils.configuration import configuration
 
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
@@ -41,7 +39,6 @@ _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id/',
             'search/get_pdb_ids_from_bmrb_id/', 'search/get_bmrb_data_from_pdb_id/',
             'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
-
 
 # Determine submodules folder
 _QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -73,14 +70,11 @@ def locate_entry(entry_id, r_conn=None):
         return "macromolecules:entry:%s" % entry_id
 
 
-def check_valid(entry_id, r_conn=None):
+def check_valid(entry_id):
     """ Returns whether an entry_is is valid. """
 
-    # Update the expiration time if the entry is used
-    if r_conn is None:
-        r_conn = get_redis_connection()
-
-    return r_conn.exists(locate_entry(entry_id, r_conn=r_conn))
+    with RedisConnection() as r:
+        return r.exists(locate_entry(entry_id, r_conn=r))
 
 
 def get_database_from_entry_id(entry_id):
@@ -92,50 +86,15 @@ def get_database_from_entry_id(entry_id):
         return "macromolecules"
 
 
-def get_redis_connection(db=None):
-    """ Figures out where the master redis instance is (and other parameters
-    needed to connect like which database to use), and opens a connection
-    to it. It passes back that connection object."""
-
-    # Connect to redis
-    try:
-        # Figure out where we should connect
-        sentinel = Sentinel(configuration['redis']['sentinels'],
-                            socket_timeout=0.5)
-        redis_host, redis_port = sentinel.discover_master(configuration['redis']['master_name'])
-
-        # If they didn't specify a DB then use the configuration default
-        if db is None:
-            # If in debug, use debug database
-            if configuration['debug']:
-                db = 1
-            else:
-                db = configuration['redis']['db']
-
-        # Get the redis instance
-        r = redis.StrictRedis(host=redis_host,
-                              port=redis_port,
-                              password=configuration['redis']['password'],
-                              db=db)
-
-    # Raise an exception if we cannot connect to the database server
-    except (redis.exceptions.ConnectionError,
-            redis.sentinel.MasterNotFoundError):
-        raise ServerException('Could not connect to database server.')
-
-    return r
-
-
 def get_all_entries_from_redis(format_="object", database="macromolecules"):
     """ Returns a generator that returns all the entries from a given
     database from Redis."""
 
     # Get the connection to redis
-    r = get_redis_connection()
-    all_ids = list(r.lrange("%s:entry_list" % database, 0, -1))
+    with RedisConnection() as r:
+        all_ids = list(r.lrange("%s:entry_list" % database, 0, -1))
 
-    return get_valid_entries_from_redis(all_ids, format_=format_,
-                                        max_results=max_integer)
+        return get_valid_entries_from_redis(all_ids, format_=format_, max_results=max_integer)
 
 
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, r_conn=None):
@@ -224,12 +183,11 @@ def store_uploaded_entry():
 
     key = md5(uploaded_data).digest().encode("hex")
 
-    r = get_redis_connection()
-    r.setex("uploaded:entry:%s" % key, configuration['redis']['upload_timeout'],
-            zlib.compress(parsed_star.get_json()))
+    with RedisConnection() as r:
+        r.setex("uploaded:entry:%s" % key, configuration['redis']['upload_timeout'],
+                zlib.compress(parsed_star.get_json()))
 
-    return {"entry_id": key,
-            "expiration": unix_time() + configuration['redis']['upload_timeout']}
+    return {"entry_id": key, "expiration": unix_time() + configuration['redis']['upload_timeout']}
 
 
 def panav_parser(panav_text):
@@ -510,9 +468,8 @@ def list_entries(**kwargs):
     only entries from that database are returned. """
 
     db = kwargs.get("database", "combined")
-    entry_list = get_redis_connection().lrange("%s:entry_list" % db, 0, -1)
-
-    return entry_list
+    with RedisConnection() as r:
+        return r.lrange("%s:entry_list" % db, 0, -1)
 
 
 def get_tags(**kwargs):
@@ -543,14 +500,14 @@ def get_tags(**kwargs):
 def get_status():
     """ Return some statistics about the server."""
 
-    r = get_redis_connection()
     stats = {}
     for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
         stats[key] = {}
-        for k, v in r.hgetall("%s:meta" % key).items():
-            k = k.decode()
-            v = v.decode()
-            stats[key][k] = v
+        with RedisConnection() as r:
+            for k, v in r.hgetall("%s:meta" % key).items():
+                k = k.decode()
+                v = v.decode()
+                stats[key][k] = v
         for skey in stats[key]:
             if skey == "update_time":
                 stats[key][skey] = float(stats[key][skey])
@@ -745,15 +702,15 @@ WHERE "Software"."Entry_ID"=%s;''', [entry_id])
 def get_schema(version=None):
     """ Return the schema from Redis. """
 
-    r = get_redis_connection()
-    if not version:
-        version = r.get('schema_version')
-    try:
-        schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
-    except TypeError:
-        raise RequestException("Invalid schema version.")
+    with RedisConnection() as r:
+        if not version:
+            version = r.get('schema_version')
+        try:
+            schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
+        except TypeError:
+            raise RequestException("Invalid schema version.")
 
-    return schema
+        return schema
 
 
 def get_software_entries(software_name, database="macromolecules"):

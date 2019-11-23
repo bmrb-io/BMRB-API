@@ -1,6 +1,8 @@
 import psycopg2
+import redis
+from redis.sentinel import Sentinel
 
-from bmrbapi import RequestException
+from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
 
 
@@ -42,3 +44,54 @@ class PostgresConnection:
 
     def commit(self):
         self._conn.commit()
+
+
+def get_redis_connection(db=None):
+    """ Figures out where the master redis instance is (and other parameters
+    needed to connect like which database to use), and opens a connection
+    to it. It passes back that connection object."""
+
+    with RedisConnection(db=db) as r:
+        return r
+
+
+class RedisConnection:
+    """ Figures out where the master redis instance is (and other parameters
+    needed to connect like which database to use), and opens a connection
+    to it. It passes back that connection object, using a context manager
+    to clean up after use."""
+
+    def __init__(self, db=None):
+        """ Creates a connection instance. Optionally specify a non-default db. """
+
+        # Connect to redis
+        try:
+            # Figure out where we should connect
+            sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
+            self._redis_host, self._redis_port = sentinel.discover_master(configuration['redis']['master_name'])
+
+            # If they didn't specify a DB then use the configuration default
+            if db is None:
+                # If in debug, use debug database
+                if configuration['debug']:
+                    db = 1
+                else:
+                    db = configuration['redis']['db']
+
+            self._db = db
+
+        # Raise an exception if we cannot connect to the database server
+        except redis.sentinel.MasterNotFoundError:
+            raise ServerException('Could not determine Redis host. Sentinels offline?')
+
+    def __enter__(self):
+        try:
+            self._redis_con = redis.StrictRedis(host=self._redis_host,
+                                                port=self._redis_port,
+                                                db=self._db,
+                                                password=configuration['redis']['password'])
+        except redis.exceptions.ConnectionError:
+            raise ServerException('Could not connect to Redis server.')
+
+    def __exit__(self):
+        self._redis_con.close()

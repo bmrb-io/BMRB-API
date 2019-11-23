@@ -8,6 +8,7 @@ from io import StringIO
 import pynmrstar
 import requests
 
+from bmrbapi.utils.connections import RedisConnection
 from bmrbapi.utils import querymod
 
 url = 'http://localhost'
@@ -87,7 +88,8 @@ class TestAPI(unittest.TestCase):
                           pynmrstar.Entry.from_string(star_test))
 
         # Delete the entry we uploaded
-        querymod.get_redis_connection().delete(querymod.locate_entry(response['entry_id']))
+        with RedisConnection() as redis_conn:
+            redis_conn.delete(querymod.locate_entry(response['entry_id']))
 
     def test_create_chemcomp_from_db(self):
         """ See if our code to generate a chemcomp from the DB is working."""

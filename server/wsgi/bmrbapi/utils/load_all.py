@@ -12,7 +12,7 @@ import zlib
 from multiprocessing import Pipe, cpu_count
 
 from bmrbapi.utils import querymod
-from bmrbapi.utils.connections import PostgresConnection
+from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 from bmrbapi.utils.configuration import configuration
 
 loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
@@ -142,13 +142,11 @@ def one_entry(entry_name, entry_location, r_conn):
             return entry_name
 
 
-# Since we are about to start, tell REDIS it is being updated
-r = querymod.get_redis_connection(db=options.db)
-
-# Flush the DB
+# If specified, flush the DB
 if options.flush:
     logging.info("Flushing the DB.")
-    r.flushdb()
+    with RedisConnection(db=options.db) as r:
+        r.flushdb()
 
 processes = []
 num_threads = cpu_count()
@@ -166,20 +164,21 @@ for thread in range(0, num_threads):
     if new_pid == 0:
 
         # Each child gets a Redis
-        red = querymod.get_redis_connection(db=options.db)
-        child_conn.send("ready")
-        while True:
-            parent_message = child_conn.recv()
-            if parent_message == "die":
-                child_conn.close()
-                parent_conn.close()
-                os._exit(0)
+        with RedisConnection(db=options.db) as red:
 
-            # Do work based on parent_message
-            result = one_entry(parent_message[0], parent_message[1], red)
+            child_conn.send("ready")
+            while True:
+                parent_message = child_conn.recv()
+                if parent_message == "die":
+                    child_conn.close()
+                    parent_conn.close()
+                    os._exit(0)
 
-            # Tell our parent we are ready for the next job
-            child_conn.send(result)
+                # Do work based on parent_message
+                result = one_entry(parent_message[0], parent_message[1], red)
+
+                # Tell our parent we are ready for the next job
+                child_conn.send(result)
 
     # We are the parent, don't need the child connection
     else:
