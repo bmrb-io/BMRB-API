@@ -6,31 +6,34 @@ to the correct location and passes the results back."""
 
 import logging
 import os
-import tempfile
 import time
 import traceback
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
 import simplejson as json
-from flask import Flask, request, Response, jsonify, url_for, redirect, send_file
+from flask import Flask, request, jsonify, url_for
 from flask_mail import Mail
-from pybmrb import csviz
 from pythonjsonlogger import jsonlogger
 
 from bmrbapi.exceptions import RequestException, ServerException
-from bmrbapi.uniprot_mapper import map_uniprot, UniProtValidator
 from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.views.db_links import db_endpoints
+from bmrbapi.views.entry import entry_endpoints
+from bmrbapi.views.internal import internal_endpoints
 from bmrbapi.views.molprobity import molprobity_endpoints
-from bmrbapi.views.search import user_endpoints
+from bmrbapi.views.search import search_endpoints
+from bmrbapi.views.dictionary import dictionary_endpoints
 
 # Set up the flask application
 application = Flask(__name__)
 # application.url_map.strict_slashes = False
-application.register_blueprint(user_endpoints)
+application.register_blueprint(search_endpoints)
 application.register_blueprint(molprobity_endpoints)
 application.register_blueprint(db_endpoints)
+application.register_blueprint(entry_endpoints)
+application.register_blueprint(internal_endpoints)
+application.register_blueprint(dictionary_endpoints)
 
 # Set debug if running from command line
 if application.debug:
@@ -158,13 +161,6 @@ def log_request():
         application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
 
-@application.route('/favicon.ico')
-def favicon():
-    """ Return the favicon. """
-
-    return redirect(url_for('static', filename='favicon.ico'))
-
-
 # Show what routes are available, determined programmatically
 @application.route('/')
 def catch_all():
@@ -186,116 +182,6 @@ def catch_all():
     return "<pre>" + "\n".join(links) + "</pre>"
 
 
-@application.route('/refresh/uniprot')
-def refresh_uniprot_internal():
-    """ Refresh the UniProt links. """
-
-    map_uniprot()
-    return jsonify(True)
-
-
-@application.route('/list_entries')
-def list_entries():
-    """ Return a list of all valid BMRB entries."""
-
-    valid_list = ['metabolomics', 'macromolecules', 'chemcomps', 'combined']
-    entries = querymod.list_entries(database=querymod.get_db("combined",
-                                                             valid_list=valid_list))
-    return jsonify(entries)
-
-
-@application.route('/entry', methods=['POST'])
-@application.route('/entry/<entry_id>', methods=['GET'])
-def get_entry(entry_id=None):
-    """ Returns an entry in the specified format."""
-
-    # Get the format they want the results in
-    format_ = request.args.get('format', "json")
-
-    # If they are storing
-    if request.method == "POST":
-        return jsonify(querymod.store_uploaded_entry())
-
-    # Loading
-    else:
-        if entry_id is None:
-            # They are trying to send an entry using GET
-            if request.args.get('data', None):
-                raise RequestException("Cannot access this page through GET.")
-            # They didn't specify an entry ID
-            else:
-                raise RequestException("You must specify the entry ID.")
-
-        # Make sure it is a valid entry
-        if not querymod.check_valid(entry_id):
-            raise RequestException("Entry '%s' does not exist in the public database." % entry_id,
-                                   status_code=404)
-
-        # See if they specified more than one of [saveframe, loop, tag]
-        args = sum([1 if request.args.get('saveframe_category', None) else 0,
-                    1 if request.args.get('saveframe_name', None) else 0,
-                    1 if request.args.get('loop', None) else 0,
-                    1 if request.args.get('tag', None) else 0])
-        if args > 1:
-            raise RequestException("Request either loop(s), saveframe(s) by category, saveframe(s) by name, "
-                                   "or tag(s) but not more than one simultaneously.")
-
-        # See if they are requesting one or more saveframe
-        elif request.args.get('saveframe_category', None):
-            result = querymod.get_saveframes_by_category(ids=entry_id, keys=request.args.getlist('saveframe_category'),
-                                                         format=format_)
-            return jsonify(result)
-
-        # See if they are requesting one or more saveframe
-        elif request.args.get('saveframe_name', None):
-            result = querymod.get_saveframes_by_name(ids=entry_id, keys=request.args.getlist('saveframe_name'),
-                                                     format=format_)
-            return jsonify(result)
-
-        # See if they are requesting one or more loop
-        elif request.args.get('loop', None):
-            return jsonify(querymod.get_loops(ids=entry_id, keys=request.args.getlist('loop'), format=format_))
-
-        # See if they want a tag
-        elif request.args.get('tag', None):
-            return jsonify(querymod.get_tags(ids=entry_id, keys=request.args.getlist('tag')))
-
-        # They want an entry
-        else:
-            # Get the entry
-            entry = querymod.get_entries(ids=entry_id, format=format_)
-
-            # Bypass JSON encode/decode cycle
-            if format_ == "json":
-                return Response("""{"%s": %s}""" % (entry_id, entry[entry_id].decode()),
-                                mimetype="application/json")
-
-            # Special case to return raw nmrstar
-            elif format_ == "rawnmrstar":
-                return Response(entry[entry_id], mimetype="text/nmrstar")
-
-            # Special case for raw zlib
-            elif format_ == "zlib":
-                return Response(entry[entry_id], mimetype="application/zlib")
-
-            # Return the entry in any other format
-            return jsonify(entry)
-
-
-@application.route('/schema/<schema_version>')
-def return_schema(schema_version=None):
-    """ Returns the BMRB schema as JSON. """
-    return jsonify(querymod.get_schema(schema_version))
-
-
-@application.route('/enumerations/<tag_name>')
-def get_enumerations(tag_name=None):
-    """ Returns all enumerations for a given tag."""
-
-    return jsonify(querymod.get_enumerations(tag=tag_name,
-                                             term=request.args.get('term')))
-
-
 @application.route('/select', methods=['POST'])
 def select():
     """ Performs an advanced select query. """
@@ -304,99 +190,8 @@ def select():
     return jsonify(querymod.process_select(**data))
 
 
-@application.route('/software')
-def get_software_summary():
-    """ Returns a summary of all software used in all entries. """
-
-    return jsonify(querymod.get_software_summary())
-
-
-# Software queries
-@application.route('/entry/<entry_id>/software')
-def get_software_by_entry(entry_id=None):
-    """ Returns the software used on a per-entry basis. """
-
-    if not entry_id:
-        raise RequestException("You must specify the entry ID.")
-
-    return jsonify(querymod.get_entry_software(entry_id))
-
-
-@application.route('/software/package/<package_name>')
-def get_software_by_package(package_name=None):
-    """ Returns the entries that used a particular software package. Search
-    is done case-insensitive and is an x in y search rather than x == y
-    search. """
-
-    if not package_name:
-        raise RequestException("You must specify the software package name.")
-
-    return jsonify(querymod.get_software_entries(package_name,
-                                                 database=querymod.get_db('macromolecules')))
-
-
-@application.route('/entry/<entry_id>/experiments')
-def get_metabolomics_data(entry_id):
-    """ Return the experiments available for an entry. """
-
-    return jsonify(querymod.get_experiments(entry=entry_id))
-
-
-@application.route('/entry/<entry_id>/citation')
-def get_citation(entry_id):
-    """ Return the citation information for an entry in the requested format. """
-
-    format_ = request.args.get('format', "python")
-    if format_ == "json-ld":
-        format_ = "python"
-
-    # Get the citation
-    citation = querymod.get_citation(entry_id, format_=format_)
-
-    # Bibtex
-    if format_ == "bibtex":
-        return Response(citation, mimetype="application/x-bibtex",
-                        headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
-    elif format_ == "text":
-        return Response(citation, mimetype="text/plain")
-    # JSON+LD
-    else:
-        return jsonify(citation)
-
-
-@application.route('/entry/<entry_id>/simulate_hsqc')
-def simulate_hsqc(entry_id):
-    """ Returns the html for a simulated HSQC spectrum. """
-
-    csviz._AUTOOPEN = False
-    csviz._OPACITY = 1
-    with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
-        csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
-
-        return send_file(output_file.name)
-
-
-@application.route('/instant')
-def get_instant():
-    """ Do the instant search. """
-
-    if not request.args.get('term', None):
-        raise RequestException("You must specify the search term using ?term=search_term")
-
-    return jsonify(querymod.get_instant_search(term=request.args.get('term'),
-                                               database=querymod.get_db('combined')))
-
-
 @application.route('/status')
 def get_status():
     """ Returns the server status."""
 
     return jsonify(querymod.get_status())
-
-
-# Queries that run commands
-@application.route('/entry/<entry_id>/validate')
-def validate_entry(entry_id):
-    """ Returns the validation report for the given entry. """
-
-    return jsonify(querymod.get_chemical_shift_validation(ids=entry_id))

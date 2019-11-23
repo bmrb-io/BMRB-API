@@ -33,14 +33,14 @@ def get_molprobity_data(pdb_id, residues=None):
     pdb_id = pdb_id.lower()
 
     if residues is None:
-        sql = '''SELECT * FROM molprobity.oneline where pdb = %s'''
+        sql = '''SELECT * FROM molprobity.oneline WHERE pdb = %s'''
         terms = [pdb_id]
     else:
         terms = [pdb_id]
         if not residues:
-            sql = '''SELECT * FROM molprobity.residue where pdb = %s;'''
+            sql = '''SELECT * FROM molprobity.residue WHERE pdb = %s;'''
         else:
-            sql = '''SELECT * FROM molprobity.residue where pdb = %s AND ('''
+            sql = '''SELECT * FROM molprobity.residue WHERE pdb = %s AND ('''
             for item in residues:
                 sql += " pdb_residue_no = %s OR "
                 terms.append(item)

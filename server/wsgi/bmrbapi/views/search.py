@@ -6,17 +6,19 @@ from tempfile import NamedTemporaryFile
 from typing import List
 from urllib.parse import quote
 
+import psycopg2
 from flask import jsonify, request, Blueprint, url_for
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema, ChemicalShiftList
+from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_all_values_for_tag, get_entry_id_tag, select, \
     get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis
 
 # Set up the blueprint
-user_endpoints = Blueprint('search', __name__)
+search_endpoints = Blueprint('search', __name__)
 
 
 def get_extra_data_available(bmrb_id):
@@ -60,7 +62,7 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
     return extra_data
 
 
-@user_endpoints.route('/search/get_bmrb_data_from_pdb_id/<pdb_id>')
+@search_endpoints.route('/search/get_bmrb_data_from_pdb_id/<pdb_id>')
 def get_bmrb_data_from_pdb_id(pdb_id):
     """ Returns the associated BMRB data for a PDB ID. """
 
@@ -75,7 +77,7 @@ def get_bmrb_data_from_pdb_id(pdb_id):
     return jsonify(result)
 
 
-@user_endpoints.route('/search/multiple_shift_search')
+@search_endpoints.route('/search/multiple_shift_search')
 def multiple_shift_search():
     """ Finds entries that match at least some of the chemical shifts. """
 
@@ -200,7 +202,7 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
     return jsonify(result)
 
 
-@user_endpoints.route('/search/chemical_shifts')
+@search_endpoints.route('/search/chemical_shifts')
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
@@ -296,7 +298,7 @@ WHERE
     return jsonify(result)
 
 
-@user_endpoints.route('/search/get_all_values_for_tag/<tag_name>')
+@search_endpoints.route('/search/get_all_values_for_tag/<tag_name>')
 def get_all_values_for_tag(tag_name=None):
     """ Returns all entry numbers and corresponding tag values."""
 
@@ -304,7 +306,7 @@ def get_all_values_for_tag(tag_name=None):
     return jsonify(result)
 
 
-@user_endpoints.route('/search/get_id_by_tag_value/<tag_name>/<path:tag_value>')
+@search_endpoints.route('/search/get_id_by_tag_value/<tag_name>/<path:tag_value>')
 def get_id_from_search(tag_name=None, tag_value=None):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
@@ -328,14 +330,14 @@ def get_id_from_search(tag_name=None, tag_value=None):
     return jsonify(result[list(result.keys())[0]])
 
 
-@user_endpoints.route('/search/get_bmrb_ids_from_pdb_id/<pdb_id>')
+@search_endpoints.route('/search/get_bmrb_ids_from_pdb_id/<pdb_id>')
 def get_bmrb_ids_from_pdb_id(pdb_id):
     """ Returns the associated BMRB IDs for a PDB ID. """
 
     return jsonify(get_bmrb_ids_from_pdb_id(pdb_id))
 
 
-@user_endpoints.route('/search/get_pdb_ids_from_bmrb_id/<bmrb_id>')
+@search_endpoints.route('/search/get_pdb_ids_from_bmrb_id/<bmrb_id>')
 def get_pdb_ids_from_bmrb_id(bmrb_id=None):
     """ Returns the associated PDB IDs for a BMRB ID. """
 
@@ -362,7 +364,7 @@ def get_pdb_ids_from_bmrb_id(bmrb_id=None):
         return jsonify([{"pdb_id": x[0], "match_type": x[1], "comment": x[2]} for x in cur.fetchall()])
 
 
-@user_endpoints.route('/search/fasta/<query>')
+@search_endpoints.route('/search/fasta/<query>')
 def fasta_search(query):
     """Performs a FASTA search on the specified query in the BMRB database."""
 
@@ -428,3 +430,164 @@ FROM "Entity" as entity
                             'e-value': Decimal(cols[10]), 'bit_score': Decimal(cols[11])})
 
     return jsonify(results)
+
+
+@search_endpoints.route('/instant')
+def get_instant():
+    """ Do the instant search. """
+
+    if not request.args.get('term', None):
+        raise RequestException("You must specify the search term using ?term=search_term")
+
+    term = request.args.get('term')
+    database = querymod.get_db('combined')
+
+    if database == "metabolomics":
+        instant_query_one = '''
+SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,
+  ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass
+FROM web.instant_cache
+LEFT JOIN web.metabolomics_summary as ms
+  ON instant_cache.id = ms.id
+WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
+ORDER BY instant_cache.id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+
+        instant_query_two = """
+SELECT set_limit(.5);
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,
+  NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight",
+  NULL as "monoisotopic_mass"
+FROM web.instant_cache
+  LEFT JOIN web.instant_extra_search_terms as tt
+  ON instant_cache.id=tt.id
+  WHERE tt.identical_term @@ plainto_tsquery(%s)
+UNION
+SELECT * from (
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,
+  is_metab,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
+  LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+  LEFT JOIN web.metabolomics_summary as ms
+    ON instant_cache.id = ms.id
+  WHERE tt.term %% %s AND tt.identical_term IS NULL and ms.id IS NOT NULL
+  ORDER BY id, similarity(tt.term, %s) DESC) as y
+WHERE is_metab = 'True'"""
+
+    elif database == "macromolecules":
+        instant_query_one = '''
+SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
+WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'False'
+ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+
+        instant_query_two = """
+SELECT set_limit(.5);
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+  FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.identical_term @@ plainto_tsquery(%s)
+UNION
+SELECT * from (
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
+  link,sub_date,is_metab
+  FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.term %% %s AND tt.identical_term IS NULL
+    ORDER BY id, similarity(tt.term, %s) DESC) as y
+    WHERE is_metab = 'False'
+    ORDER BY sml DESC LIMIT 75;"""
+
+    else:
+        instant_query_one = '''
+SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
+WHERE tsv @@ plainto_tsquery(%s)
+ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
+
+        instant_query_two = """
+SELECT set_limit(.5);
+SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
+  FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.identical_term @@ plainto_tsquery(%s)
+UNION
+SELECT * from (
+SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
+  link,sub_date,is_metab
+  FROM web.instant_cache
+    LEFT JOIN web.instant_extra_search_terms as tt
+    ON instant_cache.id=tt.id
+    WHERE tt.term %% %s AND tt.identical_term IS NULL
+    ORDER BY id, similarity(tt.term, %s) DESC) as y
+    ORDER BY sml DESC LIMIT 75;"""
+
+    with PostgresConnection() as cur:
+        try:
+            cur.execute(instant_query_one, [term, term, term])
+        except psycopg2.ProgrammingError:
+            if configuration['debug']:
+                raise
+            return [{"label": "Instant search temporarily offline.", "value": "error",
+                     "link": "/software/query/"}]
+
+        # First query
+        result = []
+        ids = {}
+        for item in cur.fetchall():
+            res = {"citations": item['citations'],
+                   "authors": item['authors'],
+                   "link": item['link'],
+                   "value": item['id'],
+                   "sub_date": str(item['sub_date']),
+                   "label": "%s" % (item['title'])}
+
+            if database == "metabolomics":
+                res['formula'] = item['formula']
+                res['smiles'] = item['smiles']
+                res['inchi'] = item['inchi']
+                res['monoisotopic_mass'] = item['monoisotopic_mass']
+                res['average_mass'] = item['average_mass']
+                res['molecular_weight'] = item['molecular_weight']
+
+            result.append(res)
+            ids[item['id']] = 1
+
+        debug = {}
+        if configuration['debug']:
+            debug['query1'] = cur.query
+
+        # Second query
+        try:
+            cur.execute(instant_query_two, [term, term, term, term])
+        except psycopg2.ProgrammingError:
+            if configuration['debug']:
+                raise
+            return [{"label": "Instant search temporarily offline.", "value": "error",
+                     "link": "/software/query/"}]
+
+        for item in cur.fetchall():
+            if item['id'] not in ids:
+                res = {"citations": item['citations'],
+                       "authors": item['authors'],
+                       "link": item['link'],
+                       "value": item['id'],
+                       "sub_date": str(item['sub_date']),
+                       "label": "%s" % (item['title']),
+                       "extra": {"term": item['term'],
+                                 "termname": item['termname']},
+                       "sml": "%s" % item['sml']}
+                if database == "metabolomics":
+                    res['formula'] = item['formula']
+                    res['smiles'] = item['smiles']
+                    res['inchi'] = item['inchi']
+                    res['monoisotopic_mass'] = item['monoisotopic_mass']
+                    res['average_mass'] = item['average_mass']
+                    res['molecular_weight'] = item['molecular_weight']
+
+                result.append(res)
+        if configuration['debug']:
+            debug['query2'] = cur.query
+            result.append({"debug": debug})
+
+    return jsonify(result)

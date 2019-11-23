@@ -16,13 +16,12 @@ from tempfile import NamedTemporaryFile
 from time import time as unix_time
 
 # From requirements.txt
-import psycopg2
 import pynmrstar
 import simplejson as json
 from flask import request
-from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values
+from psycopg2 import ProgrammingError
 
 # Module level defines
 from bmrbapi.exceptions import RequestException, ServerException
@@ -553,44 +552,6 @@ def get_loops(**kwargs):
     return result
 
 
-def get_enumerations(tag, term=None):
-    """ Returns a list of enumerations for a given tag from the DB. """
-
-    if not tag.startswith("_"):
-        tag = "_" + tag
-
-    with PostgresConnection() as cur:
-        # Get the list of which tags should be used to order data
-        cur.execute('''
-SELECT it.itemenumclosedflg,it.enumeratedflg,array_agg(enum.val) as values
- FROM dict.adit_item_tbl as it
- LEFT JOIN dict.enumerations as enum on enum.seq = it.dictionaryseq
-WHERE originaltag=%s
-GROUP BY it.itemenumclosedflg,it.enumeratedflg;''', [tag])
-        p_res = cur.fetchone()
-    if not p_res:
-        raise RequestException("Invalid tag specified.")
-
-    # Generate the result dictionary
-    result = {'values': p_res['values']}
-    if p_res['itemenumclosedflg'] == "Y":
-        result['type'] = "enumerations"
-    elif p_res['enumeratedflg'] == "Y":
-        result['type'] = "common"
-    else:
-        result['type'] = None
-
-    # Be able to search through enumerations based on the term argument
-    if term is not None:
-        new_result = []
-        for val in result['values']:
-            if val and val.startswith(term):
-                new_result.append({"value": val, "label": val})
-        return new_result
-
-    return result
-
-
 def get_entry_software(entry_id):
     """ Returns the software used for a given entry. """
 
@@ -598,28 +559,14 @@ def get_entry_software(entry_id):
 
     with PostgresConnection(schema=database) as cur:
         cur.execute('''
-SELECT "Software"."Name", "Software"."Version", task."Task" as "Task", vendor."Name" as "Vendor Name"
+SELECT "Software"."Name", "Software"."Version", task."Task" AS "Task", vendor."Name" AS "Vendor Name"
 FROM "Software"
-   LEFT JOIN "Vendor" as vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN "Task" as task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
+   LEFT JOIN "Vendor" AS vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
+   LEFT JOIN "Task" AS task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
 WHERE "Software"."Entry_ID"=%s;''', [entry_id])
 
         column_names = [desc[0] for desc in cur.description]
         return {"columns": column_names, "data": cur.fetchall()}
-
-
-def get_schema(version=None):
-    """ Return the schema from Redis. """
-
-    with RedisConnection() as r:
-        if not version:
-            version = r.get('schema_version')
-        try:
-            schema = json.loads(zlib.decompress(r.get("schema:%s" % version)))
-        except TypeError:
-            raise RequestException("Invalid schema version.")
-
-        return schema
 
 
 def get_software_entries(software_name, database="macromolecules"):
@@ -628,14 +575,14 @@ def get_software_entries(software_name, database="macromolecules"):
     with PostgresConnection(schema=database) as cur:
         # Get the list of which tags should be used to order data
         cur.execute('''
-SELECT "Software"."Entry_ID","Software"."Name","Software"."Version",vendor."Name" as "Vendor Name",
-  vendor."Electronic_address" as "e-mail",task."Task" as "Task"
+SELECT "Software"."Entry_ID","Software"."Name","Software"."Version",vendor."Name" AS "Vendor Name",
+  vendor."Electronic_address" AS "e-mail",task."Task" AS "Task"
 FROM "Software"
-  LEFT JOIN "Vendor" as vendor
+  LEFT JOIN "Vendor" AS vendor
     ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-  LEFT JOIN "Task" as task
+  LEFT JOIN "Task" AS task
     ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE lower("Software"."Name") like lower(%s);''', ["%" + software_name + "%"])
+WHERE lower("Software"."Name") LIKE lower(%s);''', ["%" + software_name + "%"])
 
         column_names = [desc[0] for desc in cur.description]
         return {"columns": column_names, "data": cur.fetchall()}
@@ -647,11 +594,11 @@ def get_software_summary(database="macromolecules"):
     with PostgresConnection(schema=database) as cur:
         # Get the list of which tags should be used to order data
         cur.execute('''
-SELECT "Software"."Name","Software"."Version",task."Task" as "Task",vendor."Name" as "Vendor Name"
+SELECT "Software"."Name","Software"."Version",task."Task" AS "Task",vendor."Name" AS "Vendor Name"
 FROM "Software"
-  LEFT JOIN "Vendor" as vendor
+  LEFT JOIN "Vendor" AS vendor
     ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-  LEFT JOIN "Task" as task
+  LEFT JOIN "Task" AS task
     ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
 
         column_names = [desc[0] for desc in cur.description]
@@ -776,15 +723,15 @@ FROM "Sample_component"
 
     # Then get all of the other information
     sql = '''
-SELECT me."Entry_ID", me."Sample_ID", me."ID", ns."Manufacturer",ns."Model",me."Name" as experiment_name,
-  ns."Field_strength", array_agg(ef."Name") as name, array_agg(ef."Type") as type,
-  array_agg(ef."Directory_path") as directory_path, array_agg(ef."Details") as details, ph."Val" as ph,
-  temp."Val" as temp
-FROM "Experiment" as me
-  LEFT JOIN "Experiment_file" as ef
+SELECT me."Entry_ID", me."Sample_ID", me."ID", ns."Manufacturer",ns."Model",me."Name" AS experiment_name,
+  ns."Field_strength", array_agg(ef."Name") AS name, array_agg(ef."Type") AS type,
+  array_agg(ef."Directory_path") AS directory_path, array_agg(ef."Details") AS details, ph."Val" AS ph,
+  temp."Val" AS temp
+FROM "Experiment" AS me
+  LEFT JOIN "Experiment_file" AS ef
     ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
-  LEFT JOIN "NMR_spectrometer" as ns
-    ON ns."Entry_ID" = me."Entry_ID" and ns."ID" = me."NMR_spectrometer_ID"
+  LEFT JOIN "NMR_spectrometer" AS ns
+    ON ns."Entry_ID" = me."Entry_ID" AND ns."ID" = me."NMR_spectrometer_ID"
 
   LEFT JOIN "Sample_condition_variable" AS ph
     ON me."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=me."Entry_ID" AND ph."Type"='pH'
@@ -833,160 +780,6 @@ ORDER BY me."Entry_ID", me."ID";'''
         results.append(cur.query)
 
     return results
-
-
-def get_instant_search(term, database):
-    """ Does an instant search and returns results. """
-
-    if database == "metabolomics":
-        instant_query_one = '''
-SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,
-  ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass
-FROM web.instant_cache
-LEFT JOIN web.metabolomics_summary as ms
-  ON instant_cache.id = ms.id
-WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
-ORDER BY instant_cache.id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-
-        instant_query_two = """
-SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,
-  NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight",
-  NULL as "monoisotopic_mass"
-FROM web.instant_cache
-  LEFT JOIN web.instant_extra_search_terms as tt
-  ON instant_cache.id=tt.id
-  WHERE tt.identical_term @@ plainto_tsquery(%s)
-UNION
-SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,
-  is_metab,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
-  LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-  LEFT JOIN web.metabolomics_summary as ms
-    ON instant_cache.id = ms.id
-  WHERE tt.term %% %s AND tt.identical_term IS NULL and ms.id IS NOT NULL
-  ORDER BY id, similarity(tt.term, %s) DESC) as y
-WHERE is_metab = 'True'"""
-
-    elif database == "macromolecules":
-        instant_query_one = '''
-SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
-WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'False'
-ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-
-        instant_query_two = """
-SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.identical_term @@ plainto_tsquery(%s)
-UNION
-SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
-  link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.term %% %s AND tt.identical_term IS NULL
-    ORDER BY id, similarity(tt.term, %s) DESC) as y
-    WHERE is_metab = 'False'
-    ORDER BY sml DESC LIMIT 75;"""
-
-    else:
-        instant_query_one = '''
-SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
-WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-
-        instant_query_two = """
-SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.identical_term @@ plainto_tsquery(%s)
-UNION
-SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
-  link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.term %% %s AND tt.identical_term IS NULL
-    ORDER BY id, similarity(tt.term, %s) DESC) as y
-    ORDER BY sml DESC LIMIT 75;"""
-
-    with PostgresConnection() as cur:
-        try:
-            cur.execute(instant_query_one, [term, term, term])
-        except ProgrammingError:
-            if configuration['debug']:
-                raise
-            return [{"label": "Instant search temporarily offline.", "value": "error",
-                     "link": "/software/query/"}]
-
-        # First query
-        result = []
-        ids = {}
-        for item in cur.fetchall():
-            res = {"citations": item['citations'],
-                   "authors": item['authors'],
-                   "link": item['link'],
-                   "value": item['id'],
-                   "sub_date": str(item['sub_date']),
-                   "label": "%s" % (item['title'])}
-
-            if database == "metabolomics":
-                res['formula'] = item['formula']
-                res['smiles'] = item['smiles']
-                res['inchi'] = item['inchi']
-                res['monoisotopic_mass'] = item['monoisotopic_mass']
-                res['average_mass'] = item['average_mass']
-                res['molecular_weight'] = item['molecular_weight']
-
-            result.append(res)
-            ids[item['id']] = 1
-
-        debug = {}
-        if configuration['debug']:
-            debug['query1'] = cur.query
-
-        # Second query
-        try:
-            cur.execute(instant_query_two, [term, term, term, term])
-        except ProgrammingError:
-            if configuration['debug']:
-                raise
-            return [{"label": "Instant search temporarily offline.", "value": "error",
-                     "link": "/software/query/"}]
-
-        for item in cur.fetchall():
-            if item['id'] not in ids:
-                res = {"citations": item['citations'],
-                       "authors": item['authors'],
-                       "link": item['link'],
-                       "value": item['id'],
-                       "sub_date": str(item['sub_date']),
-                       "label": "%s" % (item['title']),
-                       "extra": {"term": item['term'],
-                                 "termname": item['termname']},
-                       "sml": "%s" % item['sml']}
-                if database == "metabolomics":
-                    res['formula'] = item['formula']
-                    res['smiles'] = item['smiles']
-                    res['inchi'] = item['inchi']
-                    res['monoisotopic_mass'] = item['monoisotopic_mass']
-                    res['average_mass'] = item['average_mass']
-                    res['molecular_weight'] = item['molecular_weight']
-
-                result.append(res)
-        if configuration['debug']:
-            debug['query2'] = cur.query
-            result.append({"debug": debug})
-
-    return result
 
 
 def get_saveframes_by_category(**kwargs):
@@ -1094,7 +887,7 @@ def get_all_values_for_tag(tag_name, database):
         query = query % (id_field, params[0], id_field)
         try:
             cur.execute(query, [wrap_it_up(params[1])])
-        except psycopg2.ProgrammingError as e:
+        except ProgrammingError as e:
             sp = str(e).split('\n')
             if len(sp) > 3:
                 if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
@@ -1180,7 +973,7 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
         try:
             cur.execute(query, parameters)
             rows = cur.fetchall()
-        except psycopg2.ProgrammingError as error:
+        except ProgrammingError as error:
             if configuration['debug']:
                 raise error
             raise RequestException("Invalid 'from' parameter.")
@@ -1324,7 +1117,7 @@ def get_bmrb_ids_from_pdb_id(pdb_id):
     with PostgresConnection() as cur:
         query = '''
     SELECT bmrb_id, array_agg(link_type) from 
-(SELECT bmrb_id, 'Exact' AS link_type, null as comment
+(SELECT bmrb_id, 'Exact' AS link_type, null AS comment
   FROM web.pdb_link
   WHERE pdb_id LIKE %s
 UNION
@@ -1339,7 +1132,7 @@ SELECT "Entry_ID", 'BLAST Match', "Entry_details"
 UNION
 SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
   FROM macromolecules."Assembly_db_link"
-  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB') as sub
+  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB') AS sub
 GROUP BY bmrb_id;'''
 
         pdb_id = pdb_id.upper()
@@ -1494,7 +1287,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field, cur)
     tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
 
     # Get the tag values
-    cur.execute('''SELECT * FROM %(table_name)s where "Sf_ID"=%(sf_id)s''',
+    cur.execute('''SELECT * FROM %(table_name)s WHERE "Sf_ID"=%(sf_id)s''',
                 {'sf_id': sf_id, 'table_name': wrap_it_up(table_name)})
     tag_vals = cur.fetchone()
 
