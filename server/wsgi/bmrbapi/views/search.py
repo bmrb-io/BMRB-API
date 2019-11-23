@@ -8,12 +8,12 @@ from typing import List
 from flask import jsonify, request, Blueprint
 
 from bmrbapi.exceptions import RequestException, ServerException
-from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema
+from bmrbapi.schemas.parameters import ChemicalShiftSearchSchema, ChemicalShiftList
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.querymod import SUBMODULE_DIR, \
     get_extra_data_available, get_db, get_all_values_for_tag, get_entry_id_tag, select, get_pdb_ids_from_bmrb_id, \
-    get_bmrb_ids_from_pdb_id, chemical_shift_search_1d
+    get_bmrb_ids_from_pdb_id
 
 # Set up the blueprint
 user_endpoints = Blueprint('search', __name__)
@@ -54,7 +54,7 @@ def multiple_shift_search():
                       'H': float(request.args.get('hthresh', .01))}
     except ValueError:
         raise RequestException("Invalid threshold specified. Please specify the threshold as a float which will be"
-                           " interpreted as a PPM value.")
+                               " interpreted as a PPM value.")
 
     if not shift_strings:
         raise RequestException("You must specify at least one shift to search for.")
@@ -163,14 +163,96 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
-    cs1d = chemical_shift_search_1d
-    return jsonify(cs1d(shift_val=request.args.getlist('shift'),
-                        threshold=request.args.get('threshold', .03),
-                        atom_type=request.args.get('atom_type', None),
-                        atom_id=request.args.getlist('atom_id'),
-                        comp_id=request.args.getlist('comp_id'),
-                        conditions=request.args.get('conditions', False),
-                        database=get_db("macromolecules")))
+    errors = ChemicalShiftList().validate(request.args)
+    if errors:
+        raise RequestException(errors)
+
+    shift_val = request.args.getlist('shift')
+    threshold = request.args.get('threshold', .03)
+    atom_type = request.args.get('atom_type', None)
+    atom_id = request.args.getlist('atom_id')
+    comp_id = request.args.getlist('comp_id')
+    conditions = request.args.get('conditions', False)
+    database = get_db("macromolecules")
+
+    sql = '''
+SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
+  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer
+FROM "Atom_chem_shift" as cs
+WHERE
+'''
+
+    if conditions:
+        sql = '''
+SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
+  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer,
+  web.convert_to_numeric(ph."Val") as ph,web.convert_to_numeric(temp."Val") as temp
+FROM "Atom_chem_shift" as cs
+LEFT JOIN "Assigned_chem_shift_list" as csf
+  ON csf."ID"=cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID"=cs."Entry_ID"
+LEFT JOIN "Sample_condition_variable" AS ph
+  ON csf."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH'
+LEFT JOIN "Sample_condition_variable" AS temp
+  ON csf."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=cs."Entry_ID" AND 
+     temp."Type"='temperature' AND temp."Val_units"='K'
+WHERE
+'''
+
+    args = []
+
+    # See if a specific atom type is needed
+    if atom_type:
+        sql += '''"Atom_type" = %s AND '''
+        args.append(atom_type.upper())
+
+    # See if a specific atom is needed
+    if atom_id:
+        sql += "("
+        for atom in atom_id:
+            sql += '''"Atom_ID" LIKE %s OR '''
+            args.append(atom.replace("*", "%").upper())
+        sql += "1 = 2) AND "
+
+    # See if a specific residue is needed
+    if comp_id:
+        sql += "("
+        for comp in comp_id:
+            sql += '''"Comp_ID" = %s OR '''
+            args.append(comp.upper())
+        sql += "1 = 2) AND "
+
+    # See if a peak is specified
+    if shift_val:
+        sql += "("
+        for val in shift_val:
+            sql += '''(cs."Val"::float  < %s AND cs."Val"::float > %s) OR '''
+            range_low = float(val) - threshold
+            range_high = float(val) + threshold
+            args.append(range_high)
+            args.append(range_low)
+        sql += "1 = 2) AND "
+
+    # Make sure the SQL query syntax works out
+    sql += '''1=1'''
+
+    result = {}
+
+    # Do the query
+    with PostgresConnection(schema=database) as cur:
+        cur.execute(sql, args)
+
+        # Send query string if in debug mode
+        if configuration['debug']:
+            result['debug'] = cur.query
+
+        result['columns'] = ["Atom_chem_shift." + desc[0] for desc in cur.description]
+
+        if conditions:
+            result['columns'][-2] = 'Sample_conditions.pH'
+            result['columns'][-1] = 'Sample_conditions.Temperature_K'
+
+        result['data'] = cur.fetchall()
+    return jsonify(result)
 
 
 @user_endpoints.route('/search/get_all_values_for_tag/<tag_name>')
@@ -198,7 +280,7 @@ def get_id_from_search(tag_name=None, tag_value=None):
         sp[0] = sp[0][1:]
     if len(sp) < 2:
         raise RequestException("You must provide a full tag name with saveframe included. For example: "
-                           "Entry.Experimental_method_subtype")
+                               "Entry.Experimental_method_subtype")
 
     id_field = get_entry_id_tag(tag_name, database)
     result = select([id_field], sp[0], where_dict={sp[1]: tag_value}, modifiers=['lower'], database=database)
