@@ -874,44 +874,6 @@ def get_category_and_tag(tag_name):
     return sp
 
 
-def get_all_values_for_tag(tag_name, database):
-    """ Returns all the values for a given tag by entry ID as a dictionary. """
-
-    params = get_category_and_tag(tag_name)
-    with PostgresConnection(schema=database) as cur:
-
-        # Use Entry_ID normally, but occasionally use ID depending on the context
-        id_field = get_entry_id_tag(tag_name, database=database)
-
-        query = '''SELECT "%s", array_agg(%%s) from "%s" GROUP BY "%s";'''
-        query = query % (id_field, params[0], id_field)
-        try:
-            cur.execute(query, [wrap_it_up(params[1])])
-        except ProgrammingError as e:
-            sp = str(e).split('\n')
-            if len(sp) > 3:
-                if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
-                    raise RequestException("Tag not found. Did you mean the tag: '%s'?" %
-                                           sp[3].split('"')[1])
-
-            raise RequestException("Tag not found.")
-
-        # Turn the results into a dict
-        res = {}
-        for x in cur.fetchall():
-            sub_res = []
-            for elem in x[1]:
-                if elem and elem != "na":
-                    sub_res.append(elem)
-            if len(sub_res) > 0:
-                res[x[0]] = sub_res
-
-        if configuration['debug']:
-            res['query'] = cur.query
-
-    return res
-
-
 def select(fetch_list, table, where_dict=None, database="macromolecules",
            modifiers=None, as_hash=True):
     """ Performs a SELECT query constructed from the supplied arguments."""

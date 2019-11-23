@@ -8,13 +8,15 @@ from urllib.parse import quote
 
 import psycopg2
 from flask import jsonify, request, Blueprint, url_for
+from psycopg2 import ProgrammingError
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.decorators import require_content_type_json
-from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_all_values_for_tag, get_entry_id_tag, select, \
-    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, process_select
+from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, select, \
+    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, process_select, \
+    get_category_and_tag, wrap_it_up
 
 # Set up the blueprint
 search_endpoints = Blueprint('search', __name__)
@@ -286,24 +288,52 @@ WHERE
 
 
 @search_endpoints.route('/search/get_all_values_for_tag/<tag_name>')
-def get_all_values_for_tag(tag_name=None):
+def get_all_values_for_tag(tag_name):
     """ Returns all entry numbers and corresponding tag values."""
 
-    result = get_all_values_for_tag(tag_name, get_db('macromolecules'))
-    return jsonify(result)
+    database = get_db('macromolecules')
+
+    params = get_category_and_tag(tag_name)
+    with PostgresConnection(schema=database) as cur:
+
+        # Use Entry_ID normally, but occasionally use ID depending on the context
+        id_field = get_entry_id_tag(tag_name, database=database)
+
+        query = '''SELECT "%s", array_agg(%%s) from "%s" GROUP BY "%s";'''
+        query = query % (id_field, params[0], id_field)
+        try:
+            cur.execute(query, [wrap_it_up(params[1])])
+        except ProgrammingError as e:
+            sp = str(e).split('\n')
+            if len(sp) > 3:
+                if sp[3].strip().startswith("HINT:  Perhaps you meant to reference the column"):
+                    raise RequestException("Tag not found. Did you mean the tag: '%s'?" %
+                                           sp[3].split('"')[1])
+
+            raise RequestException("Tag not found.")
+
+        # Turn the results into a dict
+        res = {}
+        for x in cur.fetchall():
+            sub_res = []
+            for elem in x[1]:
+                if elem and elem != "na":
+                    sub_res.append(elem)
+            if len(sub_res) > 0:
+                res[x[0]] = sub_res
+
+        if configuration['debug']:
+            res['query'] = cur.query
+
+    return res
 
 
 @search_endpoints.route('/search/get_id_by_tag_value/<tag_name>/<path:tag_value>')
-def get_id_from_search(tag_name=None, tag_value=None):
+def get_id_from_search(tag_name, tag_value):
     """ Returns all BMRB IDs that were found when querying for entries
     which contain the supplied value for the supplied tag. """
 
     database = get_db('macromolecules', valid_list=['metabolomics', 'macromolecules', 'chemcomps'])
-
-    if not tag_name:
-        raise RequestException("You must specify the tag name.")
-    if not tag_value:
-        raise RequestException("You must specify the tag value.")
 
     sp = tag_name.split(".")
     if sp[0].startswith("_"):
@@ -325,7 +355,7 @@ def get_bmrb_ids_from_pdb_id(pdb_id):
 
 
 @search_endpoints.route('/search/get_pdb_ids_from_bmrb_id/<bmrb_id>')
-def get_pdb_ids_from_bmrb_id(bmrb_id=None):
+def get_pdb_ids_from_bmrb_id(bmrb_id):
     """ Returns the associated PDB IDs for a BMRB ID. """
 
     with PostgresConnection() as cur:
@@ -420,11 +450,8 @@ FROM "Entity" as entity
 
 
 @search_endpoints.route('/instant')
-def get_instant():
+def instant():
     """ Do the instant search. """
-
-    if not request.args.get('term', None):
-        raise RequestException("You must specify the search term using ?term=search_term")
 
     term = request.args.get('term')
     database = get_db('combined')
