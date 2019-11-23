@@ -19,14 +19,14 @@ from time import time as unix_time
 import pynmrstar
 import simplejson as json
 from flask import request
+from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values
-from psycopg2 import ProgrammingError
 
 # Module level defines
 from bmrbapi.exceptions import RequestException, ServerException
-from bmrbapi.utils.connections import PostgresConnection, get_redis_connection, RedisConnection
 from bmrbapi.utils.configuration import configuration
+from bmrbapi.utils.connections import PostgresConnection, get_redis_connection, RedisConnection
 
 _METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
             'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/simulate_hsqc',
@@ -564,42 +564,6 @@ FROM "Software"
    LEFT JOIN "Vendor" AS vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
    LEFT JOIN "Task" AS task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
 WHERE "Software"."Entry_ID"=%s;''', [entry_id])
-
-        column_names = [desc[0] for desc in cur.description]
-        return {"columns": column_names, "data": cur.fetchall()}
-
-
-def get_software_entries(software_name, database="macromolecules"):
-    """ Returns the entries associated with a given piece of software. """
-
-    with PostgresConnection(schema=database) as cur:
-        # Get the list of which tags should be used to order data
-        cur.execute('''
-SELECT "Software"."Entry_ID","Software"."Name","Software"."Version",vendor."Name" AS "Vendor Name",
-  vendor."Electronic_address" AS "e-mail",task."Task" AS "Task"
-FROM "Software"
-  LEFT JOIN "Vendor" AS vendor
-    ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-  LEFT JOIN "Task" AS task
-    ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE lower("Software"."Name") LIKE lower(%s);''', ["%" + software_name + "%"])
-
-        column_names = [desc[0] for desc in cur.description]
-        return {"columns": column_names, "data": cur.fetchall()}
-
-
-def get_software_summary(database="macromolecules"):
-    """ Returns all software packages from the DB. """
-
-    with PostgresConnection(schema=database) as cur:
-        # Get the list of which tags should be used to order data
-        cur.execute('''
-SELECT "Software"."Name","Software"."Version",task."Task" AS "Task",vendor."Name" AS "Vendor Name"
-FROM "Software"
-  LEFT JOIN "Vendor" AS vendor
-    ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-  LEFT JOIN "Task" AS task
-    ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID";''')
 
         column_names = [desc[0] for desc in cur.description]
         return {"columns": column_names, "data": cur.fetchall()}
