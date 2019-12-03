@@ -25,3 +25,11 @@ def validate_parameters():
     errors = schema().validate(request.args)
     if errors:
         raise RequestException(errors)
+
+
+class CatchAll(JSONResponseSchema):
+    pass
+
+
+class GetStatus(JSONResponseSchema):
+    pass
