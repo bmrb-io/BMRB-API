@@ -169,7 +169,9 @@ def catch_all():
     links = []
     for rule in sorted(application.url_map.iter_rules(), key=lambda x: str(x)):
         # Don't show the static endpoint
-        if 'internal' in rule.endpoint or rule.endpoint == 'static':
+        if rule.endpoint == 'static':
+            continue
+        if 'internal' in rule.endpoint and not configuration['debug']:
             continue
 
         url = url_for(rule.endpoint, **{argument: argument.upper() for argument in rule.arguments})
