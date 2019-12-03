@@ -92,6 +92,7 @@ class RedisConnection:
                                                 password=configuration['redis']['password'])
         except redis.exceptions.ConnectionError:
             raise ServerException('Could not connect to Redis server.')
+        return self._redis_con
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self._redis_con.close()
