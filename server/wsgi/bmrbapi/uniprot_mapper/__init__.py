@@ -13,9 +13,6 @@ from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
 
-# Todo: Check that UniProt is valid and not expired
-# See: 26802	1	A	5O6F	D9Q632	D9QDZ8
-
 # Todo: Dealing with when there are chains that aren't perfectly mapped
 
 
@@ -49,7 +46,7 @@ def map_uniprot():
 
             # Only search for a UniProt ID if we don't already have an author one
             if not line[5]:
-                uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id)
+                uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id, bmrb_id=line[0])
                 if uniprot_id:
                     line[4] = 'PDB cross-referencing'
                     line[5] = uniprot_id
@@ -64,7 +61,7 @@ def map_uniprot():
                 line[5] = uni_name.get_uniprot(line[5])
 
             # Validate the uniprot
-            line[5] = uniprot_validator.validate_uniprot(line[5])
+            line[5] = uniprot_validator.validate_uniprot(line[5], line[0])
 
             sequences_out.writerow(line)
         uniprot_seq_file.close()

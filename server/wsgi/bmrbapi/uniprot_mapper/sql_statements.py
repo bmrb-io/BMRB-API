@@ -123,9 +123,6 @@ FROM web.uniprot_mappings_tmp AS uni
          LEFT JOIN macromolecules."Citation" AS cit ON cit."Entry_ID" = entry."ID"
     AND cit."Class" = 'entry citation'
 ORDER BY uniprot_id);
-CREATE UNIQUE INDEX ON web.hupo_psi_id_tmp (uniprot_id, id, source, "regionSequenceExperimental",
-                                                                    "experimentType", "experimentReference",
-                                                                    "lastModified", "regionDefinitionSource");
 
  -- Permissions
 GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp to web;

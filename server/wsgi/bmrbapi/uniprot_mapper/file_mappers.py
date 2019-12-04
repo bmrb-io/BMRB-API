@@ -71,7 +71,7 @@ class UniProtMapper(MappingFile):
 
 class PDBMapper(MappingFile):
 
-    def get_uniprot(self, pdb_id: str, chain: str):
+    def get_uniprot(self, pdb_id: str, chain: str, bmrb_id=None):
         """ Returns the official UniProt ID from the PDB ID and chain."""
 
         if pdb_id and chain:
@@ -111,7 +111,7 @@ class PDBMapper(MappingFile):
 
         # If the chain isn't in the PDB file
         if key not in self.mapping:
-            logging.warning("Unknown chain: %s", key)
+            logging.warning("Unknown chain in BMRB ID %s: %s", bmrb_id, key)
             self.mapping[key] = None
 
         return self.mapping.get(key, None)
@@ -119,7 +119,7 @@ class PDBMapper(MappingFile):
 
 class UniProtValidator(MappingFile):
 
-    def validate_uniprot(self, uniprot_id: str):
+    def validate_uniprot(self, uniprot_id: str, bmrb_id: str = None):
         """ Returns the official UniProt ID from a UniProt ID. """
 
         if uniprot_id:
@@ -145,7 +145,7 @@ class UniProtValidator(MappingFile):
 
         # If the UniProt ID wasn't found
         if uniprot_id not in self.mapping:
-            logging.warning('Invalid UniProt ID found: %s', uniprot_id)
+            logging.warning('Invalid UniProt ID found in BMRB ID %s: %s', bmrb_id, uniprot_id)
             self.mapping[uniprot_id] = None
 
         return self.mapping[uniprot_id]
