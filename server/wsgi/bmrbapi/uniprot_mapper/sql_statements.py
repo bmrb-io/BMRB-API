@@ -6,7 +6,7 @@ SELECT ent."Entry_ID"                                              AS bmrb_id,
        CASE
            WHEN dbl."Accession_code" IS NOT NULL THEN 'Author supplied'
            ELSE null
-           END                                                     as link_type,
+           END                                                     AS link_type,
        dbl."Accession_code"                                        AS uniprot_id,
        "Polymer_seq_one_letter_code"                               AS sequence,
        ent."Details"
@@ -125,10 +125,10 @@ FROM web.uniprot_mappings_tmp AS uni
 ORDER BY uniprot_id);
 
  -- Permissions
-GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp to web;
-GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp to bmrb;
-GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to web;
-GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp to bmrb;
+GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp TO web;
+GRANT ALL PRIVILEGES ON web.hupo_psi_id_tmp TO bmrb;
+GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp TO web;
+GRANT ALL PRIVILEGES ON web.uniprot_mappings_tmp TO bmrb;
 
 -- Move table and view into place
 ALTER TABLE IF EXISTS web.uniprot_mappings RENAME TO uniprot_mappings_old;
