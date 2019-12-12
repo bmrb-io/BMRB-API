@@ -12,7 +12,9 @@ from bmrbapi.utils.configuration import configuration
 def validate_parameters():
     """ Validate the parameters for the request. """
 
-    if "." in request.endpoint:
+    if not request.endpoint:
+        return
+    elif "." in request.endpoint:
         endpoint = request.endpoint.split('.')[1].title().replace("_", "")
     else:
         endpoint = request.endpoint.title().replace("_", "")
