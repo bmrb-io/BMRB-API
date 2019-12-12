@@ -1,7 +1,8 @@
 import enum
 
 from marshmallow import Schema
-from marshmallow_enum import EnumField
+
+from bmrbapi.schemas.default import CustomErrorEnum
 
 __all__ = ['UniprotMappings', 'UniprotBmrbMap', 'BmrbUniprotMap', 'PdbBmrbMap', 'BmrbPdbMap',
            'Uniprot', 'GetPdbIdsFromBmrbId']
@@ -33,7 +34,7 @@ class Formats(enum.Enum):
 
 
 class Uniprot(Schema):
-    format = EnumField(Formats, by_value=True)
+    format = CustomErrorEnum(Formats)
 
 
 class GetPdbIdsFromBmrbId(Schema):

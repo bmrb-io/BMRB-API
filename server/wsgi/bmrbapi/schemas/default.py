@@ -3,7 +3,13 @@ import enum
 from marshmallow import Schema
 from marshmallow_enum import EnumField
 
-__all__ = ['DatabaseSchema']
+__all__ = ['DatabaseSchema', 'CustomErrorEnum']
+
+
+class CustomErrorEnum(EnumField):
+    def __init__(self, enum_object):
+        super().__init__(enum_object, by_value=True,
+                         error="Invalid value provided. Please select from [{values}] %s")
 
 
 class Databases(enum.Enum):
@@ -16,4 +22,4 @@ class Databases(enum.Enum):
 class DatabaseSchema(Schema):
     """ A schema that checks the database argument, and nothing else. """
 
-    database = EnumField(Databases, by_value=True)
+    database = CustomErrorEnum(Databases)
