@@ -1,4 +1,7 @@
+import enum
+
 from marshmallow import fields
+from marshmallow_enum import EnumField
 
 from bmrbapi.schemas.default import JSONResponseSchema, DatabaseSchema
 
@@ -10,23 +13,21 @@ class GetBmrbDataFromPdbId(JSONResponseSchema):
     pass
 
 
-class MultipleShiftSearch(JSONResponseSchema):
+class MultipleShiftSearch(DatabaseSchema, JSONResponseSchema):
     nthresh = fields.Float()
     cthresh = fields.Float()
     hthresh = fields.Float()
     s = fields.Float(multiple=True)
     shift = fields.Float(multiple=True)
-    database = fields.String()
 
 
-class GetChemicalShifts(JSONResponseSchema):
+class GetChemicalShifts(DatabaseSchema, JSONResponseSchema):
     shift = fields.Float(multiple=True)
     threshold = fields.Float()
     atom_type = fields.String()
     atom_id = fields.String(multiple=True)
     comp_id = fields.String(multiple=True)
     conditions = fields.Bool()
-    database = fields.String()
 
 
 class GetAllValuesForTag(DatabaseSchema, JSONResponseSchema):
@@ -51,9 +52,8 @@ class FastaSearch(JSONResponseSchema):
     e_val = fields.String()
 
 
-class Instant(JSONResponseSchema):
+class Instant(DatabaseSchema, JSONResponseSchema):
     term = fields.String(required=True)
-    database = fields.String()
 
 
 class Select(JSONResponseSchema):

@@ -16,6 +16,7 @@ class Databases(enum.Enum):
     macromolecules = "macromolecules"
     metabolomics = "metabolomics"
     chemcomps = "chemcomps"
+    combined = "combined"
 
 
 class DatabaseSchema(Schema):
