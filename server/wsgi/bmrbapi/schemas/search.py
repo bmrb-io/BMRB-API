@@ -6,7 +6,7 @@ from marshmallow_enum import EnumField
 from bmrbapi.schemas.default import JSONResponseSchema, DatabaseSchema
 
 __all__ = ['GetBmrbDataFromPdbId', 'MultipleShiftSearch', 'GetChemicalShifts', 'GetAllValuesForTag', 'GetIdFromSearch',
-           'GetBmrbIdsFromPdbId', 'GetPdbIdsFromBmrbId', 'FastaSearch', 'Instant', 'Select']
+           'GetBmrbIdsFromPdbId', 'GetPdbIdsFromBmrbId', 'FastaSearch', 'Instant', 'Select', 'RerouteInstantInternal']
 
 
 class GetBmrbDataFromPdbId(JSONResponseSchema):
@@ -59,6 +59,10 @@ class FastaSearch(JSONResponseSchema):
 
 class Instant(DatabaseSchema, JSONResponseSchema):
     term = fields.String(required=True)
+
+
+class RerouteInstantInternal(Instant):
+    pass
 
 
 class Select(JSONResponseSchema):

@@ -1,6 +1,7 @@
 import os
 import subprocess
 import textwrap
+import warnings
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
 from typing import List
@@ -448,6 +449,12 @@ FROM "Entity" as entity
 
 
 @search_endpoints.route('/instant')
+def reroute_instant_internal():
+    warnings.warn('Please use /search/instant.', DeprecationWarning)
+    return instant()
+
+
+@search_endpoints.route('/search/instant')
 def instant():
     """ Do the instant search. """
 
