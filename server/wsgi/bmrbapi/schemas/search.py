@@ -51,9 +51,7 @@ class FastaSearch(Schema):
         rna = "rna"
         dna = "dna"
 
-
-class FastaSearch(Schema):
-    a_type = EnumField(ATypes, by_value=True)
+    a_type = CustomErrorEnum(ATypes)
     e_val = fields.String()
 
 
