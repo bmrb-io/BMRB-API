@@ -1,4 +1,7 @@
+import enum
+
 from marshmallow import Schema, fields
+from marshmallow_enum import EnumField
 
 __all__ = ['JSONResponseSchema', 'DatabaseSchema']
 
@@ -9,8 +12,13 @@ class JSONResponseSchema(Schema):
     pretty_print = fields.Bool()
 
 
-# TODO: Figure out how to do enumerations on the database fields
+class Databases(enum.Enum):
+    macromolecules = "macromolecules"
+    metabolomics = "metabolomics"
+    chemcomps = "chemcomps"
+
+
 class DatabaseSchema(Schema):
     """ A schema that checks the database argument, and nothing else. """
 
-    database = fields.String()
+    database = EnumField(Databases, by_value=True)
