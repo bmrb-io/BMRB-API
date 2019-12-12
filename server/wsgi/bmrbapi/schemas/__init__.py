@@ -5,6 +5,7 @@ from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.schemas.db_links import *
 from bmrbapi.schemas.default import *
 from bmrbapi.schemas.dictionary import *
+from bmrbapi.schemas.entry import *
 from bmrbapi.schemas.internal import *
 from bmrbapi.schemas.molprobity import *
 from bmrbapi.schemas.search import *
