@@ -46,9 +46,14 @@ class GetPdbIdsFromBmrbId(JSONResponseSchema):
     pass
 
 
-# TODO: More validation in endpoint should be moved here
+class ATypes(enum.Enum):
+    polymer = "polymer"
+    rna = "rna"
+    dna = "dna"
+
+
 class FastaSearch(JSONResponseSchema):
-    a_type = fields.String()
+    a_type = EnumField(ATypes, by_value=True)
     e_val = fields.String()
 
 

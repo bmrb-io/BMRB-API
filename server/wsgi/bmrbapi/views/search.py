@@ -390,9 +390,6 @@ def fasta_search(sequence):
     a_type = request.args.get('type', 'polymer')
     e_val = request.args.get('e_val')
 
-    # Make sure the type is valid
-    if a_type not in ["polymer", "rna", "dna"]:
-        raise RequestException("Invalid search type: %s" % a_type)
     # Map the type to the exact name
     a_type = {'polymer': 'polypeptide(L)', 'rna': 'polyribonucleotide', 'dna': 'polydeoxyribonucleotide'}[a_type]
 
