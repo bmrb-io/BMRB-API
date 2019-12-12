@@ -21,7 +21,7 @@ ORDER BY instant_cache.id = %s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, pl
 
 metabolomics_instant_query_two = """
 SELECT set_limit(.5);
-SELECT DISTINCT ON (instant_cache.id) term,
+SELECT DISTINCT ON (tt.id) term,
                         termname,
                         '1'::int AS sml,
                         tt.id,
@@ -45,7 +45,7 @@ WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT *
 FROM (
-         SELECT DISTINCT ON (instant_cache.id) term,
+         SELECT DISTINCT ON (tt.id) term,
                                  termname,
                                  similarity(tt.term, %s) AS sml,
                                  tt.id,
@@ -82,7 +82,7 @@ ORDER BY id = %s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(
 
 macromolecules_instant_query_two = '''
 SELECT set_limit(.5);
-SELECT DISTINCT ON (instant_cache.id) term,
+SELECT DISTINCT ON (tt.id) term,
                                       termname,
                                       '1'::int AS sml,
                                       tt.id,
@@ -99,7 +99,7 @@ WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT *
 FROM (
-         SELECT DISTINCT ON (instant_cache.id) term,
+         SELECT DISTINCT ON (tt.id) term,
                                                termname,
                                                similarity(tt.term, %s) AS sml,
                                                tt.id,
@@ -130,7 +130,7 @@ ORDER BY id = %s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(
 
 combined_instant_query_two = '''
 SELECT set_limit(.5);
-SELECT DISTINCT ON (instant_cache.id) term,
+SELECT DISTINCT ON (tt.id) term,
                                       termname,
                                       '1'::int AS sml,
                                       tt.id,
@@ -147,7 +147,7 @@ WHERE tt.identical_term @@ plainto_tsquery(%s)
 UNION
 SELECT *
 FROM (
-         SELECT DISTINCT ON (instant_cache.id) term,
+         SELECT DISTINCT ON (tt.id) term,
                                                termname,
                                                similarity(tt.term, %s) AS sml,
                                                tt.id,
