@@ -9,7 +9,7 @@ __all__ = ['DatabaseSchema', 'CustomErrorEnum']
 class CustomErrorEnum(EnumField):
     def __init__(self, enum_object):
         super().__init__(enum_object, by_value=True,
-                         error="Invalid value provided. Please select from [{values}] %s")
+                         error="Invalid value provided. Please select from [{values}]")
 
 
 class DatabaseSchema(Schema):
