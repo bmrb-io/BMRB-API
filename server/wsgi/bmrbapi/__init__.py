@@ -161,10 +161,6 @@ def log_request():
                   "path": request.full_path, "ip": request.remote_addr,
                   "local": querymod.check_local_ip(), "time": time.time()})
 
-    # Don't pretty-print JSON unless local user and in debug mode
-    if request.args.get("pretty_print") == "true":
-        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
-
     # Run the custom validator on all requests
     validate_parameters()
 
