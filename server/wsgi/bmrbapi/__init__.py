@@ -110,7 +110,6 @@ else:
     logging.warning("Could not set up SMTP logger because the configuration"
                     " was not specified.")
 
-
 # Set up error handling
 @application.errorhandler(ServerException)
 @application.errorhandler(RequestException)

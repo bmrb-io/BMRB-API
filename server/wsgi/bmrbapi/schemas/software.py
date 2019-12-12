@@ -1,11 +1,11 @@
-from bmrbapi.schemas.default import DatabaseSchema, JSONResponseSchema
+from bmrbapi.schemas.default import DatabaseSchema
 
 __all__ = ['GetSoftwareSummary', 'GetSoftwareByPackage']
 
 
-class GetSoftwareSummary(DatabaseSchema, JSONResponseSchema):
+class GetSoftwareSummary(DatabaseSchema):
     pass
 
 
-class GetSoftwareByPackage(DatabaseSchema, JSONResponseSchema):
+class GetSoftwareByPackage(DatabaseSchema):
     pass

@@ -1,30 +1,29 @@
 import enum
 
+from marshmallow import Schema
 from marshmallow_enum import EnumField
-
-from bmrbapi.schemas.default import JSONResponseSchema
 
 __all__ = ['UniprotMappings', 'UniprotBmrbMap', 'BmrbUniprotMap', 'PdbBmrbMap', 'BmrbPdbMap',
            'Uniprot', 'GetPdbIdsFromBmrbId']
 
 
-class UniprotMappings(JSONResponseSchema):
+class UniprotMappings(Schema):
     pass
 
 
-class UniprotBmrbMap(JSONResponseSchema):
+class UniprotBmrbMap(Schema):
     pass
 
 
-class BmrbUniprotMap(JSONResponseSchema):
+class BmrbUniprotMap(Schema):
     pass
 
 
-class PdbBmrbMap(JSONResponseSchema):
+class PdbBmrbMap(Schema):
     pass
 
 
-class BmrbPdbMap(JSONResponseSchema):
+class BmrbPdbMap(Schema):
     pass
 
 
@@ -33,9 +32,9 @@ class Formats(enum.Enum):
     hupo_psi_id = "hupo-psi-id"
 
 
-class Uniprot(JSONResponseSchema):
+class Uniprot(Schema):
     format = EnumField(Formats, by_value=True)
 
 
-class GetPdbIdsFromBmrbId(JSONResponseSchema):
+class GetPdbIdsFromBmrbId(Schema):
     pass

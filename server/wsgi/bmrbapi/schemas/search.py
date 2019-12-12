@@ -1,19 +1,19 @@
 import enum
 
-from marshmallow import fields
+from marshmallow import fields, Schema
 from marshmallow_enum import EnumField
 
-from bmrbapi.schemas.default import JSONResponseSchema, DatabaseSchema
+from bmrbapi.schemas.default import DatabaseSchema
 
 __all__ = ['GetBmrbDataFromPdbId', 'MultipleShiftSearch', 'GetChemicalShifts', 'GetAllValuesForTag', 'GetIdFromSearch',
            'GetBmrbIdsFromPdbId', 'GetPdbIdsFromBmrbId', 'FastaSearch', 'Instant', 'Select', 'RerouteInstantInternal']
 
 
-class GetBmrbDataFromPdbId(JSONResponseSchema):
+class GetBmrbDataFromPdbId(Schema):
     pass
 
 
-class MultipleShiftSearch(DatabaseSchema, JSONResponseSchema):
+class MultipleShiftSearch(DatabaseSchema):
     nthresh = fields.Float()
     cthresh = fields.Float()
     hthresh = fields.Float()
@@ -21,7 +21,7 @@ class MultipleShiftSearch(DatabaseSchema, JSONResponseSchema):
     shift = fields.Float(multiple=True)
 
 
-class GetChemicalShifts(DatabaseSchema, JSONResponseSchema):
+class GetChemicalShifts(DatabaseSchema):
     shift = fields.Float(multiple=True)
     threshold = fields.Float()
     atom_type = fields.String()
@@ -30,19 +30,19 @@ class GetChemicalShifts(DatabaseSchema, JSONResponseSchema):
     conditions = fields.Bool()
 
 
-class GetAllValuesForTag(DatabaseSchema, JSONResponseSchema):
+class GetAllValuesForTag(DatabaseSchema):
     pass
 
 
-class GetIdFromSearch(DatabaseSchema, JSONResponseSchema):
+class GetIdFromSearch(DatabaseSchema):
     pass
 
 
-class GetBmrbIdsFromPdbId(JSONResponseSchema):
+class GetBmrbIdsFromPdbId(Schema):
     pass
 
 
-class GetPdbIdsFromBmrbId(JSONResponseSchema):
+class GetPdbIdsFromBmrbId(Schema):
     pass
 
 
@@ -52,12 +52,12 @@ class ATypes(enum.Enum):
     dna = "dna"
 
 
-class FastaSearch(JSONResponseSchema):
+class FastaSearch(Schema):
     a_type = EnumField(ATypes, by_value=True)
     e_val = fields.String()
 
 
-class Instant(DatabaseSchema, JSONResponseSchema):
+class Instant(DatabaseSchema):
     term = fields.String(required=True)
 
 
@@ -65,5 +65,5 @@ class RerouteInstantInternal(Instant):
     pass
 
 
-class Select(JSONResponseSchema):
+class Select(Schema):
     pass

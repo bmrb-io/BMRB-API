@@ -1,15 +1,9 @@
 import enum
 
-from marshmallow import Schema, fields
+from marshmallow import Schema
 from marshmallow_enum import EnumField
 
-__all__ = ['JSONResponseSchema', 'DatabaseSchema']
-
-
-class JSONResponseSchema(Schema):
-    """ A schema for routes that return JSON """
-
-    pretty_print = fields.Bool()
+__all__ = ['DatabaseSchema']
 
 
 class Databases(enum.Enum):

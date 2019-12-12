@@ -1,11 +1,9 @@
-from marshmallow import fields
-
-from bmrbapi.schemas.default import JSONResponseSchema
+from marshmallow import fields, Schema
 
 __all__ = ['MolprobityResidue']
 
 
-class MolprobityResidue(JSONResponseSchema):
+class MolprobityResidue(Schema):
     """ A MolProbity residue specific search"""
 
     r = fields.String(multiple=True)

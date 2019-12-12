@@ -1,13 +1,11 @@
-from marshmallow import fields
-
-from bmrbapi.schemas.default import JSONResponseSchema
+from marshmallow import fields, Schema
 
 __all__ = ['GetEnumerations', 'ReturnSchema']
 
 
-class GetEnumerations(JSONResponseSchema):
+class GetEnumerations(Schema):
     term = fields.String()
 
 
-class ReturnSchema(JSONResponseSchema):
+class ReturnSchema(Schema):
     pass
