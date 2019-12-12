@@ -25,12 +25,8 @@ def get_entry(entry_id=None):
     # Loading
     else:
         if entry_id is None:
-            # They are trying to send an entry using GET
-            if request.args.get('data', None):
-                raise RequestException("Cannot access this page through GET.")
             # They didn't specify an entry ID
-            else:
-                raise RequestException("You must specify the entry ID.")
+            raise RequestException("You must specify the entry ID.")
 
         # Make sure it is a valid entry
         if not querymod.check_valid(entry_id):
