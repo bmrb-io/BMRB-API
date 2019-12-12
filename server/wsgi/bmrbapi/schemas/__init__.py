@@ -3,7 +3,6 @@ from marshmallow import Schema
 
 from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.schemas.db_links import *
-# Keep the schema imports separate
 from bmrbapi.schemas.default import *
 from bmrbapi.schemas.molprobity import *
 from bmrbapi.schemas.search import *
