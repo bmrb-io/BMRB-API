@@ -10,6 +10,8 @@ import psycopg2
 from flask import jsonify, request, Blueprint, url_for
 from psycopg2 import ProgrammingError
 
+# Set up the blueprint
+import bmrbapi.views.sql_statements
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
@@ -18,7 +20,6 @@ from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, sele
     get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, process_select, \
     get_category_and_tag, wrap_it_up
 
-# Set up the blueprint
 search_endpoints = Blueprint('search', __name__)
 
 
@@ -457,84 +458,15 @@ def instant():
     database = get_db('combined')
 
     if database == "metabolomics":
-        instant_query_one = '''
-SELECT instant_cache.id,title,citations,authors,link,sub_date,ms.formula,ms.inchi,ms.smiles,
-  ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass
-FROM web.instant_cache
-LEFT JOIN web.metabolomics_summary as ms
-  ON instant_cache.id = ms.id
-WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'True' and ms.id IS NOT NULL
-ORDER BY instant_cache.id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-
-        instant_query_two = """
-SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab,
-  NULL as "formula", NULL as "inchi", NULL as "smiles", NULL as "average_mass", NULL as "molecular_weight",
-  NULL as "monoisotopic_mass"
-FROM web.instant_cache
-  LEFT JOIN web.instant_extra_search_terms as tt
-  ON instant_cache.id=tt.id
-  WHERE tt.identical_term @@ plainto_tsquery(%s)
-UNION
-SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,link,sub_date,
-  is_metab,ms.formula,ms.inchi,ms.smiles,ms.average_mass,ms.molecular_weight,ms.monoisotopic_mass FROM web.instant_cache
-  LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-  LEFT JOIN web.metabolomics_summary as ms
-    ON instant_cache.id = ms.id
-  WHERE tt.term %% %s AND tt.identical_term IS NULL and ms.id IS NOT NULL
-  ORDER BY id, similarity(tt.term, %s) DESC) as y
-WHERE is_metab = 'True'"""
+        instant_query_one = bmrbapi.views.sql_statements.metabolomics_instant_query_one
+        instant_query_two = bmrbapi.views.sql_statements.metabolomics_instant_query_two
 
     elif database == "macromolecules":
-        instant_query_one = '''
-SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
-WHERE tsv @@ plainto_tsquery(%s) AND is_metab = 'False'
-ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-
-        instant_query_two = """
-SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.identical_term @@ plainto_tsquery(%s)
-UNION
-SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
-  link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.term %% %s AND tt.identical_term IS NULL
-    ORDER BY id, similarity(tt.term, %s) DESC) as y
-    WHERE is_metab = 'False'
-    ORDER BY sml DESC LIMIT 75;"""
-
+        instant_query_one = bmrbapi.views.sql_statements.macromolecules_instant_query_one
+        instant_query_two = bmrbapi.views.sql_statements.macromolecules_instant_query_two
     else:
-        instant_query_one = '''
-SELECT id,title,citations,authors,link,sub_date FROM web.instant_cache
-WHERE tsv @@ plainto_tsquery(%s)
-ORDER BY id=%s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
-
-        instant_query_two = """
-SELECT set_limit(.5);
-SELECT DISTINCT on (id) term,termname,'1'::int as sml,tt.id,title,citations,authors,link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.identical_term @@ plainto_tsquery(%s)
-UNION
-SELECT * from (
-SELECT DISTINCT on (id) term,termname,similarity(tt.term, %s) as sml,tt.id,title,citations,authors,
-  link,sub_date,is_metab
-  FROM web.instant_cache
-    LEFT JOIN web.instant_extra_search_terms as tt
-    ON instant_cache.id=tt.id
-    WHERE tt.term %% %s AND tt.identical_term IS NULL
-    ORDER BY id, similarity(tt.term, %s) DESC) as y
-    ORDER BY sml DESC LIMIT 75;"""
+        instant_query_one = bmrbapi.views.sql_statements.combined_instant_query_one
+        instant_query_two = bmrbapi.views.sql_statements.combined_instant_query_two
 
     with PostgresConnection() as cur:
         try:
