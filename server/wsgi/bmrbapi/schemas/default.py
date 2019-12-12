@@ -12,14 +12,13 @@ class CustomErrorEnum(EnumField):
                          error="Invalid value provided. Please select from [{values}] %s")
 
 
-class Databases(enum.Enum):
-    macromolecules = "macromolecules"
-    metabolomics = "metabolomics"
-    chemcomps = "chemcomps"
-    combined = "combined"
-
-
 class DatabaseSchema(Schema):
     """ A schema that checks the database argument, and nothing else. """
+
+    class Databases(enum.Enum):
+        macromolecules = "macromolecules"
+        metabolomics = "metabolomics"
+        chemcomps = "chemcomps"
+        combined = "combined"
 
     database = CustomErrorEnum(Databases)

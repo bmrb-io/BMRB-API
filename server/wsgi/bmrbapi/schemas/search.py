@@ -1,9 +1,8 @@
 import enum
 
 from marshmallow import fields, Schema
-from marshmallow_enum import EnumField
 
-from bmrbapi.schemas.default import DatabaseSchema
+from bmrbapi.schemas.default import DatabaseSchema, CustomErrorEnum
 
 __all__ = ['GetBmrbDataFromPdbId', 'MultipleShiftSearch', 'GetChemicalShifts', 'GetAllValuesForTag', 'GetIdFromSearch',
            'GetBmrbIdsFromPdbId', 'GetPdbIdsFromBmrbId', 'FastaSearch', 'Instant', 'Select', 'RerouteInstantInternal']
@@ -46,10 +45,11 @@ class GetPdbIdsFromBmrbId(Schema):
     pass
 
 
-class ATypes(enum.Enum):
-    polymer = "polymer"
-    rna = "rna"
-    dna = "dna"
+class FastaSearch(Schema):
+    class ATypes(enum.Enum):
+        polymer = "polymer"
+        rna = "rna"
+        dna = "dna"
 
 
 class FastaSearch(Schema):

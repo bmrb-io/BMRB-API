@@ -28,12 +28,11 @@ class BmrbPdbMap(Schema):
     pass
 
 
-class Formats(enum.Enum):
-    json = "json"
-    hupo_psi_id = "hupo-psi-id"
-
-
 class Uniprot(Schema):
+    class Formats(enum.Enum):
+        json = "json"
+        hupo_psi_id = "hupo-psi-id"
+
     format = CustomErrorEnum(Formats)
 
 
