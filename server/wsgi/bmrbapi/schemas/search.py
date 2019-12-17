@@ -1,60 +1,67 @@
-from marshmallow import fields
+import enum
 
-from bmrbapi.schemas.default import JSONResponseSchema, DatabaseSchema
+from marshmallow import fields, Schema
+
+from bmrbapi.schemas.default import DatabaseSchema, CustomErrorEnum
 
 __all__ = ['GetBmrbDataFromPdbId', 'MultipleShiftSearch', 'GetChemicalShifts', 'GetAllValuesForTag', 'GetIdFromSearch',
-           'GetBmrbIdsFromPdbId', 'GetPdbIdsFromBmrbId', 'FastaSearch', 'Instant', 'Select']
+           'GetBmrbIdsFromPdbId', 'GetPdbIdsFromBmrbId', 'FastaSearch', 'Instant', 'Select', 'RerouteInstantInternal']
 
 
-class GetBmrbDataFromPdbId(JSONResponseSchema):
+class GetBmrbDataFromPdbId(Schema):
     pass
 
 
-class MultipleShiftSearch(JSONResponseSchema):
+class MultipleShiftSearch(DatabaseSchema):
     nthresh = fields.Float()
     cthresh = fields.Float()
     hthresh = fields.Float()
     s = fields.Float(multiple=True)
     shift = fields.Float(multiple=True)
-    database = fields.String()
 
 
-class GetChemicalShifts(JSONResponseSchema):
+class GetChemicalShifts(DatabaseSchema):
     shift = fields.Float(multiple=True)
     threshold = fields.Float()
     atom_type = fields.String()
     atom_id = fields.String(multiple=True)
     comp_id = fields.String(multiple=True)
     conditions = fields.Bool()
-    database = fields.String()
 
 
-class GetAllValuesForTag(DatabaseSchema, JSONResponseSchema):
+class GetAllValuesForTag(DatabaseSchema):
     pass
 
 
-class GetIdFromSearch(DatabaseSchema, JSONResponseSchema):
+class GetIdFromSearch(DatabaseSchema):
     pass
 
 
-class GetBmrbIdsFromPdbId(JSONResponseSchema):
+class GetBmrbIdsFromPdbId(Schema):
     pass
 
 
-class GetPdbIdsFromBmrbId(JSONResponseSchema):
+class GetPdbIdsFromBmrbId(Schema):
     pass
 
 
-# TODO: More validation in endpoint should be moved here
-class FastaSearch(JSONResponseSchema):
-    a_type = fields.String()
+class FastaSearch(Schema):
+    class ATypes(enum.Enum):
+        polymer = "polymer"
+        rna = "rna"
+        dna = "dna"
+
+    a_type = CustomErrorEnum(ATypes)
     e_val = fields.String()
 
 
-class Instant(JSONResponseSchema):
+class Instant(DatabaseSchema):
     term = fields.String(required=True)
-    database = fields.String()
 
 
-class Select(JSONResponseSchema):
+class RerouteInstantInternal(Instant):
+    pass
+
+
+class Select(Schema):
     pass

@@ -1,16 +1,24 @@
-from marshmallow import Schema, fields
+import enum
 
-__all__ = ['JSONResponseSchema', 'DatabaseSchema']
+from marshmallow import Schema
+from marshmallow_enum import EnumField
 
-
-class JSONResponseSchema(Schema):
-    """ A schema for routes that return JSON """
-
-    pretty_print = fields.Bool()
+__all__ = ['DatabaseSchema', 'CustomErrorEnum']
 
 
-# TODO: Figure out how to do enumerations on the database fields
+class CustomErrorEnum(EnumField):
+    def __init__(self, enum_object):
+        super().__init__(enum_object, by_value=True,
+                         error="Invalid value provided. Please select from [{values}]")
+
+
 class DatabaseSchema(Schema):
     """ A schema that checks the database argument, and nothing else. """
 
-    database = fields.String()
+    class Databases(enum.Enum):
+        macromolecules = "macromolecules"
+        metabolomics = "metabolomics"
+        chemcomps = "chemcomps"
+        combined = "combined"
+
+    database = CustomErrorEnum(Databases)

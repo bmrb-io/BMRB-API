@@ -1,8 +1,8 @@
 from flask import Blueprint, Response, request, jsonify
 
+from bmrbapi.exceptions import RequestException
 # Local modules
 from bmrbapi.utils.connections import PostgresConnection
-from bmrbapi.exceptions import RequestException
 
 # Set up the blueprint
 db_endpoints = Blueprint('db_links', __name__)
@@ -136,5 +136,9 @@ GROUP BY uniprot_id;
             return jsonify([dict(x) for x in cur.fetchall()])
         elif response_format == 'hupo-psi-id':
             if accession_id:
-                return jsonify(cur.fetchall()[0][0])
+                result = cur.fetchall()
+                if len(result) >= 1:
+                    return jsonify(result[0][0])
+                else:
+                    return jsonify([])
             return jsonify([x[0] for x in cur.fetchall()])

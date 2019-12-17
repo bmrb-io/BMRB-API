@@ -25,12 +25,8 @@ def get_entry(entry_id=None):
     # Loading
     else:
         if entry_id is None:
-            # They are trying to send an entry using GET
-            if request.args.get('data', None):
-                raise RequestException("Cannot access this page through GET.")
             # They didn't specify an entry ID
-            else:
-                raise RequestException("You must specify the entry ID.")
+            raise RequestException("You must specify the entry ID.")
 
         # Make sure it is a valid entry
         if not querymod.check_valid(entry_id):
@@ -89,7 +85,7 @@ def get_entry(entry_id=None):
 
 
 @entry_endpoints.route('/entry/<entry_id>/software')
-def get_software_by_entry(entry_id=None):
+def get_software_by_entry(entry_id):
     """ Returns the software used on a per-entry basis. """
 
     if not entry_id:
@@ -99,7 +95,7 @@ def get_software_by_entry(entry_id=None):
 
 
 @entry_endpoints.route('/entry/<entry_id>/experiments')
-def get_metabolomics_data(entry_id):
+def get_experiment_data(entry_id):
     """ Return the experiments available for an entry. """
 
     return jsonify(querymod.get_experiments(entry=entry_id))
@@ -150,6 +146,5 @@ def validate_entry(entry_id):
 def list_entries():
     """ Return a list of all valid BMRB entries."""
 
-    valid_list = ['metabolomics', 'macromolecules', 'chemcomps', 'combined']
-    entries = querymod.list_entries(database=querymod.get_db("combined", valid_list=valid_list))
+    entries = querymod.list_entries(database=querymod.get_db("combined"))
     return jsonify(entries)

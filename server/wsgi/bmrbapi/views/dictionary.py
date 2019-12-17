@@ -36,14 +36,14 @@ GROUP BY it.itemenumclosedflg, it.enumeratedflg;''', [tag_name])
     result = dict(p_res)
 
     # Be able to search through enumerations based on the term argument
-    if result['term'] is not None:
+    if term:
         new_result = []
         for val in result['values']:
             if val and val.startswith(term):
                 new_result.append({"value": val, "label": val})
-        return new_result
+        return jsonify(new_result)
 
-    return result
+    return jsonify(result)
 
 
 @dictionary_endpoints.route('/schema/<schema_version>')

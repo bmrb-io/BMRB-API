@@ -13,6 +13,7 @@ from logging.handlers import RotatingFileHandler, SMTPHandler
 from flask import Flask, request, jsonify, url_for
 from flask_mail import Mail
 from pythonjsonlogger import jsonlogger
+from werkzeug.exceptions import NotFound
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas import validate_parameters
@@ -109,7 +110,6 @@ else:
     logging.warning("Could not set up SMTP logger because the configuration"
                     " was not specified.")
 
-
 # Set up error handling
 @application.errorhandler(ServerException)
 @application.errorhandler(RequestException)
@@ -125,6 +125,11 @@ def handle_other_errors(error):
     """ Catches any other exceptions and formats them. Only
     displays the actual error to local clients (to prevent disclosing
     issues that could be security vulnerabilities)."""
+
+    if isinstance(error, NotFound):
+        return RequestException('The requested URL was not found on the server. If you '
+                                'entered the URL manually please check your spelling and try again.',
+                                status_code=404).to_response()
 
     application.logger.critical("Unhandled exception raised on request %s %s"
                                 "\n\nValues: %s\n\n%s",
@@ -154,10 +159,6 @@ def log_request():
                   "application": request.headers.get('Application'),
                   "path": request.full_path, "ip": request.remote_addr,
                   "local": querymod.check_local_ip(), "time": time.time()})
-
-    # Don't pretty-print JSON unless local user and in debug mode
-    if request.args.get("pretty_print") == "true":
-        application.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
     # Run the custom validator on all requests
     validate_parameters()

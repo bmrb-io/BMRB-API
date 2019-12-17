@@ -1,9 +1,12 @@
 from flask import request
+from marshmallow import Schema
 
 from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.utils.configuration import configuration
 # Keep the schema imports separate
 from bmrbapi.schemas.default import *
+from bmrbapi.schemas.dictionary import *
+from bmrbapi.schemas.entry import *
 from bmrbapi.schemas.internal import *
 from bmrbapi.schemas.molprobity import *
 from bmrbapi.schemas.search import *
@@ -12,7 +15,9 @@ from bmrbapi.schemas.search import *
 def validate_parameters():
     """ Validate the parameters for the request. """
 
-    if "." in request.endpoint:
+    if not request.endpoint:
+        return
+    elif "." in request.endpoint:
         endpoint = request.endpoint.split('.')[1].title().replace("_", "")
     else:
         endpoint = request.endpoint.title().replace("_", "")
@@ -27,9 +32,9 @@ def validate_parameters():
         raise RequestException(errors)
 
 
-class CatchAll(JSONResponseSchema):
+class CatchAll(Schema):
     pass
 
 
-class GetStatus(JSONResponseSchema):
+class GetStatus(Schema):
     pass

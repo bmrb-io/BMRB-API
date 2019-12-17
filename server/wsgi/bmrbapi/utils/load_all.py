@@ -11,9 +11,11 @@ import time
 import zlib
 from multiprocessing import Pipe, cpu_count
 
+import pynmrstar
+
 from bmrbapi.utils import querymod
-from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 from bmrbapi.utils.configuration import configuration
+from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 
 loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 to_process = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
@@ -126,7 +128,7 @@ def one_entry(entry_name, entry_location, r_conn):
             return entry_name
     else:
         try:
-            ent = querymod.pynmrstar.Entry.from_file(entry_location)
+            ent = pynmrstar.Entry.from_file(entry_location)
 
             logging.info("On %s: loaded." % entry_name)
         except IOError:

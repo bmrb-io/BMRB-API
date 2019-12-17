@@ -5,7 +5,6 @@ provided through the REST interface. This is where the real work
 is done; restapi.py mainly just calls the methods here and returns the results.
 """
 
-# System modules
 import logging
 import os
 import subprocess
@@ -15,7 +14,6 @@ from sys import maxsize as max_integer
 from tempfile import NamedTemporaryFile
 from time import time as unix_time
 
-# From requirements.txt
 import pynmrstar
 import simplejson as json
 from flask import request
@@ -23,20 +21,9 @@ from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
 from psycopg2.extras import execute_values
 
-# Module level defines
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection, get_redis_connection, RedisConnection
-
-_METHODS = ['list_entries', 'entry/', 'entry/ENTRY_ID/validate',
-            'entry/ENTRY_ID/experiments', 'entry/ENTRY_ID/simulate_hsqc',
-            'entry/ENTRY_ID/software', 'status', 'software/',
-            'software/package/', 'instant', 'enumerations/',
-            'search/', 'search/chemical_shifts', 'search/fasta/',
-            'search/get_all_values_for_tag/', 'search/get_id_by_tag_value/',
-            'search/multiple_shift_search', 'search/get_bmrb_ids_from_pdb_id/',
-            'search/get_pdb_ids_from_bmrb_id/', 'search/get_bmrb_data_from_pdb_id/',
-            'molprobity/PDB_ID/oneline', 'molprobity/PDB_ID/residue']
 
 # Determine submodules folder
 _QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -519,8 +506,6 @@ def get_status():
             pg.execute(sql)
             stats[key]['num_chemical_shifts'] = int(pg.fetchone()[0])
 
-    # Add the available methods
-    stats['methods'] = _METHODS
     try:
         stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"]).strip()
     except subprocess.CalledProcessError:

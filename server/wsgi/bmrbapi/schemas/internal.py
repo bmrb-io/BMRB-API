@@ -1,11 +1,11 @@
 from marshmallow import Schema
 
-from bmrbapi.schemas.default import JSONResponseSchema
-
-
-class RefreshUniprotInternal(JSONResponseSchema):
-    pass
+__all__ = ['FaviconInternal', 'RefreshUniprotInternal']
 
 
 class FaviconInternal(Schema):
+    pass
+
+
+class RefreshUniprotInternal(Schema):
     pass
