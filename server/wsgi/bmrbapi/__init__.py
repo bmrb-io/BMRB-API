@@ -117,6 +117,7 @@ def handle_our_errors(exception):
     """ Handles exceptions we raised ourselves. """
 
     application.logger.info("Handled error raised in %s: %s", request.url, exception.message)
+    # Note! Returning the result of to_response() rather than raising the exception
     return exception.to_response()
 
 

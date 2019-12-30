@@ -11,7 +11,6 @@ import subprocess
 import zlib
 from hashlib import md5
 from sys import maxsize as max_integer
-from tempfile import NamedTemporaryFile
 from time import time as unix_time
 
 import pynmrstar
@@ -55,13 +54,6 @@ def locate_entry(entry_id, r_conn=None):
         return "macromolecules:entry:%s" % entry_id
 
 
-def check_valid(entry_id):
-    """ Returns whether an entry_is is valid. """
-
-    with RedisConnection() as r:
-        return r.exists(locate_entry(entry_id, r_conn=r))
-
-
 def get_database_from_entry_id(entry_id):
     """ Returns the appropriate database to inspect based on ID."""
 
@@ -83,8 +75,8 @@ def get_all_entries_from_redis(format_="object", database="macromolecules"):
 
 
 def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, r_conn=None):
-    """ Given a list of entries, yield the subset that exist in the database
-    as the appropriate type as determined by the "format_" variable.
+    """ Given a list of entries, yield them as the appropriate type as determined by the "format_"
+    variable. Throw an exception if any of the provided IDs do not exist.
 
     Valid entry formats:
     nmrstar: Return the entry as NMR-STAR text
@@ -117,31 +109,33 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
         if entry:
             # Return the compressed entry
             if format_ == "zlib":
-                yield (entry_id, entry)
+                yield entry_id, entry
 
             else:
                 # Uncompress the zlib into serialized JSON
                 entry = zlib.decompress(entry)
                 if format_ == "json":
-                    yield (entry_id, entry)
+                    yield entry_id, entry
                 else:
                     # Parse the JSON into python dict
                     entry = json.loads(entry)
                     if format_ == "dict":
-                        yield (entry_id, entry)
+                        yield entry_id, entry
                     else:
                         # Parse the dict into object
                         entry = pynmrstar.Entry.from_json(entry)
                         if format_ == "object":
-                            yield (entry_id, entry)
+                            yield entry_id, entry
                         else:
                             # Return NMR-STAR
                             if format_ == "nmrstar" or format_ == "rawnmrstar":
-                                yield (entry_id, str(entry))
+                                yield entry_id, str(entry)
 
                             # Unknown format
                             else:
                                 raise RequestException("Invalid format: %s." % format_)
+        else:
+            raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
 
 
 def store_uploaded_entry():
@@ -175,64 +169,6 @@ def store_uploaded_entry():
     return {"entry_id": key, "expiration": unix_time() + configuration['redis']['upload_timeout']}
 
 
-def panav_parser(panav_text):
-    """ Parses the PANAV data into something jsonify-able."""
-
-    if type(panav_text) == bytes:
-        panav_text = panav_text.decode()
-
-    lines = panav_text.split("\n")
-
-    # Initialize the result dictionary
-    result = {'offsets': {},
-              'deviants': [],
-              'suspicious': [],
-              'text': panav_text}
-
-    # Variables to keep track of output line numbers
-    deviant_line = 5
-    suspicious_line = 6
-
-    # There is an error
-    if len(lines) < 3:
-        raise ServerException("PANAV failed to produce expected output."
-                              " Output: %s" % panav_text)
-
-    # Check for unusual output
-    if "No reference" in lines[0]:
-        # Handle the special case when no offsets
-        result['offsets'] = {'CO': float(0), 'CA': float(0), 'CB': float(0), 'N': float(0)}
-        deviant_line = 1
-        suspicious_line = 2
-    # Normal output
-    else:
-        result['offsets']['CO'] = float(lines[1].split(" ")[-1].replace("ppm", ""))
-        result['offsets']['CA'] = float(lines[2].split(" ")[-1].replace("ppm", ""))
-        result['offsets']['CB'] = float(lines[3].split(" ")[-1].replace("ppm", ""))
-        result['offsets']['N'] = float(lines[4].split(" ")[-1].replace("ppm", ""))
-
-    # Figure out how many deviant and suspicious shifts were detected
-    num_deviants = int(lines[deviant_line].rstrip().split(" ")[-1])
-    num_suspicious = int(lines[suspicious_line + num_deviants].rstrip().split(" ")[-1])
-    suspicious_line += num_deviants + 1
-    deviant_line += 1
-
-    # Get the deviants
-    for deviant in lines[deviant_line:deviant_line + num_deviants]:
-        res_num, res, atom, shift = deviant.strip().split(" ")
-        result['deviants'].append({"residue_number": res_num, "residue_name": res,
-                                   "atom": atom, "chemical_shift_value": shift})
-
-    # Get the suspicious shifts
-    for suspicious in lines[suspicious_line:suspicious_line + num_suspicious]:
-        res_num, res, atom, shift = suspicious.strip().split(" ")
-        result['suspicious'].append({"residue_number": res_num, "residue_name": res,
-                                     "atom": atom, "chemical_shift_value": shift})
-
-    # Return the result dictionary
-    return result
-
-
 def get_citation(entry_id, format_="python"):
     """ Returns the citation for the entry. """
 
@@ -244,7 +180,7 @@ def get_citation(entry_id, format_="python"):
     try:
         ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
     except StopIteration:
-        raise RequestException("Invalid Entry ID specified. No such entry exists.")
+        raise RequestException("Entry '%s' does not exist in the public database." % entry_id)
 
     # First lets get all the values we need, later we will format them
 
@@ -260,7 +196,7 @@ def get_citation(entry_id, format_="python"):
     citations = []
     citation_title, citation_journal, citation_volume_issue, citation_pagination, citation_year = '', '', '', '', ''
 
-    for citation_frame in entry.get_saveframes_by_category("citations"):
+    for citation_frame in bmrbapi.views.entry.get_saveframes_by_category("citations"):
         if get_tag(citation_frame, "Class") == "entry citation":
             cl = citation_frame["_Citation_author"]
 
@@ -379,112 +315,6 @@ def get_citation(entry_id, format_="python"):
             return """BMRB ID: %(entry_id)s %(author)s %(title)s doi: %(doi)s""" % text_dict
 
 
-def get_chemical_shift_validation(**kwargs):
-    """ Returns a validation report for the given entry. """
-
-    entries = get_valid_entries_from_redis(kwargs['ids'])
-
-    result = {}
-
-    for entry in entries:
-
-        # AVS
-        # There is at least one chem shift saveframe for this entry
-        result[entry[0]] = {}
-        result[entry[0]]["avs"] = {}
-        # Put the chemical shift loop in a file
-
-        with NamedTemporaryFile(dir="/dev/shm") as star_file:
-            star_file.file.write(str(entry[1]).encode())
-            star_file.flush()
-
-            avs_location = os.path.join(SUBMODULE_DIR, "avs/validate_assignments_31.pl")
-            res = subprocess.check_output([avs_location, entry[0], "-nitrogen", "-fmean",
-                                           "-aromatic", "-std", "-anomalous", "-suspicious",
-                                           "-star_output", star_file.name])
-
-            error_loop = pynmrstar.Entry.from_string(res.decode())
-            error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
-            error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
-                                            "Entity_ID", "Comp_index_ID",
-                                            "Comp_ID",
-                                            "Comp_overall_assignment_score",
-                                            "Comp_typing_score",
-                                            "Comp_SRO_score",
-                                            "Comp_1H_shifts_analysis_status",
-                                            "Comp_13C_shifts_analysis_status",
-                                            "Comp_15N_shifts_analysis_status"])
-            error_loop.category = "AVS_analysis"
-
-            # Modify the chemical shift loops with the new data
-            shift_lists = entry[1].get_loops_by_category("atom_chem_shift")
-            for loop in shift_lists:
-                loop.add_tag(["AVS_analysis_status", "PANAV_analysis_status"])
-                for row in loop.data:
-                    row.extend(["Consistent", "Consistent"])
-
-            result[entry[0]]["avs"] = error_loop.get_json(serialize=False)
-
-        # PANAV
-        # For each chemical shift loop
-        for pos, cs_loop in enumerate(entry[1].get_loops_by_category("atom_chem_shift")):
-
-            # There is at least one chem shift saveframe for this entry
-            result[entry[0]]["panav"] = {}
-            # Put the chemical shift loop in a file
-            with NamedTemporaryFile(dir="/dev/shm") as chem_shifts:
-                chem_shifts.file.write(str(cs_loop).encode())
-                chem_shifts.flush()
-
-                panav_location = os.path.join(SUBMODULE_DIR, "panav/panav.jar")
-                try:
-                    res = subprocess.check_output(["java", "-cp", panav_location,
-                                                   "CLI", "-f", "star", "-i",
-                                                   chem_shifts.name],
-                                                  stderr=subprocess.STDOUT)
-                    # There is a -j option that produces a somewhat usable JSON...
-                    result[entry[0]]["panav"][pos] = panav_parser(res)
-                except subprocess.CalledProcessError:
-                    result[entry[0]]["panav"][pos] = {"error": "PANAV failed on this entry."}
-
-    # Return the result dictionary
-    return result
-
-
-def list_entries(**kwargs):
-    """ Returns all valid entry IDs by default. If a database is specified than
-    only entries from that database are returned. """
-
-    db = kwargs.get("database", "combined")
-    with RedisConnection() as r:
-        return r.lrange("%s:entry_list" % db, 0, -1)
-
-
-def get_tags(**kwargs):
-    """ Returns results for the queried tags."""
-
-    # Get the valid IDs and redis connection
-    search_tags = process_nmrstar_query(kwargs)
-    result = {}
-
-    # Check the validity of the tags
-    for tag in search_tags:
-        if "." not in tag:
-            raise RequestException(
-                "You must provide the tag category to call this method at the entry level. For example, "
-                "use 'Entry.Title' rather than 'Title'.")
-
-    # Go through the IDs
-    for entry in get_valid_entries_from_redis(kwargs['ids']):
-        try:
-            result[entry[0]] = entry[1].get_tags(search_tags)
-        # They requested a tag that doesn't exist
-        except ValueError as error:
-            raise RequestException(str(error))
-
-    return result
-
-
 def get_status():
     """ Return some statistics about the server."""
 
@@ -516,45 +346,6 @@ def get_status():
             stats['version'] = version_file.read().strip()
 
     return stats
-
-
-def get_loops(**kwargs):
-    """ Returns the matching loops."""
-
-    # Get the valid IDs and redis connection
-    loop_categories = process_nmrstar_query(kwargs)
-    result = {}
-
-    # Go through the IDs
-    for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry[0]] = {}
-        for loop_category in loop_categories:
-            matches = entry[1].get_loops_by_category(loop_category)
-
-            if kwargs.get('format', "json") == "nmrstar":
-                matching_loops = [str(x) for x in matches]
-            else:
-                matching_loops = [x.get_json(serialize=False) for x in matches]
-            result[entry[0]][loop_category] = matching_loops
-
-    return result
-
-
-def get_entry_software(entry_id):
-    """ Returns the software used for a given entry. """
-
-    database = get_database_from_entry_id(entry_id)
-
-    with PostgresConnection(schema=database) as cur:
-        cur.execute('''
-SELECT "Software"."Name", "Software"."Version", task."Task" AS "Task", vendor."Name" AS "Vendor Name"
-FROM "Software"
-   LEFT JOIN "Vendor" AS vendor ON "Software"."Entry_ID"=vendor."Entry_ID" AND "Software"."ID"=vendor."Software_ID"
-   LEFT JOIN "Task" AS task ON "Software"."Entry_ID"=task."Entry_ID" AND "Software"."ID"=task."Software_ID"
-WHERE "Software"."Entry_ID"=%s;''', [entry_id])
-
-        column_names = [desc[0] for desc in cur.description]
-        return {"columns": column_names, "data": cur.fetchall()}
 
 
 def do_sql_mods(sql_file=None):
@@ -659,138 +450,6 @@ def get_bmrb_as_text(entry):
                 res_strings.update(row)
 
     return " ".join(res_strings)
-
-
-def get_experiments(entry):
-    """ Returns the experiments for this entry. """
-
-    # First get the sample components
-    sql = '''
-SELECT "Mol_common_name", "Isotopic_labeling", "Type", "Concentration_val", "Concentration_val_units", "Sample_ID"
-FROM "Sample_component"
-  WHERE "Entry_ID" = %s'''
-    with PostgresConnection(schema=get_database_from_entry_id(entry)) as cur:
-        cur.execute(sql, [entry])
-        stored_results = cur.fetchall()
-
-    # Then get all of the other information
-    sql = '''
-SELECT me."Entry_ID", me."Sample_ID", me."ID", ns."Manufacturer",ns."Model",me."Name" AS experiment_name,
-  ns."Field_strength", array_agg(ef."Name") AS name, array_agg(ef."Type") AS type,
-  array_agg(ef."Directory_path") AS directory_path, array_agg(ef."Details") AS details, ph."Val" AS ph,
-  temp."Val" AS temp
-FROM "Experiment" AS me
-  LEFT JOIN "Experiment_file" AS ef
-    ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
-  LEFT JOIN "NMR_spectrometer" AS ns
-    ON ns."Entry_ID" = me."Entry_ID" AND ns."ID" = me."NMR_spectrometer_ID"
-
-  LEFT JOIN "Sample_condition_variable" AS ph
-    ON me."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=me."Entry_ID" AND ph."Type"='pH'
-  LEFT JOIN "Sample_condition_variable" AS temp
-    ON me."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=me."Entry_ID" AND
-       temp."Type"='temperature' AND temp."Val_units"='K'
-
-WHERE me."Entry_ID" = %s
-GROUP BY me."Entry_ID", me."Name", me."ID", ns."Manufacturer", ns."Model",ns."Field_strength", ph."Val",
-         temp."Val", me."Sample_ID"
-ORDER BY me."Entry_ID", me."ID";'''
-    cur.execute(sql, [entry])
-
-    results = []
-    for row in cur:
-
-        data = []
-        if row['name'][0]:
-            for x, item in enumerate(row['directory_path']):
-                data.append({'type': row['type'][x], 'description': row['details'][x],
-                             'url': "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (
-                                 row['Entry_ID'], row['directory_path'][x], row['name'][x])})
-
-        tmp_res = {'Name': row['experiment_name'],
-                   'Experiment_ID': row['ID'],
-                   'Sample_condition_variable': {'ph': row['ph'],
-                                                 'temperature': row['temp']},
-                   'NMR_spectrometer': {'Manufacturer': row['Manufacturer'],
-                                        'Model': row['Model'],
-                                        'Field_strength': row['Field_strength']
-                                        },
-                   'Experiment_file': data,
-                   'Sample_component': []}
-        for component in stored_results:
-            if component['Sample_ID'] == row['Sample_ID']:
-                smp = {'Mol_common_name': component['Mol_common_name'],
-                       'Isotopic_labeling': component['Isotopic_labeling'],
-                       'Type': component['Type'],
-                       'Concentration_val': component['Concentration_val'],
-                       'Concentration_val_units': component['Concentration_val_units']}
-                tmp_res['Sample_component'].append(smp)
-
-        results.append(tmp_res)
-
-    if configuration['debug']:
-        results.append(cur.query)
-
-    return results
-
-
-def get_saveframes_by_category(**kwargs):
-    """ Returns the matching saveframes."""
-
-    # Get the valid IDs and redis connection
-    saveframe_categories = process_nmrstar_query(kwargs)
-    result = {}
-
-    # Go through the IDs
-    for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry[0]] = {}
-        for saveframe_category in saveframe_categories:
-            matches = entry[1].get_saveframes_by_category(saveframe_category)
-            if kwargs.get('format', "json") == "nmrstar":
-                matching_frames = [str(x) for x in matches]
-            else:
-                matching_frames = [x.get_json(serialize=False) for x in matches]
-            result[entry[0]][saveframe_category] = matching_frames
-    return result
-
-
-def get_saveframes_by_name(**kwargs):
-    """ Returns the matching saveframes."""
-
-    # Get the valid IDs and redis connection
-    saveframe_names = process_nmrstar_query(kwargs)
-    result = {}
-
-    # Go through the IDs
-    for entry in get_valid_entries_from_redis(kwargs['ids']):
-        result[entry[0]] = {}
-        for saveframe_name in saveframe_names:
-            try:
-                sf = entry[1].get_saveframe_by_name(saveframe_name)
-                if kwargs.get('format', "json") == "nmrstar":
-                    result[entry[0]][saveframe_name] = str(sf)
-                else:
-                    result[entry[0]][saveframe_name] = sf.get_json(serialize=False)
-            except KeyError:
-                continue
-
-    return result
-
-
-def get_entries(**kwargs):
-    """ Returns the full entries."""
-
-    # Check their parameters before proceeding
-    process_nmrstar_query(kwargs)
-    result = {}
-
-    # Go through the IDs
-    format_ = kwargs.get('format', "json")
-
-    for entry in get_valid_entries_from_redis(kwargs['ids'], format_=format_):
-        result[entry[0]] = entry[1]
-
-    return result
 
 
 def wrap_it_up(item):

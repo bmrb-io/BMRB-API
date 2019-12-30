@@ -1,13 +1,158 @@
+import os
+import subprocess
 import tempfile
 
+import pynmrstar
 from flask import Blueprint, Response, request, jsonify, send_file
 from pybmrb import csviz
 
-from bmrbapi.exceptions import RequestException
+from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.utils import querymod
+from bmrbapi.utils.connections import PostgresConnection, RedisConnection
+from bmrbapi.utils.querymod import get_valid_entries_from_redis
 
-# Set up the blueprint
 entry_endpoints = Blueprint('entry', __name__)
+
+
+# Helper functions defined before the views
+def check_valid(entry_id):
+    """ Checks if a given entry ID exists in redis. If not, throws a RequestException."""
+
+    with RedisConnection() as r:
+        if not r.exists(querymod.locate_entry(entry_id, r_conn=r)):
+            raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
+
+
+def get_tags(entry_id, search_tags):
+    """ Returns results for the queried tags."""
+
+    # Check the validity of the tags
+    for tag in search_tags:
+        if "." not in tag:
+            raise RequestException("You must provide the tag category to call this method at the entry level. For "
+                                   "example, use 'Entry.Title' rather than 'Title'.")
+
+    # Go through the IDs
+    entry = next(get_valid_entries_from_redis(entry_id))
+    try:
+        return {entry[0]: entry[1].get_tags(search_tags)}
+    # They requested a tag that doesn't exist
+    except ValueError as error:
+        raise RequestException(str(error))
+
+
+def get_loops(entry_id, loop_categories, format_):
+    """ Returns the matching loops."""
+
+    result = {}
+
+    # Go through the IDs
+    for entry in get_valid_entries_from_redis(entry_id):
+        result[entry[0]] = {}
+        for loop_category in loop_categories:
+            matches = entry[1].get_loops_by_category(loop_category)
+
+            if format_ == "nmrstar":
+                matching_loops = [str(x) for x in matches]
+            else:
+                matching_loops = [x.get_json(serialize=False) for x in matches]
+            result[entry[0]][loop_category] = matching_loops
+
+    return result
+
+
+def get_saveframes_by_category(entry_id, saveframe_categories, format_):
+    """ Returns the matching saveframes."""
+
+    result = {}
+
+    # Go through the IDs
+    entry = next(get_valid_entries_from_redis(entry_id))
+    result[entry[0]] = {}
+    for saveframe_category in saveframe_categories:
+        matches = entry[1].get_saveframes_by_category(saveframe_category)
+        if format_ == "nmrstar":
+            matching_frames = [str(x) for x in matches]
+        else:
+            matching_frames = [x.get_json(serialize=False) for x in matches]
+        result[entry[0]][saveframe_category] = matching_frames
+    return result
+
+
+def get_saveframes_by_name(entry_id, saveframe_names, format_):
+    """ Returns the matching saveframes."""
+
+    result = {}
+
+    # Go through the IDs
+    entry = next(get_valid_entries_from_redis(entry_id))
+    result[entry[0]] = {}
+    for saveframe_name in saveframe_names:
+        try:
+            sf = entry[1].get_saveframe_by_name(saveframe_name)
+            if format_ == "nmrstar":
+                result[entry[0]][saveframe_name] = str(sf)
+            else:
+                result[entry[0]][saveframe_name] = sf.get_json(serialize=False)
+        except KeyError:
+            continue
+
+    return result
+
+
+
+def panav_parser(panav_text):
+    """ Parses the PANAV data into something jsonify-able."""
+
+    if type(panav_text) == bytes:
+        panav_text = panav_text.decode()
+
+    lines = panav_text.split("\n")
+
+    # Initialize the result dictionary
+    result = {'offsets': {}, 'deviants': [], 'suspicious': [], 'text': panav_text}
+
+    # Variables to keep track of output line numbers
+    deviant_line = 5
+    suspicious_line = 6
+
+    # There is an error
+    if len(lines) < 3:
+        raise ServerException("PANAV failed to produce expected output. Output: %s" % panav_text)
+
+    # Check for unusual output
+    if "No reference" in lines[0]:
+        # Handle the special case when no offsets
+        result['offsets'] = {'CO': float(0), 'CA': float(0), 'CB': float(0), 'N': float(0)}
+        deviant_line = 1
+        suspicious_line = 2
+    # Normal output
+    else:
+        result['offsets']['CO'] = float(lines[1].split(" ")[-1].replace("ppm", ""))
+        result['offsets']['CA'] = float(lines[2].split(" ")[-1].replace("ppm", ""))
+        result['offsets']['CB'] = float(lines[3].split(" ")[-1].replace("ppm", ""))
+        result['offsets']['N'] = float(lines[4].split(" ")[-1].replace("ppm", ""))
+
+    # Figure out how many deviant and suspicious shifts were detected
+    num_deviants = int(lines[deviant_line].rstrip().split(" ")[-1])
+    num_suspicious = int(lines[suspicious_line + num_deviants].rstrip().split(" ")[-1])
+    suspicious_line += num_deviants + 1
+    deviant_line += 1
+
+    # Get the deviants
+    for deviant in lines[deviant_line:deviant_line + num_deviants]:
+        res_num, res, atom, shift = deviant.strip().split(" ")
+        result['deviants'].append({"residue_number": res_num, "residue_name": res,
+                                   "atom": atom, "chemical_shift_value": shift})
+
+    # Get the suspicious shifts
+    for suspicious in lines[suspicious_line:suspicious_line + num_suspicious]:
+        res_num, res, atom, shift = suspicious.strip().split(" ")
+        result['suspicious'].append({"residue_number": res_num, "residue_name": res,
+                                     "atom": atom, "chemical_shift_value": shift})
+
+    # Return the result dictionary
+    return result
 
 
 @entry_endpoints.route('/entry', methods=['POST'])
@@ -24,14 +169,8 @@ def get_entry(entry_id=None):
 
     # Loading
     else:
-        if entry_id is None:
-            # They didn't specify an entry ID
-            raise RequestException("You must specify the entry ID.")
-
         # Make sure it is a valid entry
-        if not querymod.check_valid(entry_id):
-            raise RequestException("Entry '%s' does not exist in the public database." % entry_id,
-                                   status_code=404)
+        check_valid(entry_id)
 
         # See if they specified more than one of [saveframe, loop, tag]
         args = sum([1 if request.args.get('saveframe_category', None) else 0,
@@ -44,28 +183,26 @@ def get_entry(entry_id=None):
 
         # See if they are requesting one or more saveframe
         elif request.args.get('saveframe_category', None):
-            result = querymod.get_saveframes_by_category(ids=entry_id, keys=request.args.getlist('saveframe_category'),
-                                                         format=format_)
+            result = get_saveframes_by_category(entry_id, request.args.getlist('saveframe_category'), format_)
             return jsonify(result)
 
         # See if they are requesting one or more saveframe
         elif request.args.get('saveframe_name', None):
-            result = querymod.get_saveframes_by_name(ids=entry_id, keys=request.args.getlist('saveframe_name'),
-                                                     format=format_)
+            result = get_saveframes_by_name(entry_id, request.args.getlist('saveframe_name'), format_)
             return jsonify(result)
 
         # See if they are requesting one or more loop
         elif request.args.get('loop', None):
-            return jsonify(querymod.get_loops(ids=entry_id, keys=request.args.getlist('loop'), format=format_))
+            return jsonify(get_loops(entry_id, request.args.getlist('loop'), format_))
 
         # See if they want a tag
         elif request.args.get('tag', None):
-            return jsonify(querymod.get_tags(ids=entry_id, keys=request.args.getlist('tag')))
+            return jsonify(get_tags(entry_id, request.args.getlist('tag')))
 
         # They want an entry
         else:
             # Get the entry
-            entry = querymod.get_entries(ids=entry_id, format=format_)
+            entry = querymod.get_valid_entries_from_redis(entry_id, format_=format_)
 
             # Bypass JSON encode/decode cycle
             if format_ == "json":
@@ -91,14 +228,108 @@ def get_software_by_entry(entry_id):
     if not entry_id:
         raise RequestException("You must specify the entry ID.")
 
-    return jsonify(querymod.get_entry_software(entry_id))
+    with PostgresConnection(schema=querymod.get_database_from_entry_id(entry_id)) as cur:
+        cur.execute('''
+SELECT "Software"."Name", "Software"."Version", task."Task" AS "Task", vendor."Name" AS "Vendor Name"
+FROM "Software"
+         LEFT JOIN "Vendor" AS vendor
+                   ON "Software"."Entry_ID" = vendor."Entry_ID" AND "Software"."ID" = vendor."Software_ID"
+         LEFT JOIN "Task" AS task ON "Software"."Entry_ID" = task."Entry_ID" AND "Software"."ID" = task."Software_ID"
+WHERE "Software"."Entry_ID" = %s''', [entry_id])
+
+        column_names = [desc[0] for desc in cur.description]
+        results = cur.fetchall()
+
+        # If no results, make sure the entry exists
+        if len(results) == 0:
+            check_valid(entry_id)
+
+        return jsonify({"columns": column_names, "data": results})
 
 
 @entry_endpoints.route('/entry/<entry_id>/experiments')
 def get_experiment_data(entry_id):
     """ Return the experiments available for an entry. """
 
-    return jsonify(querymod.get_experiments(entry=entry_id))
+    # First get the sample components
+    with PostgresConnection(schema=querymod.get_database_from_entry_id(entry_id)) as cur:
+        sql = '''
+SELECT "Mol_common_name", "Isotopic_labeling", "Type", "Concentration_val", "Concentration_val_units", "Sample_ID"
+FROM "Sample_component"
+WHERE "Entry_ID" = %s'''
+        cur.execute(sql, [entry_id])
+        stored_results = cur.fetchall()
+
+        # Then get all of the other information
+        sql = '''
+SELECT me."Entry_ID",
+       me."Sample_ID",
+       me."ID",
+       ns."Manufacturer",
+       ns."Model",
+       me."Name"                      AS experiment_name,
+       ns."Field_strength",
+       array_agg(ef."Name")           AS name,
+       array_agg(ef."Type")           AS type,
+       array_agg(ef."Directory_path") AS directory_path,
+       array_agg(ef."Details")        AS details,
+       ph."Val"                       AS ph,
+       temp."Val"                     AS temp
+FROM "Experiment" AS me
+         LEFT JOIN "Experiment_file" AS ef
+                   ON me."ID" = ef."Experiment_ID" AND me."Entry_ID" = ef."Entry_ID"
+         LEFT JOIN "NMR_spectrometer" AS ns
+                   ON ns."Entry_ID" = me."Entry_ID" AND ns."ID" = me."NMR_spectrometer_ID"
+
+         LEFT JOIN "Sample_condition_variable" AS ph
+                   ON me."Sample_condition_list_ID" = ph."Sample_condition_list_ID" AND
+                      ph."Entry_ID" = me."Entry_ID" AND ph."Type" = 'pH'
+         LEFT JOIN "Sample_condition_variable" AS temp
+                   ON me."Sample_condition_list_ID" = temp."Sample_condition_list_ID" AND
+                      temp."Entry_ID" = me."Entry_ID" AND
+                      temp."Type" = 'temperature' AND temp."Val_units" = 'K'
+
+WHERE me."Entry_ID" = %s
+GROUP BY me."Entry_ID", me."Name", me."ID", ns."Manufacturer", ns."Model", ns."Field_strength", ph."Val",
+         temp."Val", me."Sample_ID"
+ORDER BY me."Entry_ID", me."ID";'''
+        cur.execute(sql, [entry_id])
+        all_results = cur.fetchall()
+
+    results = []
+    for row in all_results:
+
+        data = []
+        if row['name'][0]:
+            for x, item in enumerate(row['directory_path']):
+                data.append({'type': row['type'][x], 'description': row['details'][x],
+                             'url': "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (
+                                 row['Entry_ID'], row['directory_path'][x], row['name'][x])})
+
+        tmp_res = {'Name': row['experiment_name'],
+                   'Experiment_ID': row['ID'],
+                   'Sample_condition_variable': {'ph': row['ph'],
+                                                 'temperature': row['temp']},
+                   'NMR_spectrometer': {'Manufacturer': row['Manufacturer'],
+                                        'Model': row['Model'],
+                                        'Field_strength': row['Field_strength']
+                                        },
+                   'Experiment_file': data,
+                   'Sample_component': []}
+        for component in stored_results:
+            if component['Sample_ID'] == row['Sample_ID']:
+                smp = {'Mol_common_name': component['Mol_common_name'],
+                       'Isotopic_labeling': component['Isotopic_labeling'],
+                       'Type': component['Type'],
+                       'Concentration_val': component['Concentration_val'],
+                       'Concentration_val_units': component['Concentration_val_units']}
+                tmp_res['Sample_component'].append(smp)
+
+        results.append(tmp_res)
+    # If no results, make sure the entry exists
+    if len(results) == 0:
+        check_valid(entry_id)
+    return jsonify(results)
 
 
 @entry_endpoints.route('/entry/<entry_id>/citation')
@@ -131,7 +362,11 @@ def simulate_hsqc(entry_id):
     csviz._OPACITY = 1
     with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
         csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
-
+        output_file.seek(0)
+        if len(output_file.read()) == 0:
+            # The PyBMRB exception only fires if the entry ID is valid
+            check_valid(entry_id)
+            raise ServerException('PyBMRB failed to generate valid output.')
         return send_file(output_file.name)
 
 
@@ -139,12 +374,73 @@ def simulate_hsqc(entry_id):
 def validate_entry(entry_id):
     """ Returns the validation report for the given entry. """
 
-    return jsonify(querymod.get_chemical_shift_validation(ids=entry_id))
+    try:
+        entry_id, entry = next(querymod.get_valid_entries_from_redis(entry_id))
+    except StopIteration:
+        raise RequestException("Entry '%s' does not exist in the public database." % entry_id)
+
+    result = {entry_id: {'avs': {}}}
+    # Put the chemical shift loop in a file
+    with tempfile.NamedTemporaryFile(dir="/dev/shm") as star_file:
+        star_file.file.write(str(entry).encode())
+        star_file.flush()
+
+        avs_location = os.path.join(querymod.SUBMODULE_DIR, "avs/validate_assignments_31.pl")
+        res = subprocess.check_output([avs_location, entry_id, "-nitrogen", "-fmean",
+                                       "-aromatic", "-std", "-anomalous", "-suspicious",
+                                       "-star_output", star_file.name])
+
+        error_loop = pynmrstar.Entry.from_string(res.decode())
+        error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
+        error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
+                                        "Entity_ID", "Comp_index_ID",
+                                        "Comp_ID",
+                                        "Comp_overall_assignment_score",
+                                        "Comp_typing_score",
+                                        "Comp_SRO_score",
+                                        "Comp_1H_shifts_analysis_status",
+                                        "Comp_13C_shifts_analysis_status",
+                                        "Comp_15N_shifts_analysis_status"])
+        error_loop.category = "AVS_analysis"
+
+        # Modify the chemical shift loops with the new data
+        shift_lists = entry.get_loops_by_category("atom_chem_shift")
+        for loop in shift_lists:
+            loop.add_tag(["AVS_analysis_status", "PANAV_analysis_status"])
+            for row in loop.data:
+                row.extend(["Consistent", "Consistent"])
+
+        result[entry_id]["avs"] = error_loop.get_json(serialize=False)
+
+    # PANAV
+    # For each chemical shift loop
+    for pos, cs_loop in enumerate(entry.get_loops_by_category("atom_chem_shift")):
+
+        # There is at least one chem shift saveframe for this entry
+        result[entry_id]["panav"] = {}
+        # Put the chemical shift loop in a file
+        with tempfile.NamedTemporaryFile(dir="/dev/shm") as chem_shifts:
+            chem_shifts.file.write(str(cs_loop).encode())
+            chem_shifts.flush()
+
+            panav_location = os.path.join(querymod.SUBMODULE_DIR, "panav/panav.jar")
+            try:
+                res = subprocess.check_output(["java", "-cp", panav_location, "CLI", "-f", "star", "-i",
+                                               chem_shifts.name], stderr=subprocess.STDOUT)
+                # There is a -j option that produces a somewhat usable JSON...
+                result[entry_id]["panav"][pos] = panav_parser(res)
+            except subprocess.CalledProcessError:
+                result[entry_id]["panav"][pos] = {"error": "PANAV failed on this entry."}
+
+    return jsonify(result)
 
 
 @entry_endpoints.route('/list_entries')
 def list_entries():
-    """ Return a list of all valid BMRB entries."""
+    """ Returns all valid entry IDs by default. If a database is specified than
+        only entries from that database are returned. """
 
-    entries = querymod.list_entries(database=querymod.get_db("combined"))
-    return jsonify(entries)
+    db = querymod.get_db("combined")
+    with RedisConnection() as r:
+        return jsonify(r.lrange("%s:entry_list" % db, 0, -1))
+
