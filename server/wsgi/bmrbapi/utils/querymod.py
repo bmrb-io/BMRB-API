@@ -241,7 +241,10 @@ def get_citation(entry_id, format_="python"):
         raise RequestException("Invalid format specified. Please choose from the "
                                "following formats: %s" % str(["json-ld", "text", "bibtex"]))
 
-    ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
+    try:
+        ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
+    except StopIteration:
+        raise RequestException("Invalid Entry ID specified. No such entry exists.")
 
     # First lets get all the values we need, later we will format them
 
