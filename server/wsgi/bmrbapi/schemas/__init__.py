@@ -38,3 +38,7 @@ class CatchAll(Schema):
 
 class GetStatus(Schema):
     pass
+
+
+class Static(Schema):
+    pass
