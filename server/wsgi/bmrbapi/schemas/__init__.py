@@ -25,7 +25,6 @@ def validate_parameters():
 
     #  This is either very clever or very stupid
     schema = globals().get(endpoint, Schema)
-    # TODO: Build a scanner module to show when schemas are missing
     if configuration['debug'] and schema is Schema:
         raise ServerException('Function without validator defined: %s' % request.endpoint)
     errors = schema().validate(request.args)
