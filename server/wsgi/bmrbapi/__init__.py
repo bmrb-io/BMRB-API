@@ -107,8 +107,8 @@ if (querymod.configuration.get('smtp')
     )
     mail = Mail(application)
 else:
-    logging.warning("Could not set up SMTP logger because the configuration"
-                    " was not specified.")
+    logging.warning("Could not set up SMTP logger because the configuration was not specified.")
+
 
 # Set up error handling
 @application.errorhandler(ServerException)
