@@ -89,7 +89,7 @@ class TestAPI(unittest.TestCase):
 
         # Delete the entry we uploaded
         with RedisConnection() as redis_conn:
-            redis_conn.delete(querymod.locate_entry(response['entry_id']))
+            redis_conn.delete(querymod.locate_entry(response['entry_id'], redis_conn))
 
     def test_create_chemcomp_from_db(self):
         """ See if our code to generate a chemcomp from the DB is working."""

@@ -32,7 +32,7 @@ SUBMODULE_DIR = os.path.join(os.path.dirname(_QUERYMOD_DIR), "submodules")
 logging.basicConfig()
 
 
-def locate_entry(entry_id, r_conn=None):
+def locate_entry(entry_id, r_conn):
     """ Determines what the Redis key is for an entry given the database
     provided."""
 
@@ -44,8 +44,6 @@ def locate_entry(entry_id, r_conn=None):
         entry_loc = "uploaded:entry:%s" % entry_id
 
         # Update the expiration time if the entry is used
-        if r_conn is None:
-            r_conn = get_redis_connection()
         if r_conn.exists(entry_loc):
             r_conn.expire(entry_loc, configuration['redis']['upload_timeout'])
 

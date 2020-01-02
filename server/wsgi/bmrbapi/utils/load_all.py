@@ -122,7 +122,7 @@ def one_entry(entry_name, entry_location, r_conn):
             logging.exception("On %s: error: %s" % (entry_name, str(e)))
 
         if ent is not None:
-            key = querymod.locate_entry(entry_name)
+            key = querymod.locate_entry(entry_name, r_conn)
             r_conn.set(key, zlib.compress(ent.get_json().encode()))
             logging.info("On %s: loaded" % entry_name)
             return entry_name
@@ -139,7 +139,7 @@ def one_entry(entry_name, entry_location, r_conn):
             logging.error("On %s: error: %s" % (entry_name, str(e)))
 
         if ent is not None:
-            key = querymod.locate_entry(entry_name)
+            key = querymod.locate_entry(entry_name, r_conn)
             r_conn.set(key, zlib.compress(ent.get_json().encode()))
             return entry_name
 
