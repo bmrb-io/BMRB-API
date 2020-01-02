@@ -12,7 +12,6 @@ from flask import jsonify, request, Blueprint, url_for
 from psycopg2 import ProgrammingError
 
 # Set up the blueprint
-import bmrbapi.views.entry
 import bmrbapi.views.sql_statements
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
@@ -56,7 +55,7 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
                                    'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
                                    'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
             elif row['type'] != "assigned_chemical_shifts":
-                saveframe_names = [x.name for x in bmrbapi.views.entry.get_saveframes_by_category(row['type'])]
+                saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
                 url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
 
                 extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],

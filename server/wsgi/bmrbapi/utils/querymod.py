@@ -7,16 +7,19 @@ is done; restapi.py mainly just calls the methods here and returns the results.
 
 import logging
 import os
+import sqlite3
 import subprocess
 import zlib
 from sys import maxsize as max_integer
+from typing import Union, List, Generator, Dict, Tuple, Optional
 
 import pynmrstar
 import simplejson as json
 from flask import request
 from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values, DictCursor
+from redis import StrictRedis
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
@@ -30,7 +33,7 @@ SUBMODULE_DIR = os.path.join(os.path.dirname(_QUERYMOD_DIR), "submodules")
 logging.basicConfig()
 
 
-def locate_entry(entry_id, r_conn):
+def locate_entry(entry_id: str, r_conn: StrictRedis) -> str:
     """ Determines what the Redis key is for an entry given the database
     provided."""
 
@@ -50,7 +53,7 @@ def locate_entry(entry_id, r_conn):
         return "macromolecules:entry:%s" % entry_id
 
 
-def get_database_from_entry_id(entry_id):
+def get_database_from_entry_id(entry_id: str) -> str:
     """ Returns the appropriate database to inspect based on ID."""
 
     if entry_id.startswith("bm"):
@@ -59,18 +62,23 @@ def get_database_from_entry_id(entry_id):
         return "macromolecules"
 
 
-def get_all_entries_from_redis(format_="object", database="macromolecules"):
+def get_all_entries_from_redis(format_: str = "object", database: str = "macromolecules") -> \
+        Generator[Tuple[str, Union[bytes, str, dict, pynmrstar.Entry]], None, None]:
     """ Returns a generator that returns all the entries from a given
-    database from Redis."""
+        database from Redis."""
 
     # Get the connection to redis
     with RedisConnection() as r:
         all_ids = list(r.lrange("%s:entry_list" % database, 0, -1))
 
-        return get_valid_entries_from_redis(all_ids, format_=format_, max_results=max_integer)
+        return get_valid_entries_from_redis(all_ids, format_=format_, max_results=max_integer, r_conn=r)
 
 
-def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, r_conn=None):
+def get_valid_entries_from_redis(search_ids: Union[str, list],
+                                 format_: str = "object",
+                                 max_results: int = 500,
+                                 r_conn: StrictRedis = None) -> \
+        Generator[Tuple[str, Union[bytes, str, dict, pynmrstar.Entry]], None, None]:
     """ Given a list of entries, yield them as the appropriate type as determined by the "format_"
     variable. Throw an exception if any of the provided IDs do not exist.
 
@@ -88,8 +96,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
 
     # Make sure there are not too many entries
     if len(search_ids) > max_results:
-        raise RequestException('Too many IDs queried. Please query %s '
-                               'or fewer entries at a time. You attempted to '
+        raise RequestException('Too many IDs queried. Please query %s or fewer entries at a time. You attempted to '
                                'query %d IDs.' % (max_results, len(search_ids)))
 
     # Get the connection to redis if needed
@@ -134,7 +141,7 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
             raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
 
 
-def get_status():
+def get_status() -> dict:
     """ Return some statistics about the server."""
 
     stats = {}
@@ -153,8 +160,7 @@ def get_status():
 
     with PostgresConnection() as pg:
         for key in ['metabolomics', 'macromolecules']:
-            sql = '''SELECT reltuples FROM pg_class
-                     WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
+            sql = '''SELECT reltuples FROM pg_class WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
             pg.execute(sql)
             stats[key]['num_chemical_shifts'] = int(pg.fetchone()[0])
 
@@ -167,7 +173,7 @@ def get_status():
     return stats
 
 
-def do_sql_mods(sql_file=None):
+def do_sql_mods(sql_file: str = None) -> None:
     """ Make sure functions we need are saved in the DB. """
 
     psql = PostgresConnection(user=configuration['postgres']['reload_user'])
@@ -181,7 +187,7 @@ def do_sql_mods(sql_file=None):
         psql.commit()
 
 
-def create_timedomain_table():
+def create_timedomain_table() -> None:
     """Creates the time domain links table."""
 
     def get_dir_size(start_path='.'):
@@ -228,19 +234,17 @@ DROP TABLE IF EXISTS web.timedomain_data_old;''')
         psql.commit()
 
 
-def create_csrosetta_table(csrosetta_sqlite_file):
+def create_csrosetta_table(csrosetta_sqlite_file: str) -> None:
     """Creates the CS-Rosetta links table."""
 
-    import sqlite3
-
-    c = sqlite3.connect(csrosetta_sqlite_file).cursor()
-    entries = c.execute('''
+    with sqlite3.connect(csrosetta_sqlite_file) as sqlite3_conn, sqlite3_conn as c:
+        entries = c.execute('''
 SELECT key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest
   FROM entries;''').fetchall()
 
-    psql = PostgresConnection()
-    with psql as cur:
-        cur.execute('''
+        psql = PostgresConnection()
+        with psql as cur:
+            cur.execute('''
 DROP TABLE IF EXISTS web.bmrb_csrosetta_entries;
 CREATE TABLE web.bmrb_csrosetta_entries (
  key varchar(13) PRIMARY KEY,
@@ -250,14 +254,14 @@ CREATE TABLE web.bmrb_csrosetta_entries (
  csrosetta_version varchar(5),
  rmsd_lowest float);''')
 
-        execute_values(cur, '''
+            execute_values(cur, '''
 INSERT INTO web.bmrb_csrosetta_entries(key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest)
 VALUES %s;''', entries)
 
-        psql.commit()
+            psql.commit()
 
 
-def get_bmrb_as_text(entry):
+def get_bmrb_as_text(entry: pynmrstar.Entry) -> str:
     """ Prints the unique set of data in a BMRB entry. """
 
     res_strings = set()
@@ -271,13 +275,13 @@ def get_bmrb_as_text(entry):
     return " ".join(res_strings)
 
 
-def wrap_it_up(item):
+def wrap_it_up(item: all) -> AsIs:
     """ Quote items in a way that postgres accepts and that doesn't allow
     SQL injection."""
     return AsIs('"' + item + '"')
 
 
-def get_category_and_tag(tag_name):
+def get_category_and_tag(tag_name: str) -> List[str]:
     """ Returns the tag category and the tag formatted as needed for DB
     queries. Returns an error if an invalid tag is provided. """
 
@@ -293,19 +297,17 @@ def get_category_and_tag(tag_name):
     if sp[0].startswith("_"):
         sp[0] = sp[0][1:]
     if len(sp) < 2:
-        raise RequestException("You must provide a full tag name with "
-                               "category included. For example: "
+        raise RequestException("You must provide a full tag name with category included. For example: "
                                "Entry.Experimental_method_subtype")
 
     if len(sp) > 2:
-        raise RequestException("You provided an invalid tag. NMR-STAR tags only "
-                               "contain one period.")
+        raise RequestException("You provided an invalid tag. NMR-STAR tags only contain one period.")
 
     return sp
 
 
-def select(fetch_list, table, where_dict=None, database="macromolecules",
-           modifiers=None, as_hash=True):
+def select(fetch_list: List[str], table: str, where_dict: dict = None, database: str = "macromolecules",
+           modifiers: List = None, as_hash: bool = True) -> dict:
     """ Performs a SELECT query constructed from the supplied arguments."""
 
     # Turn None parameters into the proper empty type
@@ -395,27 +397,7 @@ def select(fetch_list, table, where_dict=None, database="macromolecules",
     return result
 
 
-def process_nmrstar_query(params):
-    """ A helper method that parses the keys out of the query and validates
-    the 'ids' parameter."""
-
-    # Make sure they have IDS
-    if "ids" not in params:
-        raise RequestException('You must specify one or more entry IDs '
-                               'with the "ids" parameter.')
-
-    # Set the keys to the empty list if not specified
-    if 'keys' not in params:
-        params['keys'] = []
-
-    # Wrap the key in a list if necessary
-    if not isinstance(params['keys'], list):
-        params['keys'] = [params['keys']]
-
-    return params['keys']
-
-
-def process_select(**params):
+def process_select(**params) -> Union[dict, List[dict]]:
     """ Checks the parameters submitted before calling the get_fields_by_fields
     method with them."""
 
@@ -472,7 +454,7 @@ def process_select(**params):
     return result_list
 
 
-def create_chemcomp_from_db(chemcomp):
+def create_chemcomp_from_db(chemcomp: str) -> pynmrstar.Entry:
     """ Create a chem comp entry from the database."""
 
     # Rebuild the chemcomp and generate the cc_id. This way we can work
@@ -503,7 +485,7 @@ def create_chemcomp_from_db(chemcomp):
     return ent
 
 
-def get_bmrb_ids_from_pdb_id(pdb_id):
+def get_bmrb_ids_from_pdb_id(pdb_id: str) -> List[Dict[str, str]]:
     """ Returns the associated BMRB IDs for a PDB ID. """
 
     with PostgresConnection() as cur:
@@ -538,7 +520,7 @@ GROUP BY bmrb_id;'''
         return result
 
 
-def get_entry_id_tag(tag_or_category, database="macromolecules"):
+def get_entry_id_tag(tag_or_category: str, database: str = "macromolecules") -> str:
     """ Returns the tag that contains the logical Entry ID. This isn't always the Entry_ID tag.
 
     You should always provide a Postgres cursor if you've already opened one."""
@@ -577,7 +559,7 @@ SELECT tagfield
             raise RequestException("Invalid tag queried, unable to determine entryidflag.")
 
 
-def get_printable_tags(category, cur):
+def get_printable_tags(category: str, cur: DictCursor) -> Tuple[List[str], List[str]]:
     """ Returns a list of the tags that should be printed for the given
     category and a list of tags that are pointers."""
 
@@ -611,7 +593,8 @@ def get_printable_tags(category, cur):
     return tags_to_use, pointer_tags
 
 
-def create_saveframe_from_db(database, category, entry_id, id_search_field, cur):
+def create_saveframe_from_db(database: str, category: str, entry_id: str, id_search_field: str,
+                             cur: DictCursor) -> Optional[pynmrstar.Saveframe]:
     """ Builds a saveframe from the database. You specify the database:
     (metabolomics, macromolecules, chemcomps, combined), the category of the
     saveframe, the identifier of the saveframe, and the name of the tag that
@@ -656,8 +639,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field, cur)
                 {"category": category})
     table_name = cur.fetchone()[0]
 
-    if configuration['debug']:
-        print("Will look in table: %s" % table_name)
+    logging.debug("Will look in table: %s", table_name)
 
     # Get the sf_id for later
     cur.execute('''SELECT "Sf_ID","Sf_framecode" FROM %(table_name)s
@@ -705,8 +687,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field, cur)
     # Add the loops
     for each_loop in loops:
 
-        if configuration['debug']:
-            print("Doing loop: %s" % each_loop)
+        logging.debug("Doing loop: %s", each_loop)
 
         tags_to_use, pointer_tags = get_printable_tags(each_loop, cur)
 
@@ -765,7 +746,7 @@ def create_saveframe_from_db(database, category, entry_id, id_search_field, cur)
     return built_frame
 
 
-def create_combined_view():
+def create_combined_view() -> None:
     """ Create the combined schema from the other three schemas."""
 
     # Connect as the user that has write privileges
@@ -793,7 +774,7 @@ def create_combined_view():
         for table_name in combine_dict.keys():
             query = ''
             if len(combine_dict[table_name]) == 1:
-                print("Warning. Table from only one schema found.")
+                logging.warning("Table from only one schema found.")
             elif len(combine_dict[table_name]) == 2:
                 query = '''
     CREATE OR REPLACE VIEW combined."%s" AS
@@ -815,7 +796,6 @@ def create_combined_view():
                                      combine_dict[table_name][2], table_name)
 
             cur.execute(query)
-            print(query)
 
         cur.execute("GRANT USAGE ON SCHEMA combined to web;")
         cur.execute("GRANT SELECT ON ALL TABLES IN SCHEMA combined TO web;")
@@ -826,7 +806,7 @@ def create_combined_view():
 
 
 # Helper methods
-def get_db(default="macromolecules", valid_list=None):
+def get_db(default: str = "macromolecules", valid_list: List[str] = None) -> str:
     """ Make sure the DB specified is valid. """
 
     if not valid_list:
@@ -840,7 +820,7 @@ def get_db(default="macromolecules", valid_list=None):
     return database
 
 
-def check_local_ip():
+def check_local_ip() -> bool:
     """ Checks if the given IP is a local user."""
 
     for local_address in configuration['local-ips']:

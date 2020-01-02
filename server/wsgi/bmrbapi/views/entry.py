@@ -227,20 +227,19 @@ def get_entry(entry_id=None):
         # They want an entry
         else:
             # Get the entry
-            entry = querymod.get_valid_entries_from_redis(entry_id, format_=format_)
+            entry_id, entry = next(querymod.get_valid_entries_from_redis(entry_id, format_=format_))
 
             # Bypass JSON encode/decode cycle
             if format_ == "json":
-                return Response("""{"%s": %s}""" % (entry_id, entry[entry_id].decode()),
-                                mimetype="application/json")
+                return Response("""{"%s": %s}""" % (entry_id, entry.decode()), mimetype="application/json")
 
             # Special case to return raw nmrstar
             elif format_ == "rawnmrstar":
-                return Response(entry[entry_id], mimetype="text/nmrstar")
+                return Response(entry, mimetype="text/plain")
 
             # Special case for raw zlib
             elif format_ == "zlib":
-                return Response(entry[entry_id], mimetype="application/zlib")
+                return Response(entry, mimetype="application/zlib")
 
             # Return the entry in any other format
             return jsonify(entry)
@@ -594,4 +593,3 @@ def list_entries():
     db = querymod.get_db("combined")
     with RedisConnection() as r:
         return jsonify(r.lrange("%s:entry_list" % db, 0, -1))
-

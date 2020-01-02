@@ -1,4 +1,5 @@
 import psycopg2
+import psycopg2.extras
 import redis
 from redis.sentinel import Sentinel
 
@@ -15,13 +16,11 @@ class PostgresConnection:
                  user=configuration['postgres']['user'],
                  database=configuration['postgres']['database'],
                  port=configuration['postgres']['port'],
-                 cursor_factory=psycopg2.extras.DictCursor,
                  schema=None):
         self._host = host
         self._user = user
         self._database = database
         self._port = port
-        self._cursor_factory = cursor_factory
 
         # Check the schema
         if schema:
@@ -31,9 +30,9 @@ class PostgresConnection:
                 raise RequestException("Invalid database: %s." % schema)
         self._schema = schema
 
-    def __enter__(self):
+    def __enter__(self) -> psycopg2.extras.DictCursor:
         self._conn = psycopg2.connect(host=self._host, user=self._user, database=self._database,
-                                      port=self._port, cursor_factory=self._cursor_factory)
+                                      port=self._port, cursor_factory=psycopg2.extras.DictCursor)
         cursor = self._conn.cursor()
         if self._schema:
             cursor.execute('SET search_path=public,%s;', [self._schema])
@@ -46,7 +45,7 @@ class PostgresConnection:
         self._conn.commit()
 
 
-def get_redis_connection(db=None):
+def get_redis_connection(db: int = None):
     """ Figures out where the master redis instance is (and other parameters
     needed to connect like which database to use), and opens a connection
     to it. It passes back that connection object."""
@@ -61,7 +60,7 @@ class RedisConnection:
     to it. It passes back that connection object, using a context manager
     to clean up after use."""
 
-    def __init__(self, db=None):
+    def __init__(self, db: int = None):
         """ Creates a connection instance. Optionally specify a non-default db. """
 
         # Connect to redis
@@ -84,7 +83,7 @@ class RedisConnection:
         except redis.sentinel.MasterNotFoundError:
             raise ServerException('Could not determine Redis host. Sentinels offline?')
 
-    def __enter__(self):
+    def __enter__(self) -> redis.StrictRedis:
         try:
             self._redis_con = redis.StrictRedis(host=self._redis_host,
                                                 port=self._redis_port,
