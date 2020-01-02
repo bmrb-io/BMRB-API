@@ -1,6 +1,9 @@
 import os
 import subprocess
 import tempfile
+import zlib
+from hashlib import md5
+from time import time as unix_time
 
 import pynmrstar
 from flask import Blueprint, Response, request, jsonify, send_file
@@ -8,6 +11,7 @@ from pybmrb import csviz
 
 from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.utils import querymod
+from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 from bmrbapi.utils.querymod import get_valid_entries_from_redis
 
@@ -100,7 +104,6 @@ def get_saveframes_by_name(entry_id, saveframe_names, format_):
     return result
 
 
-
 def panav_parser(panav_text):
     """ Parses the PANAV data into something jsonify-able."""
 
@@ -165,7 +168,29 @@ def get_entry(entry_id=None):
 
     # If they are storing
     if request.method == "POST":
-        return jsonify(querymod.store_uploaded_entry())
+        uploaded_data = request.data
+
+        if not uploaded_data:
+            raise RequestException("No data uploaded. Please post the NMR-STAR file as the request body.")
+
+        if request.content_type == "application/json":
+            try:
+                parsed_star = pynmrstar.Entry.from_json(uploaded_data)
+            except (ValueError, TypeError) as e:
+                raise RequestException("Invalid uploaded JSON NMR-STAR data. Exception: %s" % e)
+        else:
+            try:
+                parsed_star = pynmrstar.Entry.from_string(uploaded_data)
+            except ValueError as e:
+                raise RequestException("Invalid uploaded NMR-STAR file. Exception: %s" % e)
+
+        key = md5(uploaded_data).digest().encode("hex")
+
+        with RedisConnection() as r:
+            r.setex("uploaded:entry:%s" % key, configuration['redis']['upload_timeout'],
+                    zlib.compress(parsed_star.get_json()))
+
+        return jsonify({"entry_id": key, "expiration": unix_time() + configuration['redis']['upload_timeout']})
 
     # Loading
     else:

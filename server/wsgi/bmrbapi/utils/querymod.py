@@ -9,9 +9,7 @@ import logging
 import os
 import subprocess
 import zlib
-from hashlib import md5
 from sys import maxsize as max_integer
-from time import time as unix_time
 
 import pynmrstar
 import simplejson as json
@@ -134,37 +132,6 @@ def get_valid_entries_from_redis(search_ids, format_="object", max_results=500, 
                                 raise RequestException("Invalid format: %s." % format_)
         else:
             raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
-
-
-def store_uploaded_entry():
-    """ Store an uploaded NMR-STAR file in the database."""
-
-    uploaded_data = request.data
-
-    if not uploaded_data:
-        raise RequestException("No data uploaded. Please post the "
-                               "NMR-STAR file as the request body.")
-
-    if request.content_type == "application/json":
-        try:
-            parsed_star = pynmrstar.Entry.from_json(uploaded_data)
-        except (ValueError, TypeError) as e:
-            raise RequestException("Invalid uploaded JSON NMR-STAR data."
-                                   " Exception: %s" % str(e))
-    else:
-        try:
-            parsed_star = pynmrstar.Entry.from_string(uploaded_data)
-        except ValueError as e:
-            raise RequestException("Invalid uploaded NMR-STAR file."
-                                   " Exception: %s" % str(e))
-
-    key = md5(uploaded_data).digest().encode("hex")
-
-    with RedisConnection() as r:
-        r.setex("uploaded:entry:%s" % key, configuration['redis']['upload_timeout'],
-                zlib.compress(parsed_star.get_json()))
-
-    return {"entry_id": key, "expiration": unix_time() + configuration['redis']['upload_timeout']}
 
 
 def get_status():
