@@ -36,7 +36,7 @@ class GetExperimentData(Schema):
 
 class GetCitation(Schema):
     class Format(enum.Enum):
-        python = "python"
+        text = "text"
         json_ld = "json-ld"
         bibtex = "bibtex"
     format = CustomErrorEnum(Format)

@@ -8,8 +8,8 @@ from io import StringIO
 import pynmrstar
 import requests
 
-from bmrbapi.utils.connections import RedisConnection
 from bmrbapi.utils import querymod
+from bmrbapi.utils.connections import RedisConnection
 
 url = 'http://localhost'
 

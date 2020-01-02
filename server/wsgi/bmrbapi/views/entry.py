@@ -336,22 +336,148 @@ ORDER BY me."Entry_ID", me."ID";'''
 def get_citation(entry_id):
     """ Return the citation information for an entry in the requested format. """
 
-    format_ = request.args.get('format', "python")
+    format_ = request.args.get('format', "json-ld")
+
+    # Error if invalid
+    if format_ not in ["json-ld", "text", "bibtex"]:
+        raise RequestException("Invalid format specified. Please choose from the following formats: %s" %
+                               str(["json-ld", "text", "bibtex"]))
+
+    try:
+        ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
+    except StopIteration:
+        raise RequestException("Entry '%s' does not exist in the public database." % entry_id)
+
+    # First lets get all the values we need, later we will format them
+
+    def get_tag(saveframe, tag):
+        tag = saveframe.get_tag(tag)
+        if not tag:
+            return ""
+        else:
+            return tag[0]
+
+    # Authors and citations
+    authors = []
+    citations = []
+    citation_title, citation_journal, citation_volume_issue, citation_pagination, citation_year = '', '', '', '', ''
+
+    for citation_frame in entry.get_saveframes_by_category("citations"):
+        if get_tag(citation_frame, "Class") == "entry citation":
+            cl = citation_frame["_Citation_author"]
+
+            # Get the journal information
+            citation_journal = get_tag(citation_frame, "Journal_abbrev")
+            issue = get_tag(citation_frame, "Journal_issue")
+            if issue and issue != ".":
+                issue = "(%s)" % issue
+            else:
+                issue = ""
+            volume = get_tag(citation_frame, "Journal_volume")
+            if not volume or volume == ".":
+                volume = ""
+            citation_volume_issue = "%s%s" % (volume, issue)
+            citation_year = get_tag(citation_frame, "Year")
+            citation_pagination = "%s-%s" % (get_tag(citation_frame, "Page_first"),
+                                             get_tag(citation_frame, "Page_last"))
+            citation_title = get_tag(citation_frame, "Title").strip()
+
+            # Authors
+            for row in cl.get_tag(["Given_name", "Family_name", "Middle_initials"]):
+                auth = {"@type": "Person", "givenName": row[0], "familyName": row[1]}
+                if row[2] != ".":
+                    auth["additionalName"] = row[2]
+                authors.append(auth)
+
+            # Citations
+            doi = get_tag(citation_frame, "DOI")
+            if doi and doi != ".":
+                citations.append({"@type": "ScholarlyArticle",
+                                  "@id": "https://doi.org/" + doi,
+                                  "headline": get_tag(citation_frame, "Title"),
+                                  "datePublished": get_tag(citation_frame, "Year")})
+
+    # Figure out last update day, version, and original release
+    orig_release, last_update, version = None, None, 1
+    for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number", "Date"]):
+        if row[0] == "1":
+            orig_release = row[1]
+        if int(row[0]) >= version:
+            last_update = row[1]
+            version = int(row[0])
+
+    # Title
+    title = entry.get_tag("Entry.Title")[0].rstrip()
+
+    # DOI string
+    doi = "10.13018/BMR%s" % ent_ret_id
+    if ent_ret_id.startswith("bmse") or ent_ret_id.startswith("bmst"):
+        doi = "10.13018/%s" % ent_ret_id.upper()
+
     if format_ == "json-ld":
-        format_ = "python"
+        res = {"@context": "http://schema.org",
+               "@type": "Dataset",
+               "@id": "https://doi.org/10.13018/%s" % doi,
+               "publisher": "Biological Magnetic Resonance Bank",
+               "datePublished": orig_release,
+               "dateModified": last_update,
+               "version": "v%s" % version,
+               "name": title,
+               "author": authors}
 
-    # Get the citation
-    citation = querymod.get_citation(entry_id, format_=format_)
+        if len(citations) > 0:
+            res["citation"] = citations
 
-    # Bibtex
-    if format_ == "bibtex":
-        return Response(citation, mimetype="application/x-bibtex",
+        return jsonify(res)
+
+    elif format_ == "bibtex":
+        ret_string = """@misc{%(entry_id)s,
+ author = {%(author)s},
+ publisher = {Biological Magnetic Resonance Bank},
+ title = {%(title)s},
+ year = {%(year)s},
+ month = {%(month)s},
+ doi = {%(doi)s},
+ howpublished = {https://doi.org/%(doi)s}
+ url = {https://doi.org/%(doi)s}
+}"""
+
+        ret_keys = {"entry_id": ent_ret_id, "title": title,
+                    "year": orig_release[0:4], "month": orig_release[5:7],
+                    "doi": doi,
+                    "author": " and ".join([x["familyName"] + ", " + x["givenName"] for x in authors])}
+
+        return Response(ret_string % ret_keys, mimetype="application/x-bibtex",
                         headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
+
     elif format_ == "text":
+
+        names = []
+        for x in authors:
+            name = x["familyName"] + ", " + x["givenName"][0] + "."
+            if "additionalName" in x:
+                name += x["additionalName"]
+            names.append(name)
+
+        text_dict = {"entry_id": entry_id, "title": title,
+                     "citation_title": citation_title,
+                     "citation_journal": citation_journal,
+                     "citation_volume_issue": citation_volume_issue,
+                     "citation_pagination": citation_pagination,
+                     "citation_year": citation_year,
+                     "author": ", ".join(names),
+                     "doi": doi}
+
+        if citation_journal:
+            citation = """BMRB ID: %(entry_id)s
+%(author)s
+%(citation_title)s
+%(citation_journal)s %(citation_volume_issue)s pp. %(citation_pagination)s (%(citation_year)s) doi: %(doi)s""" % \
+                       text_dict
+        else:
+            citation = "BMRB ID: %(entry_id)s %(author)s %(title)s doi: %(doi)s" % text_dict
+
         return Response(citation, mimetype="text/plain")
-    # JSON+LD
-    else:
-        return jsonify(citation)
 
 
 @entry_endpoints.route('/entry/<entry_id>/simulate_hsqc')
