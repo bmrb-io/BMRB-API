@@ -477,25 +477,23 @@ def get_bmrb_ids_from_pdb_id(pdb_id: str) -> List[Dict[str, str]]:
     SELECT bmrb_id, array_agg(link_type) from 
 (SELECT bmrb_id, 'Exact' AS link_type, null AS comment
   FROM web.pdb_link
-  WHERE pdb_id LIKE %s
+  WHERE pdb_id LIKE UPPER(%s)
 UNION
 SELECT "Entry_ID", 'Author Provided', "Relationship"
   FROM macromolecules."Related_entries"
-  WHERE "Database_accession_code" LIKE %s AND "Database_name" = 'PDB'
+  WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
     AND "Relationship" != 'Exact'
 UNION
 SELECT "Entry_ID", 'BLAST Match', "Entry_details"
   FROM macromolecules."Entity_db_link"
-  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB'
+  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB'
 UNION
 SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
   FROM macromolecules."Assembly_db_link"
-  WHERE "Accession_code" LIKE %s AND "Database_code" = 'PDB') AS sub
+  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB') AS sub
 GROUP BY bmrb_id;'''
 
-        pdb_id = pdb_id.upper()
-        terms = [pdb_id, pdb_id, pdb_id, pdb_id]
-        cur.execute(query, terms)
+        cur.execute(query, [pdb_id, pdb_id, pdb_id, pdb_id])
 
         result = []
         for x in cur.fetchall():
