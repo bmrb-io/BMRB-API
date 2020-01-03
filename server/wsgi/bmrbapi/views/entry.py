@@ -4,6 +4,7 @@ import tempfile
 import zlib
 from hashlib import md5
 from time import time as unix_time
+from typing import List, Dict
 
 import pynmrstar
 from flask import Blueprint, Response, request, jsonify, send_file
@@ -19,7 +20,7 @@ entry_endpoints = Blueprint('entry', __name__)
 
 
 # Helper functions defined before the views
-def check_valid(entry_id):
+def check_valid(entry_id) -> None:
     """ Checks if a given entry ID exists in redis. If not, throws a RequestException."""
 
     with RedisConnection() as r:
@@ -27,7 +28,7 @@ def check_valid(entry_id):
             raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
 
 
-def get_tags(entry_id, search_tags):
+def get_tags(entry_id: str, search_tags: List[str]) -> Dict[str, List[str]]:
     """ Returns results for the queried tags."""
 
     # Check the validity of the tags
@@ -45,7 +46,8 @@ def get_tags(entry_id, search_tags):
         raise RequestException(str(error))
 
 
-def get_loops(entry_id, loop_categories, format_):
+def get_loops_by_category(entry_id: str, loop_categories: List[str], format_: str) ->\
+        Dict[str, Dict[str, List[pynmrstar.Loop]]]:
     """ Returns the matching loops."""
 
     result = {}
@@ -65,7 +67,8 @@ def get_loops(entry_id, loop_categories, format_):
     return result
 
 
-def get_saveframes_by_category(entry_id, saveframe_categories, format_):
+def get_saveframes_by_category(entry_id: str, saveframe_categories: List[str], format_: str) -> \
+        Dict[str, Dict[str, List[pynmrstar.Saveframe]]]:
     """ Returns the matching saveframes."""
 
     result = {}
@@ -83,7 +86,8 @@ def get_saveframes_by_category(entry_id, saveframe_categories, format_):
     return result
 
 
-def get_saveframes_by_name(entry_id, saveframe_names, format_):
+def get_saveframes_by_name(entry_id: str, saveframe_names: List[str], format_: str) -> \
+        Dict[str, Dict[str, List[pynmrstar.Saveframe]]]:
     """ Returns the matching saveframes."""
 
     result = {}
@@ -104,11 +108,10 @@ def get_saveframes_by_name(entry_id, saveframe_names, format_):
     return result
 
 
-def panav_parser(panav_text):
+def panav_parser(panav_text: bytes) -> dict:
     """ Parses the PANAV data into something jsonify-able."""
 
-    if type(panav_text) == bytes:
-        panav_text = panav_text.decode()
+    panav_text: str = panav_text.decode()
 
     lines = panav_text.split("\n")
 
@@ -218,7 +221,7 @@ def get_entry(entry_id=None):
 
         # See if they are requesting one or more loop
         elif request.args.get('loop', None):
-            return jsonify(get_loops(entry_id, request.args.getlist('loop'), format_))
+            return jsonify(get_loops_by_category(entry_id, request.args.getlist('loop'), format_))
 
         # See if they want a tag
         elif request.args.get('tag', None):
