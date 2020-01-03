@@ -50,7 +50,7 @@ def create_timedomain_table() -> None:
             entry_id = int("".join([_ for _ in x if _.isdigit()]))
             yield entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x))
 
-    psql = PostgresConnection()
+    psql = PostgresConnection(user=configuration["postgres"]["reload_user"])
     with psql as cur:
         cur.execute('''
 CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
