@@ -45,15 +45,6 @@ class PostgresConnection:
         self._conn.commit()
 
 
-def get_redis_connection(db: int = None):
-    """ Figures out where the master redis instance is (and other parameters
-    needed to connect like which database to use), and opens a connection
-    to it. It passes back that connection object."""
-
-    with RedisConnection(db=db) as r:
-        return r
-
-
 class RedisConnection:
     """ Figures out where the master redis instance is (and other parameters
     needed to connect like which database to use), and opens a connection

@@ -4,13 +4,11 @@
 provided through the REST interface. This is where the real work
 is done; restapi.py mainly just calls the methods here and returns the results.
 """
-
 import logging
 import os
 import sqlite3
 import subprocess
 import zlib
-from sys import maxsize as max_integer
 from typing import Union, List, Generator, Dict, Tuple, Optional
 
 import pynmrstar
@@ -23,7 +21,7 @@ from redis import StrictRedis
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
-from bmrbapi.utils.connections import PostgresConnection, get_redis_connection, RedisConnection
+from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 
 # Determine submodules folder
 _QUERYMOD_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -62,22 +60,9 @@ def get_database_from_entry_id(entry_id: str) -> str:
         return "macromolecules"
 
 
-def get_all_entries_from_redis(format_: str = "object", database: str = "macromolecules") -> \
-        Generator[Tuple[str, Union[bytes, str, dict, pynmrstar.Entry]], None, None]:
-    """ Returns a generator that returns all the entries from a given
-        database from Redis."""
-
-    # Get the connection to redis
-    with RedisConnection() as r:
-        all_ids = list(r.lrange("%s:entry_list" % database, 0, -1))
-
-        return get_valid_entries_from_redis(all_ids, format_=format_, max_results=max_integer, r_conn=r)
-
-
 def get_valid_entries_from_redis(search_ids: Union[str, list],
                                  format_: str = "object",
-                                 max_results: int = 500,
-                                 r_conn: StrictRedis = None) -> \
+                                 max_results: int = 500) -> \
         Generator[Tuple[str, Union[bytes, str, dict, pynmrstar.Entry]], None, None]:
     """ Given a list of entries, yield them as the appropriate type as determined by the "format_"
     variable. Throw an exception if any of the provided IDs do not exist.
@@ -100,45 +85,44 @@ def get_valid_entries_from_redis(search_ids: Union[str, list],
                                'query %d IDs.' % (max_results, len(search_ids)))
 
     # Get the connection to redis if needed
-    if r_conn is None:
-        r_conn = get_redis_connection()
+    with RedisConnection() as r_conn:
 
-    # Go through the IDs
-    for entry_id in search_ids:
+        # Go through the IDs
+        for entry_id in search_ids:
 
-        entry = r_conn.get(locate_entry(entry_id, r_conn=r_conn))
+            entry = r_conn.get(locate_entry(entry_id, r_conn=r_conn))
 
-        # See if it is in redis
-        if entry:
-            # Return the compressed entry
-            if format_ == "zlib":
-                yield entry_id, entry
-
-            else:
-                # Uncompress the zlib into serialized JSON
-                entry = zlib.decompress(entry)
-                if format_ == "json":
+            # See if it is in redis
+            if entry:
+                # Return the compressed entry
+                if format_ == "zlib":
                     yield entry_id, entry
+
                 else:
-                    # Parse the JSON into python dict
-                    entry = json.loads(entry)
-                    if format_ == "dict":
+                    # Uncompress the zlib into serialized JSON
+                    entry = zlib.decompress(entry)
+                    if format_ == "json":
                         yield entry_id, entry
                     else:
-                        # Parse the dict into object
-                        entry = pynmrstar.Entry.from_json(entry)
-                        if format_ == "object":
+                        # Parse the JSON into python dict
+                        entry = json.loads(entry)
+                        if format_ == "dict":
                             yield entry_id, entry
                         else:
-                            # Return NMR-STAR
-                            if format_ == "nmrstar" or format_ == "rawnmrstar":
-                                yield entry_id, str(entry)
-
-                            # Unknown format
+                            # Parse the dict into object
+                            entry = pynmrstar.Entry.from_json(entry)
+                            if format_ == "object":
+                                yield entry_id, entry
                             else:
-                                raise RequestException("Invalid format: %s." % format_)
-        else:
-            raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
+                                # Return NMR-STAR
+                                if format_ == "nmrstar" or format_ == "rawnmrstar":
+                                    yield entry_id, str(entry)
+
+                                # Unknown format
+                                else:
+                                    raise RequestException("Invalid format: %s." % format_)
+            else:
+                raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
 
 
 def get_status() -> dict:
