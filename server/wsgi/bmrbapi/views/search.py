@@ -18,8 +18,8 @@ from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.decorators import require_content_type_json
 from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, select, \
-    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, process_select, \
-    get_category_and_tag, wrap_it_up
+    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, \
+    get_category_and_tag, wrap_it_up, select as querymod_select
 
 search_endpoints = Blueprint('search', __name__)
 
@@ -548,4 +548,55 @@ def instant():
 def select():
     """ Performs an advanced select query. """
 
-    return jsonify(process_select(**request.json))
+    params: dict = request.json
+
+    # Get the database name
+    database = params.get("database", "macromolecules")
+
+    if database == "combined":
+        raise RequestException('Merged database not yet available.')
+    if database not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
+        raise RequestException("Invalid database specified.")
+
+    # Okay, now we need to go through each query and get the results
+    if not isinstance(params['query'], list):
+        params['query'] = [params['query']]
+
+    result_list = []
+
+    # Build the amalgamation of queries
+    for each_query in params['query']:
+
+        # For one query:
+        each_query['select'] = each_query.get("select", ["Entry_ID"])
+        if not isinstance(each_query['select'], list):
+            each_query['select'] = [each_query['select']]
+        # We need the ID to join if they are doing multiple queries
+        if len(params['query']) > 1:
+            each_query['select'].append("Entry_ID")
+        if "from" not in each_query:
+            raise RequestException('You must specify which table to query with the "from" parameter.')
+        if "dict" not in each_query:
+            each_query['dict'] = True
+
+        # Get the query modifiers
+        each_query['modifiers'] = each_query.get("modifiers", [])
+        if not isinstance(each_query['modifiers'], list):
+            each_query['modifiers'] = [each_query['modifiers']]
+
+        each_query['where'] = each_query.get("where", {})
+
+        if len(params['query']) > 1:
+            # If there are multiple queries then add their results to the list
+            cur_res = querymod_select(each_query['select'], each_query['from'],
+                                      where_dict=each_query['where'], database=database,
+                                      modifiers=each_query['modifiers'], as_dict=False)
+            result_list.append(cur_res)
+        else:
+            # If there is only one query just return it
+            return querymod_select(each_query['select'], each_query['from'],
+                                   where_dict=each_query['where'], database=database,
+                                   modifiers=each_query['modifiers'],
+                                   as_dict=each_query['dict'])
+
+    return result_list

@@ -6,8 +6,6 @@ is done; restapi.py mainly just calls the methods here and returns the results.
 """
 import logging
 import os
-import sqlite3
-import subprocess
 import zlib
 from typing import Union, List, Generator, Dict, Tuple, Optional
 
@@ -16,7 +14,7 @@ import simplejson as json
 from flask import request
 from psycopg2 import ProgrammingError
 from psycopg2.extensions import AsIs
-from psycopg2.extras import execute_values, DictCursor
+from psycopg2.extras import DictCursor
 from redis import StrictRedis
 
 from bmrbapi.exceptions import RequestException, ServerException
@@ -291,7 +289,7 @@ def get_category_and_tag(tag_name: str) -> List[str]:
 
 
 def select(fetch_list: List[str], table: str, where_dict: dict = None, database: str = "macromolecules",
-           modifiers: List = None, as_hash: bool = True) -> dict:
+           modifiers: List = None, as_dict: bool = True) -> dict:
     """ Performs a SELECT query constructed from the supplied arguments."""
 
     # Turn None parameters into the proper empty type
@@ -359,7 +357,7 @@ def select(fetch_list: List[str], table: str, where_dict: dict = None, database:
         # Get the column names from the DB
         col_names = [desc[0] for desc in cur.description]
 
-        if not as_hash:
+        if not as_dict:
             return {'data': rows, 'columns': [table + "." + x for x in col_names]}
 
         # Turn the results into a dictionary
@@ -379,63 +377,6 @@ def select(fetch_list: List[str], table: str, where_dict: dict = None, database:
             result['debug'] = cur.query
 
     return result
-
-
-def process_select(**params) -> Union[dict, List[dict]]:
-    """ Checks the parameters submitted before calling the get_fields_by_fields
-    method with them."""
-
-    # Get the database name
-    database = params.get("database", "macromolecules")
-
-    if database == "combined":
-        raise RequestException('Merged database not yet available.')
-    if database not in ["chemcomps", "macromolecules", "metabolomics", "dict"]:
-        raise RequestException("Invalid database specified.")
-
-    # Okay, now we need to go through each query and get the results
-    if not isinstance(params['query'], list):
-        params['query'] = [params['query']]
-
-    result_list = []
-
-    # Build the amalgamation of queries
-    for each_query in params['query']:
-
-        # For one query:
-        each_query['select'] = each_query.get("select", ["Entry_ID"])
-        if not isinstance(each_query['select'], list):
-            each_query['select'] = [each_query['select']]
-        # We need the ID to join if they are doing multiple queries
-        if len(params['query']) > 1:
-            each_query['select'].append("Entry_ID")
-        if "from" not in each_query:
-            raise RequestException('You must specify which table to '
-                                   'query with the "from" parameter.')
-        if "hash" not in each_query:
-            each_query['hash'] = True
-
-        # Get the query modifiers
-        each_query['modifiers'] = each_query.get("modifiers", [])
-        if not isinstance(each_query['modifiers'], list):
-            each_query['modifiers'] = [each_query['modifiers']]
-
-        each_query['where'] = each_query.get("where", {})
-
-        if len(params['query']) > 1:
-            # If there are multiple queries then add their results to the list
-            cur_res = select(each_query['select'], each_query['from'],
-                             where_dict=each_query['where'], database=database,
-                             modifiers=each_query['modifiers'], as_hash=False)
-            result_list.append(cur_res)
-        else:
-            # If there is only one query just return it
-            return select(each_query['select'], each_query['from'],
-                          where_dict=each_query['where'], database=database,
-                          modifiers=each_query['modifiers'],
-                          as_hash=each_query['hash'])
-
-    return result_list
 
 
 def create_chemcomp_from_db(chemcomp: str) -> pynmrstar.Entry:

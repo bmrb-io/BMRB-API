@@ -6,6 +6,7 @@ to the correct location and passes the results back."""
 
 import logging
 import os
+import subprocess
 import time
 import traceback
 from logging.handlers import RotatingFileHandler, SMTPHandler
@@ -19,6 +20,7 @@ from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas import validate_parameters
 from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
+from bmrbapi.utils.connections import RedisConnection, PostgresConnection
 from bmrbapi.views.db_links import db_endpoints
 from bmrbapi.views.dictionary import dictionary_endpoints
 from bmrbapi.views.entry import entry_endpoints
@@ -192,4 +194,30 @@ def catch_all():
 def get_status():
     """ Returns the server status."""
 
-    return jsonify(querymod.get_status())
+    stats = {}
+    for key in ['metabolomics', 'macromolecules', 'chemcomps', 'combined']:
+        stats[key] = {}
+        with RedisConnection() as r:
+            for k, v in r.hgetall("%s:meta" % key).items():
+                k = k.decode()
+                v = v.decode()
+                stats[key][k] = v
+        for skey in stats[key]:
+            if skey == "update_time":
+                stats[key][skey] = float(stats[key][skey])
+            else:
+                stats[key][skey] = int(stats[key][skey])
+
+    with PostgresConnection() as pg:
+        for key in ['metabolomics', 'macromolecules']:
+            sql = '''SELECT reltuples FROM pg_class WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
+            pg.execute(sql)
+            stats[key]['num_chemical_shifts'] = int(pg.fetchone()[0])
+
+    try:
+        stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"]).strip()
+    except subprocess.CalledProcessError:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'version.txt'), 'r') as version_file:
+            stats['version'] = version_file.read().strip()
+
+    return jsonify(stats)
