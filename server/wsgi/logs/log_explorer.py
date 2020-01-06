@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 
+import datetime
+import json
 import os
 import sys
-import json
-import datetime
 
 
-def log_generator(path='/raid/www/admin/logs/', default_name='api_json_v2.log'):
+def log_generator(path='/webapi/logs/', default_name='api_json_v2.log'):
     for file_ in os.listdir(path):
         if file_.startswith(default_name):
             with open(os.path.join(path, file_), 'rU') as cur_file:
