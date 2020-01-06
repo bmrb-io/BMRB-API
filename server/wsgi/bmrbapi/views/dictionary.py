@@ -1,10 +1,7 @@
-import zlib
-
-import simplejson as json
 from flask import Blueprint, request, jsonify
 
 from bmrbapi.exceptions import RequestException
-from bmrbapi.utils.connections import RedisConnection, PostgresConnection
+from bmrbapi.utils.connections import PostgresConnection
 
 dictionary_endpoints = Blueprint('dictionary', __name__)
 
@@ -44,18 +41,3 @@ GROUP BY it.itemenumclosedflg, it.enumeratedflg;''', [tag_name])
         return jsonify(new_result)
 
     return jsonify(result)
-
-
-@dictionary_endpoints.route('/schema/<schema_version>')
-def return_schema(schema_version):
-    """ Returns the BMRB schema as JSON. """
-
-    with RedisConnection() as r:
-        if not schema_version:
-            schema_version = r.get('schema_version')
-        try:
-            schema = json.loads(zlib.decompress(r.get("schema:%s" % schema_version)))
-        except TypeError:
-            raise RequestException("Invalid schema version.")
-
-        return jsonify(schema)
