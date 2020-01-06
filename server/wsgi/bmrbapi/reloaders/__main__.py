@@ -8,11 +8,9 @@ import os
 import re
 import sys
 import time
-import zlib
 from multiprocessing import Pipe, cpu_count
 
-import pynmrstar
-
+from bmrbapi.reloaders.database import one_entry
 from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection, RedisConnection
@@ -20,10 +18,62 @@ from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 to_process = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 
+
+def add_to_loaded(loaded_entry):
+    """ The entry loaded successfully, so put it in the list of
+    loaded entries of the appropriate type based on its name."""
+
+    if loaded_entry.startswith("chemcomp"):
+        loaded['chemcomps'].append(loaded_entry)
+    elif loaded_entry.startswith("bm"):
+        loaded['metabolomics'].append(loaded_entry)
+    else:
+        loaded['macromolecules'].append(loaded_entry)
+
+
+def _natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
+    """ Use as a key to do a natural sort. 1<12<2<23."""
+
+    if type(s) == bytes:
+        s = s.decode()
+
+    return [int(text) if text.isdigit() else text.lower()
+            for text in re.split(_nsre, s)]
+
+
+# Put a few more things in REDIS
+def make_entry_list(name: str):
+    """ Calculate the list of entries to put in the DB."""
+
+    # Sort the entries
+    ent_list = sorted(loaded[name], key=_natural_sort_key)
+
+    if len(ent_list) == 0:
+        logging.critical('Could not load the entry set %s - no entries located!', name)
+        return
+
+    # Get the old entry list and delete ones that aren't there anymore
+    old_entries = r_conn.lrange("%s:entry_list" % name, 0, -1)
+    for each_entry in old_entries:
+        if each_entry not in ent_list:
+            to_delete = "%s:entry:%s" % (name, each_entry)
+            if r_conn.delete(to_delete):
+                logging.info("Deleted stale entry: %s" % to_delete)
+
+    # Set the update time, ready status, and entry list
+    r_conn.hmset("%s:meta" % name, {"update_time": time.time(), "num_entries": len(ent_list)})
+    loading = "%s:entry_list" % name + "_loading"
+    r_conn.delete(loading)
+    r_conn.rpush(loading, *ent_list)
+    r_conn.rename(loading, "%s:entry_list" % name)
+
+    dropped = [y[0] for y in to_process[name] if y[0] not in set(loaded[name])]
+    logging.info("Entries not loaded in DB %s: %s" % (name, dropped))
+
+
 # Specify some basic information about our command
 opt = optparse.OptionParser(usage="usage: %prog", version="1.0",
-                            description="Update the entries in the Redis"
-                                        " database.")
+                            description="Update the entries in the Redis database.")
 opt.add_option("--metabolomics", action="store_true", dest="metabolomics",
                default=False, help="Update the metabolomics entries.")
 opt.add_option("--macromolecules", action="store_true", dest="macromolecules",
@@ -47,7 +97,7 @@ logger = logging.getLogger()
 if options.verbose:
     logger.setLevel(logging.DEBUG)
 else:
-    logger.setLevel(logging.ERROR)
+    logger.setLevel(logging.WARNING)
 
 # Make sure they specify a DB
 if not (options.metabolomics or options.macromolecules or
@@ -65,9 +115,11 @@ if options.all:
 if options.metabolomics:
     entries = querymod.select(["Entry_ID"], "Release", database="metabolomics")
     entries = sorted(set(entries["Release.Entry_ID"]))
+
+    substitution_count = configuration['metabolomics_entry_directory'].count("%s")
     for entry in entries:
-        an_entry = (entry, "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s/%s.str" % (entry, entry))
-        to_process['metabolomics'].append(an_entry)
+        entry_dir = configuration['metabolomics_entry_directory'] % ((entry,) * substitution_count)
+        to_process['metabolomics'].append((entry, entry_dir))
 
 # Get the released entries from ETS
 if options.macromolecules:
@@ -82,12 +134,12 @@ if options.macromolecules:
         cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
         valid_ids = sorted([int(x[0]) for x in cur.fetchall()])
 
-    entry_fs_location = "/share/subedit/entries/bmr%d/clean/bmr%d_3.str"
+    substitution_count = configuration['macromolecule_entry_directory'].count("%s")
 
     # Load the normal data
     for entry_id in valid_ids:
-        cur_entry = [str(entry_id), entry_fs_location % (entry_id, entry_id)]
-        to_process['macromolecules'].append(cur_entry)
+        entry_dir = configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count)
+        to_process['macromolecules'].append([str(entry_id), entry_dir])
 
 # Load the chemcomps
 if options.chemcomps:
@@ -97,52 +149,7 @@ if options.chemcomps:
     to_process['chemcomps'].extend([[x, None] for x in chemcomps])
 
 # Generate the flat list of entries to process
-to_process['combined'] = (to_process['chemcomps'] +
-                          to_process['macromolecules'] +
-                          to_process['metabolomics'])
-
-
-def clear_cache(r_conn, db_name):
-    """ Delete the cache for a given schema."""
-
-    for key in r_conn.scan_iter():
-        if key.decode().startswith("cache:%s" % db_name):
-            r_conn.delete(key)
-            logging.info("Deleting cached query: %s" % key)
-
-
-def one_entry(entry_name, entry_location, r_conn):
-    """ Load an entry and add it to REDIS """
-
-    if "chemcomp" in entry_name:
-        try:
-            ent = querymod.create_chemcomp_from_db(entry_name)
-        except Exception as e:
-            ent = None
-            logging.exception("On %s: error: %s" % (entry_name, str(e)))
-
-        if ent is not None:
-            key = querymod.locate_entry(entry_name, r_conn)
-            r_conn.set(key, zlib.compress(ent.get_json().encode()))
-            logging.info("On %s: loaded" % entry_name)
-            return entry_name
-    else:
-        try:
-            ent = pynmrstar.Entry.from_file(entry_location)
-
-            logging.info("On %s: loaded." % entry_name)
-        except IOError:
-            ent = None
-            logging.warning("On %s: no file." % entry_name)
-        except Exception as e:
-            ent = None
-            logging.error("On %s: error: %s" % (entry_name, str(e)))
-
-        if ent is not None:
-            key = querymod.locate_entry(entry_name, r_conn)
-            r_conn.set(key, zlib.compress(ent.get_json().encode()))
-            return entry_name
-
+to_process['combined'] = (to_process['chemcomps'] + to_process['macromolecules'] + to_process['metabolomics'])
 
 # If specified, flush the DB
 if options.flush:
@@ -186,19 +193,6 @@ for thread in range(0, num_threads):
     else:
         child_conn.close()
 
-
-def add_to_loaded(loaded_entry):
-    """ The entry loaded successfully, so put it in the list of
-    loaded entries of the appropriate type based on its name."""
-
-    if loaded_entry.startswith("chemcomp"):
-        loaded['chemcomps'].append(loaded_entry)
-    elif loaded_entry.startswith("bm"):
-        loaded['metabolomics'].append(loaded_entry)
-    else:
-        loaded['macromolecules'].append(loaded_entry)
-
-
 # Check if entries have completed by listening on the sockets
 while len(to_process['combined']) > 0:
 
@@ -224,57 +218,17 @@ for thread in range(0, num_threads):
     if data:
         add_to_loaded(data)
 
+with RedisConnection(db=options.db) as r_conn:
+    # Use a Redis list so other applications can read the list of entries
+    if options.metabolomics:
+        make_entry_list('metabolomics')
+    if options.macromolecules:
+        make_entry_list('macromolecules')
+    if options.chemcomps:
+        make_entry_list('chemcomps')
 
-def natural_sort_key(s, _nsre=re.compile('([0-9]+)')):
-    """ Use as a key to do a natural sort. 1<12<2<23."""
-
-    if type(s) == bytes:
-        s = s.decode()
-
-    return [int(text) if text.isdigit() else text.lower()
-            for text in re.split(_nsre, s)]
-
-
-# Put a few more things in REDIS
-def make_entry_list(name):
-    """ Calculate the list of entries to put in the DB."""
-
-    # Sort the entries
-    ent_list = sorted(loaded[name], key=natural_sort_key)
-
-    # Get the old entry list and delete ones that aren't there anymore
-    old_entries = r.lrange("%s:entry_list" % name, 0, -1)
-    for each_entry in old_entries:
-        if each_entry not in ent_list:
-            to_delete = "%s:entry:%s" % (name, each_entry)
-            if r.delete(to_delete):
-                logging.info("Deleted stale entry: %s" % to_delete)
-
-    # Set the update time, ready status, and entry list
-    r.hmset("%s:meta" % name, {"update_time": time.time(),
-                               "num_entries": len(ent_list)})
-    loading = "%s:entry_list" % name + "_loading"
-    r.delete(loading)
-    r.rpush(loading, *ent_list)
-    r.rename(loading, "%s:entry_list" % name)
-
-    dropped = [y[0] for y in to_process[name] if y[0] not in set(loaded[name])]
-    logging.info("Entries not loaded in DB %s: %s" % (name, dropped))
-
-
-# Use a Redis list so other applications can read the list of entries
-if options.metabolomics:
-    make_entry_list('metabolomics')
-    clear_cache(r, 'metabolomics')
-if options.macromolecules:
-    make_entry_list('macromolecules')
-    clear_cache(r, 'macromolecules')
-if options.chemcomps:
-    make_entry_list('chemcomps')
-    clear_cache(r, 'chemcomps')
-
-# Make the full list from the existing lists regardless of update type
-loaded['combined'] = (r.lrange('metabolomics:entry_list', 0, -1) +
-                      r.lrange('macromolecules:entry_list', 0, -1) +
-                      r.lrange('chemcomps:entry_list', 0, -1))
-make_entry_list('combined')
+    # Make the full list from the existing lists regardless of update type
+    loaded['combined'] = (r_conn.lrange('metabolomics:entry_list', 0, -1) +
+                          r_conn.lrange('macromolecules:entry_list', 0, -1) +
+                          r_conn.lrange('chemcomps:entry_list', 0, -1))
+    make_entry_list('combined')

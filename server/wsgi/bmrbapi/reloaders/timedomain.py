@@ -1,23 +1,9 @@
 import os
-import sqlite3
 
 from psycopg2.extras import execute_values
 
-from bmrbapi import PostgresConnection, configuration
-
-
-def do_sql_mods(sql_file: str = None) -> None:
-    """ Make sure functions we need are saved in the DB. """
-
-    psql = PostgresConnection(user=configuration['postgres']['reload_user'])
-    with psql as cur:
-        if sql_file is None:
-            sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
-        else:
-            sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", sql_file)
-
-        cur.execute(open(sql_file, "r").read())
-        psql.commit()
+from bmrbapi.utils.configuration import configuration
+from bmrbapi.utils.connections import PostgresConnection
 
 
 def create_timedomain_table() -> None:
@@ -65,30 +51,3 @@ ALTER TABLE IF EXISTS web.timedomain_data RENAME TO timedomain_data_old;
 ALTER TABLE web.timedomain_data_tmp RENAME TO timedomain_data;
 DROP TABLE IF EXISTS web.timedomain_data_old;''')
         psql.commit()
-
-
-def create_csrosetta_table(csrosetta_sqlite_file: str) -> None:
-    """Creates the CS-Rosetta links table."""
-
-    with sqlite3.connect(csrosetta_sqlite_file) as sqlite3_conn, sqlite3_conn as c:
-        entries = c.execute('''
-SELECT key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest
-  FROM entries;''').fetchall()
-
-        psql = PostgresConnection()
-        with psql as cur:
-            cur.execute('''
-DROP TABLE IF EXISTS web.bmrb_csrosetta_entries;
-CREATE TABLE web.bmrb_csrosetta_entries (
- key varchar(13) PRIMARY KEY,
- bmrbid integer,
- rosetta_version
- varchar(5),
- csrosetta_version varchar(5),
- rmsd_lowest float);''')
-
-            execute_values(cur, '''
-INSERT INTO web.bmrb_csrosetta_entries(key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest)
-VALUES %s;''', entries)
-
-            psql.commit()

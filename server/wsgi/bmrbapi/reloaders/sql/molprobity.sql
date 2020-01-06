@@ -49,9 +49,9 @@ FROM molprobity.oneline_tmp
 WITH NO DATA;
 
 -- Load data
-\copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
-\copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelinebuild.out.csv' DELIMITER ':' CSV;
-\copy tmp_table FROM '/websites/extras/files/pdb/molprobity/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
+\copy tmp_table FROM '%s/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
+\copy tmp_table FROM '%s/oneline_files/combined/allonelinebuild.out.csv' DELIMITER ':' CSV;
+\copy tmp_table FROM '%s/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
 
 -- Populate real table with duplicates excluded
 INSERT INTO molprobity.oneline_tmp
@@ -128,10 +128,7 @@ entry_id text,
 structure_validation_residue_list_id integer
 );
 
-/* To remove duplicates:
-LC_ALL=C sort -u -i everything.csv > everything_unique.csv
-*/
-\copy molprobity.residue_tmp FROM '/websites/extras/files/pdb/molprobity/residue_files/everything.csv' DELIMITER ':' CSV;
+\copy molprobity.residue_tmp FROM %s/residue_files/everything.csv DELIMITER ':' CSV;
 CREATE INDEX ON molprobity.residue_tmp (pdb);
 
 -- Move the new table into place
