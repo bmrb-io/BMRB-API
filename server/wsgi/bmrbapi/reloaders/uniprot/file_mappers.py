@@ -6,7 +6,6 @@ from xml.etree import ElementTree as ET
 
 import requests
 
-
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
 

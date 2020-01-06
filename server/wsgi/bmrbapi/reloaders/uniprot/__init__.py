@@ -1,22 +1,18 @@
-#!/usr/bin/python3
-
 import csv
 import logging
 import os
 
 from psycopg2.extras import execute_values
 
-from bmrbapi.uniprot_mapper.file_mappers import MappingFile, UniProtMapper, PDBMapper, UniProtValidator
-from bmrbapi.uniprot_mapper.sql_statements import author_and_pdb_links, create_mappings_table, bulk_insert, \
-    insert_clean_ready
+from bmrbapi.reloaders.uniprot import sql_statements as sql_statements
+from bmrbapi.reloaders.uniprot.file_mappers import UniProtMapper, PDBMapper, UniProtValidator
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
+logging.getLogger().setLevel(logging.DEBUG)
 
-# Todo: Dealing with when there are chains that aren't perfectly mapped
 
-
-def map_uniprot():
+def uniprot():
     psql_conn = PostgresConnection(user=configuration['postgres']['reload_user'])
     this_dir = os.path.dirname(os.path.abspath(__file__))
     with UniProtMapper('uniname.csv') as uni_name, \
@@ -25,7 +21,7 @@ def map_uniprot():
             open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'w') as uniprot_seq_file, \
             psql_conn as cur:
 
-        cur.execute(author_and_pdb_links)
+        cur.execute(sql_statements.author_and_pdb_links)
         sequences = cur.fetchall()
         for line in sequences:
             for pos, item in enumerate(line):
@@ -74,7 +70,7 @@ def map_uniprot():
                 for each_line in csv_reader:
                     yield each_line
 
-        cur.execute(create_mappings_table)
-        execute_values(cur, bulk_insert, row_gen(), page_size=100)
-        cur.execute(insert_clean_ready)
+        cur.execute(sql_statements.create_mappings_table)
+        execute_values(cur, sql_statements.bulk_insert, row_gen(), page_size=100)
+        cur.execute(sql_statements.insert_clean_ready)
         psql_conn.commit()
