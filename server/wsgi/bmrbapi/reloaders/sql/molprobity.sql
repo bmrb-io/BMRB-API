@@ -128,7 +128,7 @@ entry_id text,
 structure_validation_residue_list_id integer
 );
 
-\copy molprobity.residue_tmp FROM %s/residue_files/everything.csv DELIMITER ':' CSV;
+\copy molprobity.residue_tmp FROM %s DELIMITER ':' CSV;
 CREATE INDEX ON molprobity.residue_tmp (pdb);
 
 -- Move the new table into place
