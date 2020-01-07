@@ -11,8 +11,8 @@ def molprobity() -> None:
     """ This takes a long time. """
 
     with NamedTemporaryFile(delete=False) as tmp:
-        cmd = subprocess.Popen('LC_ALL=C sort -u -i /websites/extras/files/pdb/molprobity/residue_files/everything.csv'
-                               ' > %s' % tmp.name, shell=True, stderr=subprocess.PIPE)
+        cmd = subprocess.Popen('LC_ALL=C sort -u -i %s/residue_files/everything.csv > %s' %
+                               (configuration['molprobity_directory'], tmp.name), shell=True, stderr=subprocess.PIPE)
         stderr = cmd.communicate()
         if stderr:
             logging.debug('Errors when sorting:\n%s', stderr)
