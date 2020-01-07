@@ -5,3 +5,4 @@ ${DIR}/setup_virtualenv.sh
 source ${DIR}/virtual_env/bin/activate || exit 1
 cd ${DIR} || exit 2
 python3 -m bmrbapi.reloaders "$@"
+exit $?
