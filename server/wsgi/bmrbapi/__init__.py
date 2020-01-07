@@ -134,10 +134,8 @@ def handle_other_errors(error):
                                 'entered the URL manually please check your spelling and try again.',
                                 status_code=404).to_response()
 
-    application.logger.critical("Unhandled exception raised on request %s %s"
-                                "\n\nValues: %s\n\n%s",
+    application.logger.critical("Unhandled exception raised on request %s %s\n\n%s",
                                 request.method, request.url,
-                                request.values,
                                 traceback.format_exc())
 
     if application.debug:
