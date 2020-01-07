@@ -48,22 +48,6 @@ SELECT *
 FROM molprobity.oneline_tmp
 WITH NO DATA;
 
--- Load data
-\copy tmp_table FROM '%s/oneline_files/combined/allonelinenobuild.out.csv' DELIMITER ':' CSV;
-\copy tmp_table FROM '%s/oneline_files/combined/allonelinebuild.out.csv' DELIMITER ':' CSV;
-\copy tmp_table FROM '%s/oneline_files/combined/allonelineorig.out.csv' DELIMITER ':' CSV;
-
--- Populate real table with duplicates excluded
-INSERT INTO molprobity.oneline_tmp
-SELECT DISTINCT ON (pdb, model, hydrogenations, molprobity_flips, backbone_trim_state) *
-FROM tmp_table
-ORDER BY pdb, model, hydrogenations, molprobity_flips, backbone_trim_state;
-
--- Move the new table into place
-ALTER TABLE IF EXISTS molprobity.oneline RENAME TO oneline_old;
-ALTER TABLE molprobity.oneline_tmp RENAME TO oneline;
-DROP TABLE IF EXISTS molprobity.oneline_old;
-DROP TABLE tmp_table;
 
 -- Residue table
 DROP TABLE IF EXISTS molprobity.residue_tmp;
@@ -127,15 +111,3 @@ outlier_count integer,
 entry_id text,
 structure_validation_residue_list_id integer
 );
-
-\copy molprobity.residue_tmp FROM %s DELIMITER ':' CSV;
-CREATE INDEX ON molprobity.residue_tmp (pdb);
-
--- Move the new table into place
-ALTER TABLE IF EXISTS molprobity.residue RENAME TO residue_old;
-ALTER TABLE molprobity.residue_tmp RENAME TO residue;
-DROP TABLE IF EXISTS molprobity.residue_old;
-
--- Set up permissions
-GRANT USAGE ON SCHEMA molprobity TO web;
-GRANT SELECT ON ALL TABLES IN SCHEMA molprobity TO web;
