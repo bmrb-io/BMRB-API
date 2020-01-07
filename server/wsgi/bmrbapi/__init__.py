@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-""" This code is used to provide the REST API interface. Under the hood
-all of the work is done in utils/querymod.py - this just routes the queries
-to the correct location and passes the results back."""
+""" This code is used to provide the REST API interface. """
 
 import logging
 import os
