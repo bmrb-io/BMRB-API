@@ -6,7 +6,7 @@ from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
 
-def create_timedomain_table() -> None:
+def timedomain() -> None:
     """Creates the time domain links table."""
 
     def get_dir_size(start_path='.'):
