@@ -62,7 +62,7 @@ target/
 .ipynb_checkpoints
 
 # Don't save the redis password file
-api_config.json
+configuration.json
 
 .idea/
 .DS_STORE
