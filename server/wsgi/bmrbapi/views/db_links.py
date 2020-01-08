@@ -1,10 +1,10 @@
 from flask import Blueprint, Response, request, jsonify
 
-# Set up the blueprint
-import bmrbapi.views.db_links.sql_statements as sql_statements
+import bmrbapi.views.sql.db_links as sql_statements
 from bmrbapi.exceptions import RequestException
 from bmrbapi.utils.connections import PostgresConnection
 
+# Set up the blueprint
 db_endpoints = Blueprint('db_links', __name__)
 
 
@@ -57,7 +57,7 @@ def pdb_bmrb_map():
     with PostgresConnection() as cur:
         cur.execute(sql_statements.pdb_bmrb_map_author, [match_type])
         if format_ == "text":
-            return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
+            return Response("\n".join([x['string'] for x in cur.fetchall()]), mimetype='text/plain')
         else:
             return jsonify([[x['pdb_id'], x['bmrb_ids']] for x in cur.fetchall()])
 
@@ -72,7 +72,7 @@ def bmrb_pdb_map():
     with PostgresConnection() as cur:
         cur.execute(sql_statements.bmrb_pdb_map_exact, [match_type])
         if format_ == "text":
-            return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
+            return Response("\n".join([x['string'] for x in cur.fetchall()]), mimetype='text/plain')
         else:
             return jsonify([dict(x['bmrb_id'], x['pdb_ids']) for x in cur.fetchall()])
 

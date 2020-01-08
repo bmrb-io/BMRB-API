@@ -1,6 +1,6 @@
 pdb_bmrb_map_author = """
 SELECT pdb_id, array_agg(bmrb_id ORDER BY bmrb_id::int) AS bmrb_ids,
-       pdb_id || ' ' || string_agg(bmrb_id, ',' ORDER BY bmrb_id)
+       pdb_id || ' ' || string_agg(bmrb_id, ',' ORDER BY bmrb_id) AS string
 from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION

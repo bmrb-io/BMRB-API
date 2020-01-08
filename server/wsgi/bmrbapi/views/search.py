@@ -12,7 +12,7 @@ from flask import jsonify, request, Blueprint, url_for
 from psycopg2 import ProgrammingError
 
 # Set up the blueprint
-import bmrbapi.views.sql_statements
+import bmrbapi.views.sql.search as sql_statements
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
@@ -495,15 +495,15 @@ def instant():
     database = get_db('combined')
 
     if database == "metabolomics":
-        instant_query_one = bmrbapi.views.sql_statements.metabolomics_instant_query_one
-        instant_query_two = bmrbapi.views.sql_statements.metabolomics_instant_query_two
+        instant_query_one = sql_statements.metabolomics_instant_query_one
+        instant_query_two = sql_statements.metabolomics_instant_query_two
 
     elif database == "macromolecules":
-        instant_query_one = bmrbapi.views.sql_statements.macromolecules_instant_query_one
-        instant_query_two = bmrbapi.views.sql_statements.macromolecules_instant_query_two
+        instant_query_one = sql_statements.macromolecules_instant_query_one
+        instant_query_two = sql_statements.macromolecules_instant_query_two
     else:
-        instant_query_one = bmrbapi.views.sql_statements.combined_instant_query_one
-        instant_query_two = bmrbapi.views.sql_statements.combined_instant_query_two
+        instant_query_one = sql_statements.combined_instant_query_one
+        instant_query_two = sql_statements.combined_instant_query_two
 
     with PostgresConnection() as cur:
         try:
