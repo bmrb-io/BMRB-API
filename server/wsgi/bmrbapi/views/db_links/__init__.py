@@ -1,10 +1,10 @@
 from flask import Blueprint, Response, request, jsonify
 
+# Set up the blueprint
+import bmrbapi.views.db_links.sql_statements as sql_statements
 from bmrbapi.exceptions import RequestException
-# Local modules
 from bmrbapi.utils.connections import PostgresConnection
 
-# Set up the blueprint
 db_endpoints = Blueprint('db_links', __name__)
 
 
@@ -51,26 +51,22 @@ GROUP BY bmrb_id
 def pdb_bmrb_map():
     """ Returns a list of the PDB->BMRB mappings."""
 
+    match_type = request.args.get('match_type', 'exact')
+
     with PostgresConnection() as cur:
-        cur.execute('''
-SELECT pdb_id, array_agg(bmrb_id) FROM web.pdb_link
-GROUP BY pdb_id
-    ORDER BY pdb_id''')
-        return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
-                        mimetype='text/plain')
+        cur.execute(sql_statements.pdb_bmrb_map_author, [match_type])
+        return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
 
 
 @db_endpoints.route('/mappings/bmrb/pdb')
 def bmrb_pdb_map():
     """ Returns a list of the BMRB-PDB mappings."""
 
+    match_type = request.args.get('match_type', 'exact')
+
     with PostgresConnection() as cur:
-        cur.execute('''
-SELECT bmrb_id, array_agg(pdb_id) FROM web.pdb_link
-GROUP BY bmrb_id
-    ORDER BY bmrb_id::int''')
-        return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
-                        mimetype='text/plain')
+        cur.execute(sql_statements.bmrb_pdb_map_exact, [match_type])
+        return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
 
 
 @db_endpoints.route('/protein/uniprot')

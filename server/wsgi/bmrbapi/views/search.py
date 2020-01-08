@@ -4,7 +4,7 @@ import textwrap
 import warnings
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
-from typing import List
+from typing import List, Dict
 from urllib.parse import quote
 
 import psycopg2
@@ -18,7 +18,7 @@ from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.decorators import require_content_type_json
 from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, select, \
-    get_bmrb_ids_from_pdb_id, get_database_from_entry_id, get_valid_entries_from_redis, \
+    get_database_from_entry_id, get_valid_entries_from_redis, \
     get_category_and_tag, wrap_it_up, select as querymod_select
 
 search_endpoints = Blueprint('search', __name__)
@@ -63,6 +63,39 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
                                    'urls': [url % (bmrb_id, quote(x)) for x in saveframe_names]})
 
     return extra_data
+
+
+def get_bmrb_ids_from_pdb_id(pdb_id: str) -> List[Dict[str, str]]:
+    """ Returns the associated BMRB IDs for a PDB ID. """
+
+    with PostgresConnection() as cur:
+        query = '''
+    SELECT bmrb_id, array_agg(link_type) from 
+(SELECT bmrb_id, 'Exact' AS link_type, null AS comment
+  FROM web.pdb_link
+  WHERE pdb_id LIKE UPPER(%s)
+UNION
+SELECT "Entry_ID", 'Author Provided', "Relationship"
+  FROM macromolecules."Related_entries"
+  WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
+    AND "Relationship" != 'Exact'
+UNION
+SELECT "Entry_ID", 'BLAST Match', "Entry_details"
+  FROM macromolecules."Entity_db_link"
+  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB'
+UNION
+SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
+  FROM macromolecules."Assembly_db_link"
+  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB') AS sub
+GROUP BY bmrb_id;'''
+
+        cur.execute(query, [pdb_id, pdb_id, pdb_id, pdb_id])
+
+        result = []
+        for x in cur.fetchall():
+            result.append({"bmrb_id": x[0], "match_types": x[1]})
+
+        return result
 
 
 @search_endpoints.route('/search/get_bmrb_data_from_pdb_id/<pdb_id>')
@@ -350,7 +383,7 @@ def get_id_from_search(tag_name, tag_value):
 
 
 @search_endpoints.route('/search/get_bmrb_ids_from_pdb_id/<pdb_id>')
-def get_bmrb_ids_from_pdb_id(pdb_id):
+def get_bmrb_ids_from_pdb_id_route(pdb_id):
     """ Returns the associated BMRB IDs for a PDB ID. """
 
     return jsonify(get_bmrb_ids_from_pdb_id(pdb_id))

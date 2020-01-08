@@ -20,11 +20,20 @@ class BmrbUniprotMap(Schema):
     pass
 
 
+class MatchFormats(enum.Enum):
+    exact = "exact"
+    author = "author"
+    blast = "blast"
+    assembly = "assembly"
+
+
 class PdbBmrbMap(Schema):
+    match_type = CustomErrorEnum(MatchFormats)
     pass
 
 
 class BmrbPdbMap(Schema):
+    match_type = CustomErrorEnum(MatchFormats)
     pass
 
 

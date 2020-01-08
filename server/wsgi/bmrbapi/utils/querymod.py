@@ -7,7 +7,7 @@ is done; restapi.py mainly just calls the methods here and returns the results.
 import logging
 import os
 import zlib
-from typing import Union, List, Generator, Dict, Tuple, Optional
+from typing import Union, List, Generator, Tuple, Optional
 
 import pynmrstar
 import simplejson as json
@@ -274,39 +274,6 @@ def create_chemcomp_from_db(chemcomp: str) -> pynmrstar.Entry:
     ent.add_saveframe(chemcomp_frame)
 
     return ent
-
-
-def get_bmrb_ids_from_pdb_id(pdb_id: str) -> List[Dict[str, str]]:
-    """ Returns the associated BMRB IDs for a PDB ID. """
-
-    with PostgresConnection() as cur:
-        query = '''
-    SELECT bmrb_id, array_agg(link_type) from 
-(SELECT bmrb_id, 'Exact' AS link_type, null AS comment
-  FROM web.pdb_link
-  WHERE pdb_id LIKE UPPER(%s)
-UNION
-SELECT "Entry_ID", 'Author Provided', "Relationship"
-  FROM macromolecules."Related_entries"
-  WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
-    AND "Relationship" != 'Exact'
-UNION
-SELECT "Entry_ID", 'BLAST Match', "Entry_details"
-  FROM macromolecules."Entity_db_link"
-  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB'
-UNION
-SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
-  FROM macromolecules."Assembly_db_link"
-  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB') AS sub
-GROUP BY bmrb_id;'''
-
-        cur.execute(query, [pdb_id, pdb_id, pdb_id, pdb_id])
-
-        result = []
-        for x in cur.fetchall():
-            result.append({"bmrb_id": x[0], "match_types": x[1]})
-
-        return result
 
 
 def get_entry_id_tag(tag_or_category: str, database: str = "macromolecules") -> str:
