@@ -47,34 +47,38 @@ GROUP BY bmrb_id
                         mimetype='text/plain')
 
 
-@db_endpoints.route('/mappings/pdb/bmrb')
-def pdb_bmrb_map():
-    """ Returns a list of the PDB->BMRB mappings."""
+def bmrb_pdb_helper(direction: str):
+    """ Performs the SQL queries needed to do BMRB -> PDB mapping. """
 
     match_type = request.args.get('match_type', 'exact')
     format_ = request.args.get('format', 'text')
 
+    statements = {'pdb': {'text': sql_statements.pdb_bmrb_map_text,
+                          'json': sql_statements.pdb_bmrb_map_json},
+                  'bmrb': {'text': sql_statements.bmrb_pdb_map_text,
+                           'json': sql_statements.bmrb_pdb_map_json}}
+
     with PostgresConnection() as cur:
-        cur.execute(sql_statements.pdb_bmrb_map_author, [match_type])
         if format_ == "text":
+            cur.execute(statements[direction][format_], [match_type])
             return Response("\n".join([x['string'] for x in cur.fetchall()]), mimetype='text/plain')
-        else:
-            return jsonify([[x['pdb_id'], x['bmrb_ids']] for x in cur.fetchall()])
+        elif format_ == 'json':
+            cur.execute(statements[direction][format_], [match_type])
+            return jsonify([dict(x) for x in cur.fetchall()])
+
+
+@db_endpoints.route('/mappings/pdb/bmrb')
+def pdb_bmrb_map():
+    """ Returns a list of the PDB->BMRB mappings."""
+
+    return bmrb_pdb_helper('pdb')
 
 
 @db_endpoints.route('/mappings/bmrb/pdb')
 def bmrb_pdb_map():
     """ Returns a list of the BMRB-PDB mappings."""
 
-    match_type = request.args.get('match_type', 'exact')
-    format_ = request.args.get('format', 'text')
-
-    with PostgresConnection() as cur:
-        cur.execute(sql_statements.bmrb_pdb_map_exact, [match_type])
-        if format_ == "text":
-            return Response("\n".join([x['string'] for x in cur.fetchall()]), mimetype='text/plain')
-        else:
-            return jsonify([dict(x['bmrb_id'], x['pdb_ids']) for x in cur.fetchall()])
+    return bmrb_pdb_helper('bmrb')
 
 
 @db_endpoints.route('/protein/uniprot')
