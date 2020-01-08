@@ -52,10 +52,14 @@ def pdb_bmrb_map():
     """ Returns a list of the PDB->BMRB mappings."""
 
     match_type = request.args.get('match_type', 'exact')
+    format_ = request.args.get('format', 'text')
 
     with PostgresConnection() as cur:
         cur.execute(sql_statements.pdb_bmrb_map_author, [match_type])
-        return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
+        if format_ == "text":
+            return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
+        else:
+            return jsonify([[x['pdb_id'], x['bmrb_ids']] for x in cur.fetchall()])
 
 
 @db_endpoints.route('/mappings/bmrb/pdb')
@@ -63,10 +67,14 @@ def bmrb_pdb_map():
     """ Returns a list of the BMRB-PDB mappings."""
 
     match_type = request.args.get('match_type', 'exact')
+    format_ = request.args.get('format', 'text')
 
     with PostgresConnection() as cur:
         cur.execute(sql_statements.bmrb_pdb_map_exact, [match_type])
-        return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
+        if format_ == "text":
+            return Response("\n".join([x[0] for x in cur.fetchall()]), mimetype='text/plain')
+        else:
+            return jsonify([dict(x['bmrb_id'], x['pdb_ids']) for x in cur.fetchall()])
 
 
 @db_endpoints.route('/protein/uniprot')

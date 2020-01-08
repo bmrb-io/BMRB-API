@@ -27,13 +27,20 @@ class MatchFormats(enum.Enum):
     assembly = "assembly"
 
 
+class ResponseFormats(enum.Enum):
+    json = "json"
+    text = "text"
+
+
 class PdbBmrbMap(Schema):
     match_type = CustomErrorEnum(MatchFormats)
+    format = CustomErrorEnum(ResponseFormats)
     pass
 
 
 class BmrbPdbMap(Schema):
     match_type = CustomErrorEnum(MatchFormats)
+    format = CustomErrorEnum(ResponseFormats)
     pass
 
 
