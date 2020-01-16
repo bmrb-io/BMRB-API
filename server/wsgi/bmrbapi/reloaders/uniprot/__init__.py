@@ -9,11 +9,11 @@ from bmrbapi.reloaders.uniprot.file_mappers import UniProtMapper, PDBMapper, Uni
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
-logging.getLogger().setLevel(logging.DEBUG)
 
-
-def uniprot():
-    psql_conn = PostgresConnection(user=configuration['postgres']['reload_user'])
+def uniprot(host=configuration['postgres']['host'],
+            database=configuration['postgres']['database'],
+            user=configuration['postgres']['reload_user']):
+    psql_conn = PostgresConnection(user=user, host=host, database=database)
     this_dir = os.path.dirname(os.path.abspath(__file__))
     with UniProtMapper('uniname.csv') as uni_name, \
             PDBMapper('pdb_uniprot.csv') as pdb_map, \
