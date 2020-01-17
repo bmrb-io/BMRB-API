@@ -83,3 +83,31 @@ from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
 WHERE link_type = %s AND pdb_id IS NOT NULL
 GROUP BY bmrb_id
 ORDER BY bmrb_id::int;"""
+
+
+bmrb_uniprot_map_json = """
+SELECT bmrb_id, array_agg(uniprot_id) AS "uniprot_ids"
+FROM web.uniprot_mappings
+GROUP BY bmrb_id
+ORDER BY bmrb_id
+"""
+
+bmrb_uniprot_map_text = """
+SELECT bmrb_id || ' ' || string_agg(uniprot_id, ',' ORDER BY uniprot_id) AS string
+FROM web.uniprot_mappings
+GROUP BY bmrb_id
+ORDER BY bmrb_id"""
+
+uniprot_bmrb_map_json = """
+SELECT uniprot_id, array_agg(bmrb_id)
+FROM web.uniprot_mappings
+GROUP BY uniprot_id
+ORDER BY uniprot_id
+"""
+
+uniprot_bmrb_map_text = """
+SELECT uniprot_id || ' ' || string_agg(bmrb_id, ',' ORDER BY bmrb_id) AS string
+FROM web.uniprot_mappings
+GROUP BY uniprot_id
+ORDER BY uniprot_id
+"""

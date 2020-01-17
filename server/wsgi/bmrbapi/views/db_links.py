@@ -21,42 +21,21 @@ SELECT DISTINCT(uniprot_id) FROM web.uniprot_mappings
                         mimetype='text/plain')
 
 
-@db_endpoints.route('/mappings/uniprot/bmrb')
-def uniprot_bmrb_map():
-    """ Returns a list of the UniProt->BMRB mappings."""
-
-    with PostgresConnection() as cur:
-        cur.execute('''
-SELECT uniprot_id, array_agg(bmrb_id) FROM web.uniprot_mappings
-GROUP BY uniprot_id
-    ORDER BY uniprot_id''')
-        return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
-                        mimetype='text/plain')
-
-
-@db_endpoints.route('/mappings/bmrb/uniprot')
-def bmrb_uniprot_map():
-    """ Returns a list of the BMRB->UniProt mappings."""
-
-    with PostgresConnection() as cur:
-        cur.execute('''
-SELECT bmrb_id, array_agg(uniprot_id) FROM web.uniprot_mappings
-GROUP BY bmrb_id
-    ORDER BY bmrb_id''')
-        return Response("\n".join(["%s %s" % (x[0], ",".join(x[1])) for x in cur.fetchall()]),
-                        mimetype='text/plain')
-
-
-def bmrb_pdb_helper(direction: str):
-    """ Performs the SQL queries needed to do BMRB -> PDB mapping. """
+def mapping_helper(direction: str):
+    """ Performs the SQL queries needed to do BMRB -> UniProt mapping. """
 
     match_type = request.args.get('match_type', 'exact')
-    format_ = request.args.get('format', 'text')
+    format_ = request.args.get('format', 'json')
 
-    statements = {'pdb': {'text': sql_statements.pdb_bmrb_map_text,
-                          'json': sql_statements.pdb_bmrb_map_json},
-                  'bmrb': {'text': sql_statements.bmrb_pdb_map_text,
-                           'json': sql_statements.bmrb_pdb_map_json}}
+    statements = {'uniprot_bmrb': {'text': sql_statements.uniprot_bmrb_map_text,
+                                   'json': sql_statements.uniprot_bmrb_map_json},
+                  'bmrb_uniprot': {'text': sql_statements.bmrb_uniprot_map_text,
+                                   'json': sql_statements.bmrb_uniprot_map_json},
+                  'pdb_bmrb': {'text': sql_statements.pdb_bmrb_map_text,
+                               'json': sql_statements.pdb_bmrb_map_json},
+                  'bmrb_pdb': {'text': sql_statements.bmrb_pdb_map_text,
+                               'json': sql_statements.bmrb_pdb_map_json}
+                  }
 
     with PostgresConnection() as cur:
         if format_ == "text":
@@ -67,18 +46,32 @@ def bmrb_pdb_helper(direction: str):
             return jsonify([dict(x) for x in cur.fetchall()])
 
 
+@db_endpoints.route('/mappings/uniprot/bmrb')
+def uniprot_bmrb_map():
+    """ Returns a list of the UniProt->BMRB mappings."""
+
+    return mapping_helper('uniprot_bmrb')
+
+
+@db_endpoints.route('/mappings/bmrb/uniprot')
+def bmrb_uniprot_map():
+    """ Returns a list of the BMRB->UniProt mappings."""
+
+    return mapping_helper('bmrb_uniprot')
+
+
 @db_endpoints.route('/mappings/pdb/bmrb')
 def pdb_bmrb_map():
     """ Returns a list of the PDB->BMRB mappings."""
 
-    return bmrb_pdb_helper('pdb')
+    return mapping_helper('pdb_bmrb')
 
 
 @db_endpoints.route('/mappings/bmrb/pdb')
 def bmrb_pdb_map():
     """ Returns a list of the BMRB-PDB mappings."""
 
-    return bmrb_pdb_helper('bmrb')
+    return mapping_helper('bmrb_pdb')
 
 
 @db_endpoints.route('/protein/uniprot')

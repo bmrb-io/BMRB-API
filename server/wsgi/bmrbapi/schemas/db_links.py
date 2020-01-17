@@ -8,16 +8,21 @@ __all__ = ['UniprotMappings', 'UniprotBmrbMap', 'BmrbUniprotMap', 'PdbBmrbMap', 
            'Uniprot', 'GetPdbIdsFromBmrbId']
 
 
+class ResponseFormats(enum.Enum):
+    json = "json"
+    text = "text"
+
+
 class UniprotMappings(Schema):
-    pass
+    format = CustomErrorEnum(ResponseFormats)
 
 
 class UniprotBmrbMap(Schema):
-    pass
+    format = CustomErrorEnum(ResponseFormats)
 
 
 class BmrbUniprotMap(Schema):
-    pass
+    format = CustomErrorEnum(ResponseFormats)
 
 
 class MatchFormats(enum.Enum):
@@ -25,11 +30,6 @@ class MatchFormats(enum.Enum):
     author = "author"
     blast = "blast"
     assembly = "assembly"
-
-
-class ResponseFormats(enum.Enum):
-    json = "json"
-    text = "text"
 
 
 class PdbBmrbMap(Schema):
