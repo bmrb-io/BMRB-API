@@ -94,7 +94,9 @@ curl "http://webapi.bmrb.wisc.edu/v2/status" -H 'Application: Curl Script'
 
 ## REST API
 
-All queries return results in JSON format.
+All queries return results in JSON format by default, and optionally also in text format,
+or other formats pertinent to the query. See the documentation for each method to determine
+which other formats are available.
 
 #### Databases
 
@@ -222,7 +224,7 @@ Example: [Querying for the entry information saveframe by name](http://webapi.bm
 
 Example: [Querying for the saveframes with the name entry_information and citation_1](http://webapi.bmrb.wisc.edu/v2/entry/15000?saveframe_name=entry_information&saveframe_name=citation_2)
 
-#### Retreive one or more loops (GET)
+#### Retrieve one or more loops (GET)
 
 **/entry/$entry_id?loop=$loop_category[&format=$entry_format]**
 
@@ -528,6 +530,41 @@ notes on how the specific BMRB ID is related to the queried PDB ID.
 
 Example: [BMRB IDs associated with PDB ID 2JM0](http://webapi.bmrb.wisc.edu/v2/search/get_bmrb_ids_from_pdb_id/2JM0)
 
+### Bulk Mappings
+
+
+#### Get a bulk ID mapping
+
+For the following, the mapping is in the format from ID->to ID
+
+**mappings/bmrb/pdb[?format=$format][&match_type=$match_type]**
+
+**mappings/pdb/bmrb[?format=$format][&match_type=$match_type]**
+
+**mappings/bmrb/uniprot[?format=$format]**
+
+**mappings/uniprot/bmrb[?format=$format]**
+
+
+Returns a mapping of `BMRB ID`<->`UniProt ID` or `PDB ID`.
+
+* `format` - The format to return results in. Default is `json` but `text` is also supported.
+* `match_type` The type of match to use when generating the list. Only used for BMRB<->PDB mappings.
+Allowed values:
+  * `exact` - The entry is an exact match as tracked
+by the BMRB entry tracking system. There is a one-to-one correspondence between
+this queried entry and the provided BMRB ID.
+  * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
+   entry in sequence but no other correlation is implied.
+  * `assembly` - Author provided link from one of the entry assemblies.
+  * `author` - Entries supplied by the author as "related entries" during deposition.
+
+
+
+Examples:
+
+* [All chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts)
+* [All CA chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=CA)
 
 ### Software
 
