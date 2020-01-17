@@ -8,24 +8,11 @@ from bmrbapi.utils.connections import PostgresConnection
 db_endpoints = Blueprint('db_links', __name__)
 
 
-@db_endpoints.route('/mappings/uniprot/uniprot')
-def uniprot_mappings():
-    """ Returns a list of the UniProt->UniProt where there is a BMRB record
-    for the protein."""
-
-    with PostgresConnection() as cur:
-        cur.execute('''
-SELECT DISTINCT(uniprot_id) FROM web.uniprot_mappings
-    ORDER BY uniprot_id''')
-        return Response("\n".join(["%s %s" % (x[0], x[0]) for x in cur.fetchall()]),
-                        mimetype='text/plain')
-
-
 def mapping_helper(direction: str):
     """ Performs the SQL queries needed to do BMRB -> UniProt mapping. """
 
     match_type = request.args.get('match_type', 'exact')
-    format_ = request.args.get('format', 'json')
+    format_ = "text" if direction == "uniprot_uniprot" else request.args.get('format', 'json')
 
     statements = {'uniprot_bmrb': {'text': sql_statements.uniprot_bmrb_map_text,
                                    'json': sql_statements.uniprot_bmrb_map_json},
@@ -34,7 +21,8 @@ def mapping_helper(direction: str):
                   'pdb_bmrb': {'text': sql_statements.pdb_bmrb_map_text,
                                'json': sql_statements.pdb_bmrb_map_json},
                   'bmrb_pdb': {'text': sql_statements.bmrb_pdb_map_text,
-                               'json': sql_statements.bmrb_pdb_map_json}
+                               'json': sql_statements.bmrb_pdb_map_json},
+                  'uniprot_uniprot': {'text': sql_statements.uniprot_uniprot_map}
                   }
 
     with PostgresConnection() as cur:
@@ -44,6 +32,14 @@ def mapping_helper(direction: str):
         elif format_ == 'json':
             cur.execute(statements[direction][format_], [match_type])
             return jsonify([dict(x) for x in cur.fetchall()])
+
+
+@db_endpoints.route('/mappings/uniprot/uniprot')
+def uniprot_mappings_internal():
+    """ Returns a list of the UniProt->UniProt where there is a BMRB record
+    for the protein."""
+
+    return mapping_helper('uniprot_uniprot')
 
 
 @db_endpoints.route('/mappings/uniprot/bmrb')

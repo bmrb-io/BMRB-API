@@ -4,7 +4,7 @@ from marshmallow import Schema
 
 from bmrbapi.schemas.default import CustomErrorEnum
 
-__all__ = ['UniprotMappings', 'UniprotBmrbMap', 'BmrbUniprotMap', 'PdbBmrbMap', 'BmrbPdbMap',
+__all__ = ['UniprotMappingsInternal', 'UniprotBmrbMap', 'BmrbUniprotMap', 'PdbBmrbMap', 'BmrbPdbMap',
            'Uniprot', 'GetPdbIdsFromBmrbId']
 
 
@@ -13,7 +13,7 @@ class ResponseFormats(enum.Enum):
     text = "text"
 
 
-class UniprotMappings(Schema):
+class UniprotMappingsInternal(Schema):
     format = CustomErrorEnum(ResponseFormats)
 
 
