@@ -4,7 +4,7 @@ SELECT ent."Entry_ID"                                              AS bmrb_id,
        upper(coalesce(ea."PDB_chain_ID", ent."Polymer_strand_ID")) AS pdb_chain,
        upper(pdb_id)                                               AS pdb_id,
        CASE
-           WHEN dbl."Accession_code" IS NOT NULL THEN 'Author supplied'
+           WHEN dbl."Accession_code" IS NOT NULL THEN 'author'
            ELSE null
            END                                                     AS link_type,
        dbl."Accession_code"                                        AS uniprot_id,
@@ -55,7 +55,7 @@ INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, lin
             dbl."Entity_ID"::int,
             null,
             pdb_id,
-            'Sequence mapping',
+            'blast',
             REPLACE (dbl."Accession_code", '.', '-'),
             ent."Polymer_seq_one_letter_code",
             ent."Details"

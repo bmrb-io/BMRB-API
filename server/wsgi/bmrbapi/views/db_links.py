@@ -11,7 +11,13 @@ db_endpoints = Blueprint('db_links', __name__)
 def mapping_helper(direction: str):
     """ Performs the SQL queries needed to do BMRB -> UniProt mapping. """
 
-    match_type = request.args.get('match_type', 'exact')
+    if "pdb" in direction:
+        match_type = request.args.get('match_type', 'exact')
+    else:
+        match_type = request.args.get('match_type', 'all')
+    if match_type == 'all':
+        match_type = '%'
+
     format_ = "text" if direction == "uniprot_uniprot" else request.args.get('format', 'json')
 
     statements = {'uniprot_bmrb': {'text': sql_statements.uniprot_bmrb_map_text,
@@ -99,31 +105,35 @@ def uniprot(accession_id=None):
             sql = '''
 SELECT bmrb_id    AS "Entry_ID",
        entity_id  AS "Entity_ID",
-       link_type  AS "Link_Type",
+       CASE
+           WHEN link_type = 'blast' THEN 'Sequence mapping'
+           WHEN link_type = 'author' THEN 'Author supplied'
+           WHEN link_type = 'pdb' THEN 'PDB cross-referencing' END
+                  AS "Link_Type",
        uniprot_id AS "Accession_code"
 FROM web.uniprot_mappings AS uni''' + where
 
         elif response_format == 'hupo-psi-id':
             if accession_id:
                 sql = '''
-SELECT json_build_object('proteinIdentifier', 'uniprot:'||uniprot_id, 'proteinRegions',
-             array_agg(json_build_object('source', source,
-                                        'regionSequenceExperimental', "regionSequenceExperimental",
-                                        'experimentType', "experimentType",
-                                        'experimentReference', "experimentReference",
-                                        'lastModified', "lastModified")))
+SELECT json_build_object('proteinIdentifier', 'uniprot:' || uniprot_id, 'proteinRegions',
+                         array_agg(json_build_object('source', source,
+                                                     'regionSequenceExperimental', "regionSequenceExperimental",
+                                                     'experimentType', "experimentType",
+                                                     'experimentReference', "experimentReference",
+                                                     'lastModified', "lastModified")))
 FROM web.hupo_psi_id
 WHERE uniprot_id = %s
 GROUP BY uniprot_id;
     '''
             else:
                 sql = '''
-SELECT json_build_object('proteinIdentifier', 'uniprot:'||uniprot_id, 'proteinRegions',
-             array_agg(json_build_object('source', source,
-                                        'regionSequenceExperimental', "regionSequenceExperimental",
-                                        'experimentType', "experimentType",
-                                        'experimentReference', "experimentReference",
-                                        'lastModified', "lastModified")))
+SELECT json_build_object('proteinIdentifier', 'uniprot:' || uniprot_id, 'proteinRegions',
+                         array_agg(json_build_object('source', source,
+                                                     'regionSequenceExperimental', "regionSequenceExperimental",
+                                                     'experimentType', "experimentType",
+                                                     'experimentReference', "experimentReference",
+                                                     'lastModified', "lastModified")))
 FROM web.hupo_psi_id
 GROUP BY uniprot_id;
     '''

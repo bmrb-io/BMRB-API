@@ -44,7 +44,7 @@ def uniprot(host=configuration['postgres']['host'],
             if not line[5]:
                 uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id, bmrb_id=line[0])
                 if uniprot_id:
-                    line[4] = 'PDB cross-referencing'
+                    line[4] = 'pdb'
                     line[5] = uniprot_id
                 else:
                     if len(full_chain_id) > 1 and pdb_id:

@@ -13,33 +13,43 @@ class ResponseFormats(enum.Enum):
     text = "text"
 
 
+class MatchFormatsPDB(enum.Enum):
+    exact = "exact"
+    author = "author"
+    blast = "blast"
+    assembly = "assembly"
+    all = "all"
+
+
+class MatchFormatsUniProt(enum.Enum):
+    author = "author"
+    blast = "blast"
+    pdb = "pdb"
+    all = "all"
+
+
 class UniprotMappingsInternal(Schema):
     format = CustomErrorEnum(ResponseFormats)
 
 
 class UniprotBmrbMap(Schema):
+    match_type = CustomErrorEnum(MatchFormatsUniProt)
     format = CustomErrorEnum(ResponseFormats)
 
 
 class BmrbUniprotMap(Schema):
+    match_type = CustomErrorEnum(MatchFormatsUniProt)
     format = CustomErrorEnum(ResponseFormats)
 
 
-class MatchFormats(enum.Enum):
-    exact = "exact"
-    author = "author"
-    blast = "blast"
-    assembly = "assembly"
-
-
 class PdbBmrbMap(Schema):
-    match_type = CustomErrorEnum(MatchFormats)
+    match_type = CustomErrorEnum(MatchFormatsPDB)
     format = CustomErrorEnum(ResponseFormats)
     pass
 
 
 class BmrbPdbMap(Schema):
-    match_type = CustomErrorEnum(MatchFormats)
+    match_type = CustomErrorEnum(MatchFormatsPDB)
     format = CustomErrorEnum(ResponseFormats)
     pass
 
