@@ -533,31 +533,46 @@ Example: [BMRB IDs associated with PDB ID 2JM0](http://webapi.bmrb.wisc.edu/v2/s
 ### Bulk Mappings
 
 
-#### Get a bulk ID mapping
-
-For the following, the mapping is in the format from ID->to ID
+#### Get a bulk BMRB<->PDB ID mapping
 
 **mappings/bmrb/pdb[?format=$format][&match_type=$match_type]**
 
 **mappings/pdb/bmrb[?format=$format][&match_type=$match_type]**
 
-**mappings/bmrb/uniprot[?format=$format]**
+Returns a mapping of `BMRB ID`<->`PDB ID`.
 
-**mappings/uniprot/bmrb[?format=$format]**
+Parameters:
+* `format` - The format to return results in. Default is `json` but `text` is also supported.
+* `match_type` The type of match to use when generating the list. Allowed values:
+  * `all`* - UniProt links from any of the other sources. This is the default.
+  * `author` - Entries supplied by the author as "related entries" during deposition.
+  * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
+   entry in sequence but no other correlation is implied.
+  * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
 
+
+#### Get a bulk BMRB<->UniProt ID mapping
+
+Returns a mapping of `BMRB ID`<->`UniProt ID`.
+
+**mappings/bmrb/uniprot[?format=$format][&match_type=$match_type]**
+
+**mappings/uniprot/bmrb[?format=$format][&match_type=$match_type]**
 
 Returns a mapping of `BMRB ID`<->`UniProt ID` or `PDB ID`.
 
+Parameters:
 * `format` - The format to return results in. Default is `json` but `text` is also supported.
-* `match_type` The type of match to use when generating the list. Only used for BMRB<->PDB mappings.
-Allowed values:
-  * `exact` - The entry is an exact match as tracked
-by the BMRB entry tracking system. There is a one-to-one correspondence between
-this queried entry and the provided BMRB ID.
+* `match_type` The type of match to use when generating the list. Allowed values:
+  * `all` - PDB links from any of the other sources.
+  * `exact`* - The entry is an exact match as tracked by the BMRB entry tracking system.
+    There is a one-to-one correspondence between the entry and the provided BMRB ID.
+    This is the default.
+  * `author` - Entries supplied by the author as "related entries" during deposition.
   * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
    entry in sequence but no other correlation is implied.
-  * `assembly` - Author provided link from one of the entry assemblies.
-  * `author` - Entries supplied by the author as "related entries" during deposition.
+  * `assembly` - Author provided link from one of the entry assemblies.     
+  * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
 
 
 
