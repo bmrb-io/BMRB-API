@@ -86,7 +86,7 @@ ORDER BY bmrb_id::int;"""
 
 
 bmrb_uniprot_map_json = """
-SELECT bmrb_id, array_agg(uniprot_id) AS "uniprot_ids"
+SELECT bmrb_id, array_agg(uniprot_id) AS uniprot_ids
 FROM web.uniprot_mappings
 WHERE link_type like %s
 GROUP BY bmrb_id
@@ -101,7 +101,7 @@ GROUP BY bmrb_id
 ORDER BY bmrb_id"""
 
 uniprot_bmrb_map_json = """
-SELECT uniprot_id, array_agg(bmrb_id)
+SELECT uniprot_id, array_agg(bmrb_id) as uniprot_ids
 FROM web.uniprot_mappings
 WHERE link_type like %s
 GROUP BY uniprot_id
