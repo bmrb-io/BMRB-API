@@ -432,7 +432,9 @@ the list of shifts that matched. Results returned as a list of matching entries 
 with the matching shifts, number of shifts matched, and total offset of shifts,
 sorted by number of shifts matched and total offset.
 
-The titles and links to the matched entries are also returned.
+The titles and links to the matched entries are also returned. Note that for a large
+number of peaks, you should use 's' rather than 'shift' in order to save free up extra
+characters in the URL.
 
 Parameters:
 
