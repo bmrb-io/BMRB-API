@@ -550,6 +550,10 @@ Parameters:
    entry in sequence but no other correlation is implied.
   * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
 
+Examples:
+
+* [Exactly linked BMRB -> PDB mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/pdb?format=text&match_type=exact)
+* [BLAST linked PDB -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/pdb?format=text&match_type=blast)
 
 #### Get a bulk BMRB<->UniProt ID mapping
 
@@ -575,11 +579,11 @@ Parameters:
   * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
 
 
-
 Examples:
 
-* [All chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts)
-* [All CA chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=CA)
+* [All link types BMRB -> UniProt mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=all)
+* [BLAST linked UniProt -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=blast)
+
 
 ### Software
 
@@ -640,3 +644,24 @@ Parameters:
 results for multiple residues.
 
 Example: [PDB 2DOG residues 10-13](http://webapi.bmrb.wisc.edu/v2/molprobity/2dog/residue?r=10&r=11&r=12&r=13)
+
+### Protein-oriented endpoints
+
+#### Get information about BMRB records for one or all UniProt IDs
+
+**/protein/uniprot[/$uniprot_id]**
+
+Provides detailed information on linked BMRB IDs for the provided UniProt ID, or for all
+UniProt IDs. Information available in either json or 
+[hupo-psi-json format](https://github.com/normandavey/HUPO-PSI-ID).
+
+Parameters:
+
+* `format` Specify the format for the returned results. Allowed options: `json` or `hupo-psi-id`. `json` is
+the default.
+
+Examples: 
+
+* [Results for all UniProt IDs in hupo-psi-id format](http://webapi.bmrb.wisc.edu/protein/uniprot?format=hupo-psi-id)
+* [Results for all UniProt ID P02769 in json format](http://webapi.bmrb.wisc.edu/protein/uniprot/P02769?format=json)
+
