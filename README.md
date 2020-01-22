@@ -537,9 +537,9 @@ Example: [BMRB IDs associated with PDB ID 2JM0](http://webapi.bmrb.wisc.edu/v2/s
 
 #### Get a bulk BMRB<->PDB ID mapping
 
-**mappings/bmrb/pdb[?format=$format][&match_type=$match_type]**
+**/mappings/bmrb/pdb[?format=$format][&match_type=$match_type]**
 
-**mappings/pdb/bmrb[?format=$format][&match_type=$match_type]**
+**/mappings/pdb/bmrb[?format=$format][&match_type=$match_type]**
 
 Returns a mapping of `BMRB ID`<->`PDB ID`.
 
@@ -561,9 +561,9 @@ Examples:
 
 Returns a mapping of `BMRB ID`<->`UniProt ID`.
 
-**mappings/bmrb/uniprot[?format=$format][&match_type=$match_type]**
+**/mappings/bmrb/uniprot[?format=$format][&match_type=$match_type]**
 
-**mappings/uniprot/bmrb[?format=$format][&match_type=$match_type]**
+**/mappings/uniprot/bmrb[?format=$format][&match_type=$match_type]**
 
 Returns a mapping of `BMRB ID`<->`UniProt ID` or `PDB ID`.
 
