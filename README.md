@@ -665,5 +665,5 @@ the default.
 Examples: 
 
 * [Results for all UniProt IDs in hupo-psi-id format](http://webapi.bmrb.wisc.edu/v2/protein/uniprot?format=hupo-psi-id)
-* [Results for all UniProt ID P02769 in json format](http://webapi.bmrb.wisc.edu/v2/protein/uniprot/P02769?format=json)
+* [Results for UniProt ID P02769 in json format](http://webapi.bmrb.wisc.edu/v2/protein/uniprot/P02769?format=json)
 
