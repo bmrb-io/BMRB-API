@@ -70,26 +70,30 @@ def get_bmrb_ids_from_pdb_id(pdb_id: str) -> List[Dict[str, str]]:
 
     with PostgresConnection() as cur:
         query = '''
-    SELECT bmrb_id, array_agg(link_type) from 
-(SELECT bmrb_id, 'Exact' AS link_type, null AS comment
-  FROM web.pdb_link
-  WHERE pdb_id LIKE UPPER(%s)
-UNION
-SELECT "Entry_ID", 'Author Provided', "Relationship"
-  FROM macromolecules."Related_entries"
-  WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
-    AND "Relationship" != 'Exact'
-UNION
-SELECT "Entry_ID", 'BLAST Match', "Entry_details"
-  FROM macromolecules."Entity_db_link"
-  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB'
-UNION
-SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
-  FROM macromolecules."Assembly_db_link"
-  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB') AS sub
-GROUP BY bmrb_id;'''
+        SELECT bmrb_id, array_agg(link_type) from 
+    (SELECT bmrb_id, 'Exact' AS link_type, null AS comment
+      FROM web.pdb_link
+      WHERE pdb_id LIKE UPPER(%s)
+    UNION
+    SELECT "Entry_ID", 'Author Provided', "Relationship"
+      FROM macromolecules."Related_entries"
+      WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
+        AND "Relationship" != 'BMRB Entry Tracking System'
+    UNION
+    SELECT "Entry_ID", 'Author Provided', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+    UNION
+    SELECT "Entry_ID", 'Author Provided', "Entry_details"
+      FROM macromolecules."Assembly_db_link"
+      WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+    UNION
+    SELECT "Entry_ID", 'BLAST Match', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB' AND "Author_supplied" != 'yes') AS sub
+    GROUP BY bmrb_id;'''
 
-        cur.execute(query, [pdb_id, pdb_id, pdb_id, pdb_id])
+        cur.execute(query, [pdb_id, pdb_id, pdb_id, pdb_id, pdb_id])
 
         result = []
         for x in cur.fetchall():
@@ -402,17 +406,21 @@ def get_pdb_ids_from_bmrb_id(bmrb_id):
     SELECT "Database_accession_code", 'Author Provided', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
-        AND "Relationship" != 'Exact'
+        AND "Relationship" != 'BMRB Entry Tracking System'
+    UNION
+    SELECT "Accession_code", 'Author Provided', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+    UNION
+    SELECT "Accession_code", 'Author Provided', "Entry_details"
+      FROM macromolecules."Assembly_db_link"
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
     UNION
     SELECT "Accession_code", 'BLAST Match', "Entry_details"
       FROM macromolecules."Entity_db_link"
-      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB'
-    UNION
-    SELECT "Accession_code", 'Assembly DB Link', "Entry_details"
-      FROM macromolecules."Assembly_db_link"
-      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB';'''
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB' AND "Author_supplied" != 'yes';'''
 
-        cur.execute(query, [bmrb_id, bmrb_id, bmrb_id, bmrb_id])
+        cur.execute(query, [bmrb_id, bmrb_id, bmrb_id, bmrb_id, bmrb_id])
         return jsonify([{"pdb_id": x[0], "match_type": x[1], "comment": x[2]} for x in cur.fetchall()])
 
 

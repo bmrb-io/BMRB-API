@@ -495,9 +495,8 @@ by the BMRB entry tracking system. There is a one-to-one correspondence between
 this queried entry and the provided PDB ID.
 * `BLAST Match` - The entry was found during a routine BLAST search.
 It is similar to the queried entry in sequence but no other correlation is implied.
-* `Assembly DB Link` - Author provided PDB link from one of the entry assemblies.
-* `Author Provided` - If an author provided a "related entry" during deposition
-it will appear here.
+* `Author Provided` - If an author provided a "related entry" or "related assembly" 
+during deposition it will appear here.
 
 The `comment` field will only be present if it has a non-null value. It will contain any recorded
 notes on how the specific PDB ID is related to the queried BMRB ID if present.
@@ -523,9 +522,8 @@ by the BMRB entry tracking system. There is a one-to-one correspondence between
 this queried entry and the provided BMRB ID.
 * `BLAST Match` - The entry was found during a routine BLAST search.
 It is similar to the queried entry in sequence but no other correlation is implied.
-* `Assembly DB Link` - Author provided link from one of the entry assemblies.
-* `Author Provided` - If an author provided a "related entry" during deposition
-it will appear here.
+* `Author Provided` - If an author provided a "related entry" or "related assembly" 
+during deposition it will appear here.
 
 The `comment` field will usually be `null`, but if not, it will contain any recorded
 notes on how the specific BMRB ID is related to the queried PDB ID.
@@ -547,10 +545,10 @@ Parameters:
 * `format` - The format to return results in. Default is `json` but `text` is also supported.
 * `match_type` The type of match to use when generating the list. Allowed values:
   * `all`* - UniProt links from any of the other sources. This is the default.
-  * `author` - Entries supplied by the author as "related entries" during deposition.
-  * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
-   entry in sequence but no other correlation is implied.
-  * `assembly` - Author provided link from one of the entry assemblies.     
+  * `author` - Entries supplied by the author as "related entries" during deposition. Returns matches for both
+  entities and assembles with a database link.
+  * `blast` - The entry was found linked with a routine BLAST search. It is similar to the queried
+   entry in sequence but no other correlation is implied.     
 
 Examples:
 
