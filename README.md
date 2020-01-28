@@ -550,12 +550,12 @@ Parameters:
   * `author` - Entries supplied by the author as "related entries" during deposition.
   * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
    entry in sequence but no other correlation is implied.
-  * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
+  * `assembly` - Author provided link from one of the entry assemblies.     
 
 Examples:
 
 * [Exactly linked BMRB -> PDB mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/pdb?format=text&match_type=exact)
-* [BLAST linked PDB -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/pdb?format=text&match_type=blast)
+* [BLAST linked PDB -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=blast)
 
 #### Get a bulk BMRB<->UniProt ID mapping
 
@@ -577,14 +577,13 @@ Parameters:
   * `author` - Entries supplied by the author as "related entries" during deposition.
   * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
    entry in sequence but no other correlation is implied.
-  * `assembly` - Author provided link from one of the entry assemblies.     
   * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
 
 
 Examples:
 
-* [All link types BMRB -> UniProt mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=all)
-* [BLAST linked UniProt -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=blast)
+* [All link types BMRB -> UniProt mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/uniprot?format=text&match_type=all)
+* [BLAST linked UniProt -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/uniprot/bmrb?format=text&match_type=blast)
 
 
 ### Software
