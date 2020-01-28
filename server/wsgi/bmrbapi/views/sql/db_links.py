@@ -14,7 +14,7 @@ from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY UPPER(pdb_id)
 ORDER BY UPPER(pdb_id);
@@ -36,7 +36,7 @@ from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY UPPER(pdb_id)
 ORDER BY UPPER(pdb_id);
@@ -58,7 +58,7 @@ from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY bmrb_id
 ORDER BY bmrb_id::int;"""
@@ -79,7 +79,7 @@ from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY bmrb_id
 ORDER BY bmrb_id::int;"""
