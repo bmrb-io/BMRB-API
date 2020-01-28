@@ -3,16 +3,16 @@ SELECT UPPER(pdb_id) || ' ' || string_agg(bmrb_id, ',' ORDER BY bmrb_id) AS stri
 from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Database_name" = 'PDB'
         AND "Relationship" != 'Exact'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
       FROM macromolecules."Entity_db_link"
       WHERE "Database_code" = 'PDB'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
       WHERE "Database_code" = 'PDB') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
@@ -25,16 +25,16 @@ SELECT UPPER(pdb_id) as pdb_id, array_agg(bmrb_id ORDER BY bmrb_id::int) AS bmrb
 from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Database_name" = 'PDB'
         AND "Relationship" != 'Exact'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
       FROM macromolecules."Entity_db_link"
       WHERE "Database_code" = 'PDB'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
       WHERE "Database_code" = 'PDB') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
@@ -47,16 +47,16 @@ SELECT bmrb_id || ' ' || string_agg(pdb_id, ',' ORDER BY pdb_id) AS string
 from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Database_name" = 'PDB'
         AND "Relationship" != 'Exact'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
       FROM macromolecules."Entity_db_link"
       WHERE "Database_code" = 'PDB'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
       WHERE "Database_code" = 'PDB') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
@@ -68,16 +68,16 @@ SELECT bmrb_id, array_agg(pdb_id ORDER BY pdb_id) AS pdb_ids
 from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Database_name" = 'PDB'
         AND "Relationship" != 'Exact'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
       FROM macromolecules."Entity_db_link"
       WHERE "Database_code" = 'PDB'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'assembly', "Entry_details"
       FROM macromolecules."Assembly_db_link"
       WHERE "Database_code" = 'PDB') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
