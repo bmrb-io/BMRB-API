@@ -6,6 +6,271 @@ multiple high-scoring alignments to be shown, rather than just one.
 This is the main functional difference between FASTA and BLAST -
 BLAST could show multiple HSPs, FASTA did not.
 
+>>Aug. 9, 2019
+[src/ncbl2_mlib.c, ncbl2_head.h]
+
+Modest extensions made to support reading makeblastdb format v5
+databases. Changes have only been made to read the db.pin file, but
+things work in simple tests.
+
+>July 16, 2019
+[src/comp_lib9.c]
+
+Fixed a memory leak problem when searching with large libraries that
+could be memory mapped (libraries with .xin index files).  If the
+library did not fit in memory, then the kept allocating new memory.
+By default, the largest database that fits in memory must be less than
+16 GB.  Larger libraries will be re-read, which slows down multi-query
+searches considerably.  To increase the size of the library allowed in
+memory, use the option: "-X M32G" to fit 32 GB libraries.
+
+>>Mar. 8, 2019
+[src/initfa.c,faatran.c,dropfx2.c]
+Modify translation table 1 to allow selenocysteine translation
+(TGA->'U'), and modify scoring matrices to give positive scores to
+'*':'U'.  The translation modification ONLY works with "-t 1".  In
+addition, BLAST BTOP alignments (-m 8CB) convert a 'U' aligned with a
+'*' to a '*', so the end of the alignment is '**' rather than 'U*'
+(fastx36) or '*U' (tfastx36).
+
+dropfx2.c (fastx36/tfastx36), dropfz3.c(fasty36/tfasty36) did not
+properly switch protein and translated DNA codes with -m 8CB -- fixed.
+
+version date updated to Mar, 2019
+
+>>Feb. 26, 2019
+[scripts/get_genome_seq.py]
+added get_genome_seq.py as a replacement for get_hg38_bed.py, remove
+get_hg38_bed.py.  'get_genome_seq.py --genome mm10' also produces
+sequences from mouse mm10 (and can now do any genome that bedtools can
+read).
+
+>>Feb. 23, 2019
+[src/comp_lib9.c, mshowbest.c]
+Modify repeat_thresh so that poor alignment scores (E() >
+ppst->e_cut_r, typically -E-threshold/10.0) do not look for additional
+alignments.
+
+>>Feb. 21, 2019
+[src/nmgetaa.c, scaleswn.c, scripts/get_protein.py, get_hg38_bed.py]
+
+Modify nmgetaa.c to ignore ':'s (for sequence subsets) in scripts.
+The script can do the subsetting.  Modify scripts/get_protein.py to
+provide subsetting.  Add scripts/get_hg38_bed.py to extract fasta
+sequences using the format "chr2:123456-543210"
+
+Modify scaleswn.c to estimate Altshul-Gish parameters when gap and
+extension do not match exactly.
+
+>>Feb. 6, 2019
+[src/compacc2e.c, nmgetaa.c]
+modify build_link_data() to allow '+' for space in scripts.  Ensure
+that lib_type is properly initialized (open_lib.c()).
+
+>>Jan. 23, 2019
+[nmgetaa.c]
+Fix bug introduced when checking for lib_type.
+
+>>Jan. 15, 2019
+[src/upam.h, altlib.h, nmgetaa.c]
+[scripts/rename_exons.py, map_exons_coords.py, get_uniprot.py, get_refseq.py, get_proteins.py]
+
+Bug fixes: The VT10, VT20, etc scoring matrices did not have scores for '*:*'
+alignments, used with FASTX/TFASTX for extending alignments through
+the termination codon.  As a result, searchs with '-t t' did not
+extend through the termination codon, even though they should have.
+This has been fixed.
+
+Enhancements: FASTA can now download both query and library sequences using a script, by specifying file type 9.  Thus:
+
+fasta36 "../scripts/get_uniprot.py+P09488 9" /seqlib/swissprot.fasta
+
+Will run the script "get_uniprot.py" with the argument "P09488" and
+use the output of the script as the query sequence.  In this example,
+the library type (9) is specified by the " 9" (this space cannot be
+replaced with a '+' character).
+
+Alternatively, library type '9' can be specified by putting a '!' before the script file name.
+
+fasta36 \!../scripts/get_uniprot.py+P09488 /seqlib/swissprot.fasta
+
+Scripts can be used to produce query or library sequences, or both.
+Three scripts that download sequences from the NCBI and Uniprot have
+been added in the "scripts" directory: "get_uniprot.py" takes Uniprot
+accessions as arguments, "get_refseq.py" takes refseq accessions
+(protein or mRNA), and "get_protein.py" gets both Uniprot and RefSeq
+protein sequences.
+
+rename_exons.py and map_exons_coords.py can take annotated BTOP
+alignments with genome coordinates and map exons to the alternative
+genome.
+
+>>Jan. 2, 2019
+[src/mshowbest.c]
+Fix problems with site annotation when dom_info is provided with -m8CBL
+[scripts/ann_exons_up_sql.pl, ann_exons_up_www.pl]
+Make scripts more robust to missing chromosome information,
+reverse-strand coordinates.
+
+>>Dec. 11, 2018
+[scripts/ann_exons_up_www.pl, ann_exons_up_sql.pl]
+Add the option "--gen_coord" to report exon start ('<') and end ('>')
+genome coordinates features of exons.
+
+>>Nov. 14, 2018
+[scripts/rename_exons.py, relabel_domains.py, compacc2e.c]
+
+Two new scripts, rename_exons.py and relabel_domains.py, that take a
+blast tabular output file with domain alignment annotations (and
+possibly raw domain information) and modifies the names
+(rename_exons.py) or colors (relabel_domains.py).  rename_exons.py
+takes the exon numbering associated with the query sequence and maps
+it onto the subject alignments.  relabel_domains.py can be used to use
+different color numbers for homologous and non-homologous domains.
+
+Both of these programs modify blast tabular output files, which can
+then be merged back into an alignment display using
+merge_blastp_annot.pl or merge_fasta_annot.pl.
+
+compacc2.c:build_link_data() has been modified to convert '+' in the
+script string to ' ', to allow passing command line options.  A space
+in the script string is used to separate the script from the library
+type of the file returned by the script.
+
+>>Nov. 6-7, 2018
+[doinit.c, mshowbest.c, mshowalign2.c, defs.h, structs.h]
+
+(a) Add options to provide query and subject sequence lengths and raw
+domain coordinates in BLASTP tabular output with the options -m 8CBl
+and -m 8CBL.  If domain annotations are available, -m 8CBL also
+provides the raw domain coordinates (not just those included in the
+alignment) in the form |DX:1-100;C=PF12345|XD:1-100;C=PF12345 where
+|DX a query annotation and |XD indicates a subject annotation.  -m
+8CBl (lower-case L) shows the sequence lengths, but not the raw domain
+info.
+
+(b) parse the annotation program strings so that '+' are converted to
+' '.  This greatly simplifies passing arguments to the annotation scripts.  Thus:
+
+-V \!ann_pfam_sql.pl --db=pfam31 --neg --vdoms  can be written as:
+-V \!ann_pfam_sql.pl+--db=pfam31+--neg+--vdoms  (likewise for -V q\!ann_pfam...)
+
+(c) provide an option to remove region/feature annotations from non-m8
+(blast-tabular) output.  This simplifies the process of using
+scripts/merge_fasta_btab.pl to use .bl_tab (-m 8CBL) files to inject
+sub-alignment scores and domain information.
+
+>>Nov. 1, 2018
+[doinit.c]
+Allow -m F#=file.name in addition to -m "F# file.name" to address
+problems I had with spaces in shell scripts.
+
+>>Oct. 23, 2018 [re-released as fasta-36.3.8g]  (see README_v36.3.8g.md)
+[make/Makefiles*,psisearch2/m89_btop_msa2.pl]
+
+Add options to psisearch2/m89_btop_msa2.pl to provide clustalw header
+(--clustal), require a minimum coverage of the query sequence
+(--min_align 0.8), and edit sequence identifiers to remove database
+and accession (--trunc_acc).
+
+Remove -lz dependency from non-debug Makefiles.
+
+>>Aug. 5, 2018  [re-released as fasta-36.3.8g]
+[lib_sel.c]
+Make lib_select.c more robust to missing indirect name files.
+[scripts/ann*.pl]
+update various annotation scripts to use https:// instead of http://
+
+>>April 3, 2018
+[initfa.c, comp_lib.c, dropfx2.c]
+Changes to (a) ensure that the "-t t" option correctly inserts and
+aligns a termination codon '*'. (a) changes to -m 8CB, -m8CC, and -m9C
+so that aligned termination codons are indicated as "**" (-m8CB) or
+"*1" (-m8CC, -m9C).
+
+>>Mar. 9, 2018
+[scripts/annot_blast_btop2.pl, merge_blast_btab.pl, blastp_annot_cmd.sh]
+Code is now in place to provide sub-alignment scoring using domain
+annotations with blastp searches (BLOSUM62 only).  blastp_annot_cmd.sh
+runs blast and produces both a standard HTML and a tabular output
+file.  It then runs annot_blast_btop2.pl to add sub-alignment scoring
+to the tabular ouput file, and then merge_blast_btab.pl merges the
+domain-annotated blast tabular file with the HTML output file.  When
+combined in this way, the FASTA web server (fasta.bioch.virginia.edu)
+can produce blastp searches with domain highlights/scoring.
+
+>>Feb. 6, 2018
+[initfa.c, doinit.c, mshowbest.c, mshowalign2.c]
+Add a new extended option, -XB, which causes percent identity, percent
+similarity, and alignment length to be presented using the BLAST
+model, which does not count gaps in the alignment length.
+
+>>Dec. 30, 2017  [released as fasta-36.3.8g]
+[scaleswn.c]
+Replace np_to_z() with np1_to_z(), which does not substract low
+probability from 1.0, thus allowing accurate z-values for very low
+probabilities.
+
+>>Sept. 26, 2017
+[comp_lib9.c, compacc2e.c]
+Previously, if the query sequence was all lower-case letters (seg-ed)
+and the '-S' option specified, the search would effectively be done
+with a zero-length sequence, which broke the statistics.  The code has
+been modified to convert all lower-case queries to upper-case when -S
+is used.
+
+[scaleswn.c]
+Fixed problem with scaleswn.c/ag_stats() not setting parameters
+properly when matrix was unknown.
+
+>>May 23, 2017 [released as fasta-36.3.8f]
+[url_subs.c]
+A small, but major change in the output available to the $SRCH_URL and
+$SRCH_URL2 strings, which are used to enable re-searching, and now
+pairwise alignment. (It would be better to provide a json string of
+the information, rather than using fprintf().)  An additional value,
+the name of the query sequence, is provided to these urls so that
+pairwise alignment becomes possible.
+
+>>May 23, 2017
+[scripts/ann_feats2ipr.pl,ann_feats_up_www2.pl,test_ann_scripts.sh  src/defs.h]
+Changes to ensure that EBI format databases, which place the ID before
+the accession, e.g.  SP:GSTM1_HUMAN P09488, can be processed properly
+by annotation scripts.  This involved displaying more of the
+description line, so that the accession field is included, in the
+annot_XXXXX file.  
+
+>>May 8, 2017
+[compacc2e.c]
+Address problem where initial domain annotation similarity
+score/identity not properly reset.
+
+[scripts/annot_blast_btop2.pl]
+Fix various problems with domain scores, particularly in gaps, and
+domain coordinates.
+
+Modify version string to May, 2017
+
+>>April 18, 2017
+[cal_cons2.c]
+Address problem where identity count not correctly assigned to
+N-terminal domain at the end of a domain.
+
+>>April 14, 2017
+[src/compacc2e.c, scripts/ann_exons_up_www.pl]
+
+Provide a new script to annotate exon positions in Uniprot Proteins
+(scripts/ann_exons_up_www.pl) that uses the EBI proteins/api/coordinate service.
+
+Provide additional error checking on annotates to ensure that domain
+start is always <= domain end.
+
+>>Jan 17, 2017
+[scripts/ann_pfam30_tmptbl.pl]
+ann_pfam30_tmptbl.pl is a modification of ann_pfam30.pl that loads a
+temporary tables of accessions to be annotated, rather than asking for
+one sequence at a time.
+
 >>Dec 14, 2016
 [initfa.c/scaleswn.c]
 Change required shuffle count (down to 100) and introduce an

@@ -92,6 +92,8 @@ void w_abort (char *p, char *p1);
 
 extern double zs_to_bit(double, int, int);
 
+void dominfo_to_str(struct dyn_string_str *d, struct annot_str *annot);
+
 /* showbest() shows a list of high scoring sequence descriptions, and
    their rst.scores.  If -m 9, then an additional complete set of
    alignment information is provided.
@@ -137,13 +139,15 @@ void showbest (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
   struct rstruct rst;
   int l_score0, ngap;
   double lzscore, lzscore2, lbits;
-  float percent, gpercent, ng_percent;
+  float percent, gpercent, ng_percent, disp_percent, disp_similar;
+  int disp_alen;
   struct a_struct *aln_p;
   struct a_res_str *cur_ares_p;
   struct rstruct *rst_p;
   int gi_num;
   char html_pre_E[120], html_post_E[120];
   int have_lalign = 0;
+  struct dyn_string_str *dominfo_dstr;
 
   struct lmf_str *m_fptr;
 
@@ -242,7 +246,13 @@ void showbest (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
   /* display number of hits for -m 8C (Blast Tab-commented format) */
   if (m_msp->markx & MX_M8COMMENT) {
     /* line below copied from BLAST+ output */
-    fprintf(fp,"# Fields: query id, subject id, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+    if (m_msp->markx & MX_M8_BTAB_LEN) {
+      fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+    }
+    else {
+      fprintf(fp,"# Fields: query id, subject id, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+    }
+
     if (ppst->zsflag > 20) {fprintf(fp,", eval2");}
     if (m_msp->show_code & (SHOW_CODE_ALIGN+SHOW_CODE_CIGAR)) { fprintf(fp,", aln_code");}
     else if ((m_msp->show_code & SHOW_CODE_BTOP)==SHOW_CODE_BTOP) { fprintf(fp,", BTOP");}
@@ -329,9 +339,14 @@ l1:
   for (ib=istart; ib<istop; ib++) {
     bbp = bptr[ib];
     if (ppst->do_rep) {
-      bbp->repeat_thresh = 
-	min(E1_to_s(ppst->e_cut_r, m_msp->n0, bbp->seq->n1,ppst->zdb_size, m_msp->pstat_void),
-	    bbp->rst.score[ppst->score_ix]);
+      if (bbp->rst.escore > ppst->e_cut_r) {	/* for poor alignment scores, don't look for more */
+	bbp->repeat_thresh = bbp->rst.score[ppst->score_ix] * 10;
+      }
+      else {
+	bbp->repeat_thresh = 
+	  min(E1_to_s(ppst->e_cut_r, m_msp->n0, bbp->seq->n1,ppst->zdb_size, m_msp->pstat_void),
+	      bbp->rst.score[ppst->score_ix]);
+      }
     }
 
 #ifdef DEBUG
@@ -519,7 +534,12 @@ l1:
       }
       else if (m_msp->markx & MX_M8OUT) {	/* MX_M8OUT -- provide query, library */
 	if (first_line) {first_line = 0;}
-	fprintf (fp,"%s\t%s",m_msp->qtitle,bline_p);
+	if (m_msp->markx & MX_M8_BTAB_LEN) {
+	  fprintf (fp,"%s\t%d\t%s\t%d",m_msp->qtitle,m_msp->n0,bline_p,bbp->seq->n1);
+	}
+	else {
+	  fprintf (fp,"%s\t%s",m_msp->qtitle,bline_p);
+	}
       }
       else if (m_msp->markx & MX_MBLAST2) {	/* blast "Sequences producing" */ 
 	if (first_line) {first_line = 0;}
@@ -537,13 +557,20 @@ l1:
 	annot_str_len = cur_ares_p->annot_code_n;
 
 	ngap = cur_ares_p->aln.ngap_q + cur_ares_p->aln.ngap_l;
-        percent = calc_fpercent_id(100.0,aln_p->nident,aln_p->lc, m_msp->tot_ident, -100.0);
+        disp_percent = percent = calc_fpercent_id(100.0,aln_p->nident,aln_p->lc, m_msp->tot_ident, -100.0);
         ng_percent = calc_fpercent_id(100.0,aln_p->nident,aln_p->lc-ngap, m_msp->tot_ident, -100.0);
+	disp_similar = calc_fpercent_id(100.0, cur_ares_p->aln.nsim, aln_p->lc, m_msp->tot_ident, -100.0);
+	disp_alen = aln_p->lc;
+	if (m_msp->blast_ident) {
+	  disp_percent = ng_percent;
+	  disp_similar = calc_fpercent_id(100.0, cur_ares_p->aln.npos, aln_p->lc - ngap, m_msp->tot_ident, -100.0);
+	  disp_alen = aln_p->lc - ngap;
+	}
 
 #ifndef SHOWSIM
-	gpercent = calc_fpercent_id(100.0, aln_p->nident, aln_p->lc-ngap, m_msp->tot_ident, -100.0);
+	gpercent = ng_percent;
 #else
-	gpercent = calc_fpercent_id(100.0, cur_ares_p->aln.nsim, aln_p->lc, m_msp->tot_ident, -100.0);
+	gpercent = disp_similar;
 #endif	/* SHOWSIM */
 
 	if (m_msp->show_code != SHOW_CODE_ID && m_msp->show_code != SHOW_CODE_IDD) {	/* show more complete info than just identity */
@@ -564,9 +591,9 @@ l1:
 	  /*                    sequence coordinate    min  max            min  max */
 	  if (!(m_msp->markx & MX_M8OUT)) {
 	    fprintf(fp,"\t%5.3f %5.3f %4d %4d %4ld %4ld %4ld %4ld %4ld %4ld %4ld %4ld %3d %3d %3d",
-		    percent/100.0,gpercent/100.0, 
+		    disp_percent/100.0,gpercent/100.0, 
 		    cur_ares_p->sw_score,
-		    aln_p->lc,
+		    disp_alen,
 		    aln_p->d_start0,aln_p->d_stop0,
 		    aln_p->q_start_off, aln_p->q_end_off,
 		    aln_p->d_start1,aln_p->d_stop1,
@@ -582,19 +609,36 @@ l1:
 	  }
 	  else {	/* MX_M8OUT -- blast order, tab separated */
 	    fprintf(fp,"\t%.2f\t%d\t%d\t%d\t%ld\t%ld\t%ld\t%ld\t%.2g\t%.1f",
-		    ng_percent,aln_p->lc,aln_p->nmismatch,
+		    ng_percent,aln_p->lc-ngap,aln_p->nmismatch,
 		    aln_p->ngap_q + aln_p->ngap_l+aln_p->nfs,
 		    aln_p->d_start0, aln_p->d_stop0,
 		    aln_p->d_start1, aln_p->d_stop1,
 		    zs_to_E(lzscore,n1,ppst->dnaseq,ppst->zdb_size,m_msp->db),
 		    lbits);
+
 	    if (ppst->zsflag > 20) {
 	      fprintf(fp,"\t%.2g",zs_to_E(lzscore2, n1, ppst->dnaseq, ppst->zdb_size, m_msp->db));
 	    }
 	    if ((m_msp->show_code & (SHOW_CODE_ALIGN+SHOW_CODE_CIGAR+SHOW_CODE_BTOP)) && seq_code_len > 0 && seq_code != NULL) {
 	      fprintf(fp,"\t%s",seq_code);
+
 	      if (annot_str_len > 0 && annot_str != NULL) {
 		fprintf(fp,"\t%s",annot_str);
+	      }
+
+	      if (m_msp->show_code & SHOW_CODE_DOMINFO) {
+		dominfo_dstr = init_dyn_string(1024,1024);
+		if (m_msp->annot_p) {
+		  dominfo_to_str(dominfo_dstr,m_msp->annot_p);  
+		}
+		if (bbp->seq->annot_p) {
+		  dominfo_to_str(dominfo_dstr,bbp->seq->annot_p);  
+		}
+		
+		if (dominfo_dstr->string[0]) {
+		  fprintf(fp,"\t%s",dominfo_dstr->string);
+		}
+		free_dyn_string(dominfo_dstr);
 	      }
 	    }
 	    fprintf(fp,"\n");
@@ -603,10 +647,9 @@ l1:
 	else {	/* !SHOW_CODE -> SHOW_ID or SHOW_IDD*/
 #ifdef SHOWSIM
 	  fprintf(fp," %5.3f %5.3f %4d", 
-		  percent/100.0,
-		  (float)aln_p->nsim/(float)aln_p->lc,aln_p->lc);
+		  disp_percent/100.0,disp_similar/100.0,disp_alen);
 #else
-	  fprintf(fp," %5.3f %4d", percent/100.0,aln_p->lc);
+	  fprintf(fp," %5.3f %4d", disp_percent/100.0,disp_alen);
 #endif
 	  if (m_msp->markx & MX_HTML) {
 	    if (cur_ares_p->index > 0) {
@@ -620,7 +663,7 @@ l1:
 	  }
 	  else { link_shown = 0;}
 
-	  if ((m_msp->show_code & SHOW_CODE_ID) == SHOW_CODE_ID) {
+	  if ((m_msp->show_code & SHOW_CODE_ID) == SHOW_CODE_ID ) {
 	    annot_str = cur_ares_p->annot_var_id;
 	  }
 	  else if ((m_msp->show_code & SHOW_CODE_IDD) == SHOW_CODE_IDD) {
@@ -629,7 +672,7 @@ l1:
 	  else {
 	    annot_str = NULL;
 	  }
-	  if (annot_str && annot_str[0]) {
+	  if (annot_str && annot_str[0] && (!m_msp->m8_show_annot || (m_msp->markx & MX_M8OUT))) {
 	    fprintf(fp," %s",annot_str);
 	  }
 	}
@@ -662,4 +705,40 @@ l1:
   if (best_align_done) { m_msp->align_done = 1;}	/* note that alignments are done */
 
   if (m_msp->markx & MX_HTML) fprintf(fp,"</pre><hr>\n");
+}
+
+/* dominfo_to_str() -- convert domain annotations to a |DX:1-100;C=PF12345~1 dyn_string */
+/* used for both query and subject strings */
+void
+dominfo_to_str(struct dyn_string_str *dominfo_dstr, struct annot_str *annots) {
+  int i;
+  char tmp_string[MAX_STR];
+  struct annot_entry *annot;
+  struct dyn_string_str *dyn_dom_str;
+
+  for (i=0; i < annots->n_annot; i++) {
+
+    annot = &annots->annot_arr_p[i];
+
+    if (annot->target) {
+      if (annot->label == '-') {
+	sprintf(tmp_string,"|XD:%ld-%ld;C=%s",annot->pos+1,annot->end+1,annot->comment);
+      }
+      else {
+	sprintf(tmp_string,"|X%c:%ld-%ld;C=%s",annot->label, annot->pos+1,annot->end+1,annot->comment);
+      }
+    }
+    else {
+      if (annot->label == '-') {
+	sprintf(tmp_string,"|DX:%ld-%ld;C=%s",annot->pos+1,annot->end+1,annot->comment);
+      }
+      else {
+	sprintf(tmp_string,"|%cX:%ld-%ld;C=%s",annot->label, annot->pos+1,annot->end+1,annot->comment);
+      }
+
+    }	
+
+
+    dyn_strcat(dominfo_dstr, tmp_string);
+  }
 }

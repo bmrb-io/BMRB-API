@@ -53,12 +53,14 @@
 	4 - Intelligentics format
 	5 - NBRF/PIR VMS format
 	6 - GCG 2bit format
+	7 - FASTQ format
+	8 - accession script
 
 	10 - list of gi/acc's
 	11 - NCBI setdb/blastp (1.3.2) AA/NT
 	12 - NCBI setdb/blastp (2.0) AA/NT
 	16 - mySQL queries
-
+	
 	see file altlib.h to confirm numbers
 
 */
@@ -167,6 +169,7 @@ open_lib(struct lib_struct *lib_p, int ldnaseq, int *sascii, int outtty)
   struct lmf_str *m_fptr=NULL;
   int acc_off=0;
   char fmt_term;
+  char acc_script[MAX_LSTR];
   struct lib_struct *next_lib_p, *this_lib_p, *tmp_lib_p;
 
   om_fptr = lib_p->m_file_p;
@@ -178,50 +181,70 @@ open_lib(struct lib_struct *lib_p, int ldnaseq, int *sascii, int outtty)
 
   wcnt = 0;	/* number of times to ask for file name */
 
-  /* check to see if there is a file option ":1-100" */
-#ifndef WIN32
-  if ((bp=strchr(lib_p->file_name,':'))!=NULL && *(bp+1)!='\0') {
-#else
-  if ((bp=strchr(lib_p->file_name+3,':'))!=NULL && *(bp+1)!='\0') {
-#endif
-    strncpy(opt_text,bp+1,sizeof(opt_text));
-    opt_text[sizeof(opt_text)-1]='\0';
-    *bp = '\0';
+  /* check for library type */
+  lib_type=0;
+  if ((bp=strchr(lib_p->file_name,' '))!=NULL 
+      || (bp=strchr(lib_p->file_name,'^'))!=NULL) {
+    if (isdigit((int)(bp+1)[0])) {  /* check for number for lib_type */
+	*bp='\0';
+	sscanf(bp+1,"%d",&lib_type);
+	if (lib_type<0 || lib_type >= LASTLIB) {
+	  fprintf(stderr,"\n invalid library type: %d (>%d)- resetting\n%s\n",
+		  lib_type,LASTLIB,lib_p->file_name);
+	  lib_type=0;
+	}
+    }  /* don't change lib_type if its not a number */
   }
-  else opt_text[0]='\0';
+  else if (lib_p->file_name[0] =='!') {  /* check for script */
+    lib_type = lib_p->lib_type = ACC_SCRIPT;
+  }
 
-  if (lib_p->file_name[0] == '-' || lib_p->file_name[0] == '@') {
+  /* check for stdin indicator '-' or '@'  (or ACC_SCRIPT) */
+  if (lib_p->file_name[0] == '-' || lib_p->file_name[0] == '@'
+      || lib_type == ACC_SCRIPT) {
     use_stdin = 1;
   }
   else use_stdin=0;
 
-  /* check for library type */
-  if ((bp=strchr(lib_p->file_name,' '))!=NULL) {
-    *bp='\0';
-    sscanf(bp+1,"%d",&lib_type);
-    if (lib_type<0 || lib_type >= LASTLIB) {
-      fprintf(stderr,"\n invalid library type: %d (>%d)- resetting\n%s\n",
-	      lib_type,LASTLIB,lib_p->file_name);
-      lib_type=0;
-    }
-    else {
-      lib_p->lib_type = lib_type;
-    }
-  }
-  else lib_type = lib_p->lib_type;
-
-  if (use_stdin && lib_type !=0 ) {
+  if (use_stdin && !(lib_type ==0 || lib_type==ACC_SCRIPT)) {
     fprintf(stderr,"\n @/- STDIN libraries must be in FASTA format\n");
     return NULL;
   }
 
-  /* check to see if file can be open()ed? */
+  opt_text[0]='\0';
+  if (lib_type != ACC_SCRIPT) {
+  /* check to see if there is a file option ":1-100" */
+#ifndef WIN32
+    if ((bp=strchr(lib_p->file_name,':'))!=NULL && *(bp+1)!='\0') {
+#else
+    if ((bp=strchr(lib_p->file_name+3,':'))!=NULL && *(bp+1)!='\0') {
+#endif
+      strncpy(opt_text,bp+1,sizeof(opt_text));
+      opt_text[sizeof(opt_text)-1]='\0';
+      *bp = '\0';
+    }
+  }
 
+  /* check to see if file can be open()ed? */
  l1:
   opnflg = 0;
   if (lib_type<=LASTTXT) {
     if (!use_stdin) {
       opnflg=((libf=fopen(lib_p->file_name,RBSTR))!=NULL);
+    }
+    else if (lib_type==ACC_SCRIPT) {
+      bp = lib_p->file_name;
+      if (lib_p->file_name[0] == '!') {	bp += 1;}
+      strncpy(acc_script, bp, sizeof(acc_script)-1);
+      acc_script[sizeof(acc_script)-1] = '\0';
+
+      /* convert '+' in annot_script to ' ' */
+      bp = strchr(acc_script,'+');
+      for ( ; bp; bp=strchr(bp+1,'+')) {
+	*bp=' ';
+      }
+      libf=popen(acc_script,"r");
+      opnflg=1;
     }
     else {
       libf=stdin;

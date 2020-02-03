@@ -27,7 +27,7 @@
 
 /* constants associated with displaying annotation links */
 #ifndef DESCR_OFFSET
-#define DESCR_OFFSET 12
+#define DESCR_OFFSET 20
 #endif
 
 #define NO_FILE_EXIT 4
@@ -68,7 +68,7 @@
 
 #ifndef MAX_MEMK
 #if defined(BIG_LIB64) && (defined(COMP_THR) || defined(PCOMPLIB))
-#define MAX_MEMK 8*1024*1024	/* 12 GB (<<10) for library in memory */
+#define MAX_MEMK 16*1024*1024	/* 16 GB (<<10) for library in memory */
 #else
 #define MAX_MEMK 2*1024*1024	/* 2 GB (<<10) for library in memory */
 #endif
@@ -152,15 +152,16 @@
 #define MX_M9SUMM 64	/* markx==9(c) */
 #define MX_M10FORM 128	/* markx==10 - verbose output */
 #define MX_M11OUT 256	/* markx==11 - lalign lav */
-#define MX_M8OUT 512	/* markx==8 blast8 output */
-#define MX_M8COMMENT 1024	/* markx==8 blast8 output */
-#define MX_MBLAST 2048	/* markx=B blast output */
-#define MX_MBLAST2 4096	/* markx=BB more blast output */
+#define MX_M8OUT 512	/* markx==8 blast tabular (-outfmt=6) output */
+#define MX_M8COMMENT 1024	/* markx==8 blast tabular (-outfmt=7) with comments  output */
+#define MX_MBLAST 2048	/* markx=B blast alignment -outfmt=0 output */
+#define MX_MBLAST2 4096	/* markx=BB blast best scores and alignment (-outfmt=0) output */
 #define MX_ANNOT_COORD 16384 /* -m 0, use -m 0B for both */
 #define MX_ANNOT_MID  32768 /* markx 0M, 1M, 2M annotations in middle */
 #define MX_RES_ALIGN_SCORE (1<<20)  /* show residue alignment score, not alignment */
+#define MX_M8_BTAB_LEN  (1<<21) /* show query/subject seq. lens in -m 8 output */
 
-/* codes for -m 9 */
+/* codes for -m 9, -m 8C? */
 #define SHOW_CODE_ID	1	/* identity only */
 #define SHOW_CODE_IDD   2	/* identity with domains */
 #define SHOW_CODE_ALIGN 4	/* encoded alignment */
@@ -169,3 +170,5 @@
 #define SHOW_CODE_MASK  12	/* use higher bits for annotation format */
 #define SHOW_CODE_EXT   16	/* encode identity, mismatch state */
 #define SHOW_ANNOT_FULL 32	/* show full-length annot in calc_code */
+#define SHOW_CODE_DOMINFO 64    /* include raw domain info in btab/BTOP */
+

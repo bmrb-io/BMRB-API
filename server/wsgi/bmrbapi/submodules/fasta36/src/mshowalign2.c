@@ -156,7 +156,8 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
   int nc, lc, maxc;
   double lzscore, lzscore2, lbits;
   struct a_struct l_aln, *l_aln_p;
-  float percent, gpercent;
+  float percent, gpercent, ng_percent, disp_percent, disp_similar;
+  int disp_alen;
   /* strings, lengths for conventional alignment */
   char *seqc0, *seqc0a, *seqc1, *seqc1a, *seqca;
   int *cumm_seq_score;
@@ -490,8 +491,9 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
 
 	if (lc > 0) {
 	  percent = (100.0*(float)l_aln_p->nident)/(float)lc;
+	  ng_percent = (100.0*(float)l_aln_p->nident)/(float)(lc-(l_aln_p->ngap_q + l_aln_p->ngap_l));
 	}
-	else { percent = -1.00; }
+	else { percent = ng_percent = -1.00; }
 
 	fprintf (fp, "a {\n");
 	if (annot_var_dyn->string[0]) {
@@ -534,13 +536,22 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
 
       if (cur_ares_p->score_delta > 0) score_delta -= cur_ares_p->score_delta;
 
-      percent = calc_fpercent_id(100.0, l_aln_p->nident,lc,m_msp->tot_ident, -1.0);
+      disp_percent = percent = calc_fpercent_id(100.0, l_aln_p->nident,lc,m_msp->tot_ident, -1.0);
+      disp_similar = calc_fpercent_id(100.0, l_aln_p->nsim, lc, m_msp->tot_ident, -1.0);
+      disp_alen = lc;
 
       ngap = l_aln_p->ngap_q + l_aln_p->ngap_l;
+      ng_percent = calc_fpercent_id(100.0, l_aln_p->nident,lc-ngap,m_msp->tot_ident, -1.0);
+      if (m_msp->blast_ident) { 
+	disp_percent = ng_percent;
+	disp_similar = calc_fpercent_id(100.0, l_aln_p->npos, lc-ngap, m_msp->tot_ident, -1.0);
+	disp_alen = lc - ngap;
+      }
+
 #ifndef SHOWSIM
-      gpercent = calc_fpercent_id(100.0,l_aln_p->nident,lc-ngap,m_msp->tot_ident, -1.0);
+      gpercent = ng_percent;
 #else
-      gpercent = calc_fpercent_id(100.0,l_aln_p->nsim,lc,m_msp->tot_ident, -1.0);
+      gpercent = disp_similar;
 #endif
 
       lsw_score = cur_ares_p->sw_score + score_delta;
@@ -664,10 +675,14 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
 	  if (m_msp->markx & MX_HTML) {
 	    fprintf(fp,"<!-- ANNOT_START \"%s\" -->",link_name);}
 	  /* ensure that last character is "\n" */
-	  if (annot_var_dyn->string[strlen(annot_var_dyn->string)-1] != '\n') {
-	    annot_var_dyn->string[strlen(annot_var_dyn->string)-1] = '\n';
+	  if (!m_msp->m8_show_annot) {
+	    if (annot_var_dyn->string[strlen(annot_var_dyn->string)-1] != '\n') {
+	      annot_var_dyn->string[strlen(annot_var_dyn->string)-1] = '\n';
+	    }
+	    fputs(annot_var_dyn->string, fp);
 	  }
-	  fputs(annot_var_dyn->string, fp);
+	  else { fputs("\n",fp);}
+
 	  if (m_msp->markx & MX_HTML) {fputs("<!-- ANNOT_STOP -->",fp);}
 	}
 
@@ -746,7 +761,7 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
       do_show(fp, m_msp->n0, bbp->seq->n1, lsw_score, name0, name1, nml,
 	      link_name, 
 	      m_msp, ppst, seqc0, seqc0a, seqc1, seqc1a, seqca, cumm_seq_score,
-	      nc, percent, gpercent, lc, l_aln_p, annot_var_dyn->string,
+	      nc, disp_percent, gpercent, disp_alen, l_aln_p, annot_var_dyn->string,
 	      m_msp->annot_p, bbp->seq->annot_p);
 
       /* display the encoded alignment left over from showbest()*/
@@ -809,10 +824,12 @@ void do_show(FILE *fp, int n0,int n1, int score,
   int tmp;
 
   if (m_msp->markx & MX_AMAP && (m_msp->markx & MX_ATYPE)==7)
+    /* show text graphic of alignment (very rarely used) */
     disgraph(fp, n0, n1, percent, score,
 	     aln->amin0, aln->amin1, aln->amax0, aln->amax1, m_msp->sq0off,
 	     name0, name1, nml, aln->llen, m_msp->markx);
   else if (m_msp->markx & MX_M10FORM) {
+    /* old tagged/parse-able format */
     if (ppst->sw_flag && m_msp->arelv>0)
       fprintf(fp,"; %s_score: %d\n",m_msp->f_id1,score);
     fprintf(fp,"; %s_ident: %5.3f\n",m_msp->f_id1,percent/100.0);
@@ -827,7 +844,7 @@ void do_show(FILE *fp, int n0,int n1, int score,
 	    seqc0, seqc0a, seqc1, seqc1a, seqca, cumm_seq_score, nc,
 	    n0, n1, name0, name1, nml, aln);
   }
-  else  {
+  else  {    /* all "normal" alignment formats */
     if (!(m_msp->markx & MX_MBLAST)) {
 #ifndef LALIGN
       fprintf(fp,"%s score: %d; ",m_msp->alabel, score);
@@ -848,7 +865,7 @@ void do_show(FILE *fp, int n0,int n1, int score,
 	      annot_var_s, q_annot_p, l_annot_p);
     }
 
-    if (m_msp->markx & MX_AMAP && (m_msp->markx & MX_ATYPE)!=7) {
+    if ((m_msp->markx & MX_AMAP) && ((m_msp->markx & MX_ATYPE)!=MX_ATYPE)) {
       fputc('\n',fp);
       tmp = n0;
 
