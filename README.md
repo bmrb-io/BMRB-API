@@ -402,7 +402,6 @@ If those values are not available they will be returned as null.
 
 Examples:
 
-* [All chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts)
 * [All CA chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=CA)
 * [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=HB*)
 * [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
