@@ -154,9 +154,14 @@ def handle_other_errors(error):
 def log_request():
     """ Log all requests. """
 
+    try:
+        user_agent = request.headers.get('User-Agent', '?').split()[0]
+    except IndexError:
+        user_agent = '?'
+
     rlogger.info("%s %s %s %s %s", request.remote_addr, request.method,
                  request.full_path,
-                 request.headers.get('User-Agent', '?').split()[0],
+                 user_agent,
                  request.headers.get('Application', 'unknown'))
 
     jlogger.info({"user-agent": request.headers.get('User-Agent'),
