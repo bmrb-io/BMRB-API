@@ -4,7 +4,7 @@ import textwrap
 import warnings
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
-from typing import List, Dict
+from typing import List, Dict, Iterable
 from urllib.parse import quote
 
 import psycopg2
@@ -238,13 +238,13 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
-    shift_val = request.args.getlist('shift')
-    threshold = request.args.get('threshold', .03)
-    atom_type = request.args.get('atom_type', None)
-    atom_id = request.args.getlist('atom_id')
-    comp_id = request.args.getlist('comp_id')
-    conditions = request.args.get('conditions', False)
-    database = get_db("macromolecules")
+    shift_val: Iterable[float] = request.args.getlist('shift')
+    threshold: float = float(request.args.get('threshold', .03))
+    atom_type: str = request.args.get('atom_type', None)
+    atom_id: str = request.args.getlist('atom_id')
+    comp_id: str = request.args.getlist('comp_id')
+    conditions: bool = request.args.get('conditions', False)
+    database: str = get_db("macromolecules")
 
     sql = '''
 SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
