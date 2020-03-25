@@ -1,8 +1,10 @@
+import csv
 import os
 import subprocess
 import tempfile
 import zlib
 from hashlib import md5
+from io import StringIO
 from time import time as unix_time
 from typing import List, Dict
 
@@ -46,7 +48,7 @@ def get_tags(entry_id: str, search_tags: List[str]) -> Dict[str, List[str]]:
         raise RequestException(str(error))
 
 
-def get_loops_by_category(entry_id: str, loop_categories: List[str], format_: str) ->\
+def get_loops_by_category(entry_id: str, loop_categories: List[str], format_: str) -> \
         Dict[str, Dict[str, List[pynmrstar.Loop]]]:
     """ Returns the matching loops."""
 
@@ -511,16 +513,53 @@ def get_citation(entry_id):
 def simulate_hsqc(entry_id):
     """ Returns the html for a simulated HSQC spectrum. """
 
-    csviz._AUTOOPEN = False
-    csviz._OPACITY = 1
-    with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
-        csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
-        output_file.seek(0)
-        if len(output_file.read()) == 0:
-            # The PyBMRB exception only fires if the entry ID is valid
-            check_valid(entry_id)
-            raise ServerException('PyBMRB failed to generate valid output.')
-        return send_file(output_file.name)
+    format_ = request.args.get('format', "html")
+    filter_ = request.args.get('filter', "all")
+
+    if format_ == 'html':
+        csviz._AUTOOPEN = False
+        csviz._OPACITY = 1
+        with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
+            csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
+            output_file.seek(0)
+            if len(output_file.read()) == 0:
+                # The PyBMRB exception only fires if the entry ID is valid
+                check_valid(entry_id)
+                raise ServerException('PyBMRB failed to generate valid output.')
+            return send_file(output_file.name)
+    elif format_ == 'csv' or format_ == 'json':
+        spectra = csviz.Spectra()
+        cs_data = spectra.get_entry(entry_id)
+        data = list(zip(*spectra.convert_to_n15hsqc_peaks(cs_data)))
+
+        if format_ == 'json':
+            dict_format = [{'sequence': _[0].split("-")[1],
+                            'chem_comp_ID': _[0].split("-")[2],
+                            'H_shift': _[1],
+                            'N_shift': _[2],
+                            'H_atom_name': _[3],
+                            'N_atom_name': _[4]} for _ in data if (filter_ == 'all' or (_[3] == 'H' and _[4] == 'N'))]
+            return jsonify(dict_format)
+        elif format_ == 'csv':
+            if filter_ == "all":
+                data = [[x[0].split("-")[1], x[0].split("-")[2], x[1], x[2], x[3], x[4]] for x in data]
+            else:
+                data = [[x[0].split("-")[1], x[0].split("-")[2], x[1], x[2]] for x in data if
+                        (x[3] == 'H' and x[4] == 'N')]
+
+            memory_file = StringIO()
+            csv_writer = csv.writer(memory_file)
+            if filter_ == "all":
+                csv_writer.writerow(['sequence', 'chem_comp_ID', 'H_shift', 'N_shift', 'H_atom_name', 'N_atom_name'])
+            else:
+                csv_writer.writerow(['sequence', 'chem_comp_ID', 'H_shift', 'N_shift'])
+            csv_writer.writerows(data)
+            memory_file.seek(0)
+
+            response = Response(memory_file.read(), mimetype='text/csv')
+            response.headers.set("Content-Disposition", 'attachment', filename='%s_simulated_hsqc_%s.csv' %
+                                                                               (entry_id, filter_))
+            return response
 
 
 @entry_endpoints.route('/entry/<entry_id>/validate')
