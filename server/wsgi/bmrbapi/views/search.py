@@ -247,25 +247,44 @@ def get_chemical_shifts():
     database: str = get_db("macromolecules")
 
     sql = '''
-SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
-  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer
-FROM "Atom_chem_shift" as cs
+SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
+       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
+       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
+       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
+       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
+       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
+       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
+       "Ambiguity_code"                       AS "Atom_chem_shift.Ambiguity_code",
+       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID"
+FROM "Atom_chem_shift" AS cs
 WHERE
 '''
 
     if conditions:
         sql = '''
-SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
-  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer,
-  web.convert_to_numeric(ph."Val") as ph,web.convert_to_numeric(temp."Val") as temp
-FROM "Atom_chem_shift" as cs
-LEFT JOIN "Assigned_chem_shift_list" as csf
-  ON csf."ID"=cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID"=cs."Entry_ID"
-LEFT JOIN "Sample_condition_variable" AS ph
-  ON csf."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH'
-LEFT JOIN "Sample_condition_variable" AS temp
-  ON csf."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=cs."Entry_ID" AND 
-     temp."Type"='temperature' AND temp."Val_units"='K'
+SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
+       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
+       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
+       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
+       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
+       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
+       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
+       "Ambiguity_code"                       AS "Atom_chem_shift.Ambiguity_code",
+       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID",
+       web.convert_to_numeric(ph."Val")       AS "Sample_conditions.pH",
+       web.convert_to_numeric(temp."Val")     AS "Sample_conditions.Temperature_K"
+FROM "Atom_chem_shift" AS cs
+         LEFT JOIN "Assigned_chem_shift_list" AS csf
+                   ON csf."ID" = cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID" = cs."Entry_ID"
+         LEFT JOIN "Sample_condition_variable" AS ph
+                   ON csf."Sample_condition_list_ID" = ph."Sample_condition_list_ID" AND
+                      ph."Entry_ID" = cs."Entry_ID" AND ph."Type" = 'pH'
+         LEFT JOIN "Sample_condition_variable" AS temp
+                   ON csf."Sample_condition_list_ID" = temp."Sample_condition_list_ID" AND
+                      temp."Entry_ID" = cs."Entry_ID" AND
+                      temp."Type" = 'temperature' AND temp."Val_units" = 'K'
 WHERE
 '''
 
@@ -316,12 +335,7 @@ WHERE
         if configuration['debug']:
             result['debug'] = cur.query
 
-        result['columns'] = ["Atom_chem_shift." + desc[0] for desc in cur.description]
-
-        if conditions:
-            result['columns'][-2] = 'Sample_conditions.pH'
-            result['columns'][-1] = 'Sample_conditions.Temperature_K'
-
+        result['columns'] = [desc[0] for desc in cur.description]
         result['data'] = cur.fetchall()
     return jsonify(result)
 
