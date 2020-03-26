@@ -518,6 +518,9 @@ def simulate_hsqc(entry_id):
     format_ = request.args.get('format', "html")
     filter_ = request.args.get('filter', "all")
 
+    # The PyBMRB exception only fires if the entry ID is valid
+    check_valid(entry_id)
+
     if format_ == 'html':
         csviz._AUTOOPEN = False
         csviz._OPACITY = 1
@@ -526,8 +529,6 @@ def simulate_hsqc(entry_id):
                 return 'No amide proton nitrogen chemical shifts found.'
             output_file.seek(0)
             if len(output_file.read()) == 0:
-                # The PyBMRB exception only fires if the entry ID is valid
-                check_valid(entry_id)
                 raise ServerException('PyBMRB failed to generate valid output.')
             return send_file(output_file.name)
     elif format_ in ['csv', 'json', 'sparky']:
