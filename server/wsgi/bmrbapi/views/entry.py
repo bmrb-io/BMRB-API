@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 import zlib
+from decimal import Decimal
 from hashlib import md5
 from io import StringIO
 from time import time as unix_time
@@ -16,6 +17,7 @@ from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection, RedisConnection
+from bmrbapi.utils.mappings import three_letter_code_to_one
 from bmrbapi.utils.querymod import get_valid_entries_from_redis
 
 entry_endpoints = Blueprint('entry', __name__)
@@ -520,45 +522,59 @@ def simulate_hsqc(entry_id):
         csviz._AUTOOPEN = False
         csviz._OPACITY = 1
         with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
-            csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
+            if not csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name):
+                return 'No amide proton nitrogen chemical shifts found.'
             output_file.seek(0)
             if len(output_file.read()) == 0:
                 # The PyBMRB exception only fires if the entry ID is valid
                 check_valid(entry_id)
                 raise ServerException('PyBMRB failed to generate valid output.')
             return send_file(output_file.name)
-    elif format_ == 'csv' or format_ == 'json':
+    elif format_ in ['csv', 'json', 'sparky']:
         spectra = csviz.Spectra()
         cs_data = spectra.get_entry(entry_id)
         data = list(zip(*spectra.convert_to_n15hsqc_peaks(cs_data)))
+        dict_format = [{'sequence': int(_[0].split("-")[1]),
+                        'chem_comp_ID': _[0].split("-")[2],
+                        'H_shift': Decimal(_[1]),
+                        'N_shift': Decimal(_[2]),
+                        'H_atom_name': _[3],
+                        'N_atom_name': _[4]} for _ in data if
+                       ((filter_ == 'all' or (_[3] == 'H' and _[4] == 'N')) and _[1] and _[2])]
 
         if format_ == 'json':
-            dict_format = [{'sequence': _[0].split("-")[1],
-                            'chem_comp_ID': _[0].split("-")[2],
-                            'H_shift': _[1],
-                            'N_shift': _[2],
-                            'H_atom_name': _[3],
-                            'N_atom_name': _[4]} for _ in data if (filter_ == 'all' or (_[3] == 'H' and _[4] == 'N'))]
             return jsonify(dict_format)
-        elif format_ == 'csv':
-            if filter_ == "all":
-                data = [[x[0].split("-")[1], x[0].split("-")[2], x[1], x[2], x[3], x[4]] for x in data]
-            else:
-                data = [[x[0].split("-")[1], x[0].split("-")[2], x[1], x[2]] for x in data if
-                        (x[3] == 'H' and x[4] == 'N')]
+        elif format_ == 'sparky':
+            sparky_file = "Assignment         w1        w2\n\n"
+            for row in dict_format:
+                if row['H_shift'] and row['N_shift']:
+                    assignment = f'{three_letter_code_to_one[row["chem_comp_ID"]]}{row["sequence"]}' \
+                                 f'{row["H_atom_name"]}-{row["N_atom_name"]}'
+                    if filter_ == "all" or (row['H_atom_name'] == 'H' and row['N_atom_name'] == 'N'):
+                        sparky_file += f'{assignment:12} {row["H_shift"]:8} {row["N_shift"]:8}\n'
 
+            response = Response(sparky_file, mimetype='text/plain')
+            response.headers.set("Content-Disposition", 'attachment',
+                                 filename=f'{entry_id}_simulated_hsqc_{filter_}.list')
+            return response
+
+        elif format_ == 'csv':
             memory_file = StringIO()
             csv_writer = csv.writer(memory_file)
+
             if filter_ == "all":
                 csv_writer.writerow(['sequence', 'chem_comp_ID', 'H_shift', 'N_shift', 'H_atom_name', 'N_atom_name'])
+                csv_writer.writerows([[_['sequence'], _['chem_comp_ID'], _['H_shift'], _['N_shift'],
+                                       _['H_atom_name'], _['N_atom_name']] for _ in dict_format])
             else:
                 csv_writer.writerow(['sequence', 'chem_comp_ID', 'H_shift', 'N_shift'])
-            csv_writer.writerows(data)
-            memory_file.seek(0)
+                csv_writer.writerows([[_['sequence'], _['chem_comp_ID'], _['H_shift'], _['N_shift']] for _ in
+                                      dict_format])
 
+            memory_file.seek(0)
             response = Response(memory_file.read(), mimetype='text/csv')
-            response.headers.set("Content-Disposition", 'attachment', filename='%s_simulated_hsqc_%s.csv' %
-                                                                               (entry_id, filter_))
+            response.headers.set("Content-Disposition", 'attachment',
+                                 filename=f'{entry_id}_simulated_hsqc_{filter_}.csv')
             return response
 
 

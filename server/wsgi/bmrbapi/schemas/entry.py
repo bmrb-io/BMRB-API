@@ -47,6 +47,7 @@ class SimulateHsqc(Schema):
         html = "html"
         csv = "csv"
         json = "json"
+        sparky = "sparky"
 
     class Filter(enum.Enum):
         backbone = "backbone"
