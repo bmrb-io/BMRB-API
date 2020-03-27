@@ -282,7 +282,8 @@ init_work (unsigned char *aa0, int n0,
       if (hsq[i0] < NMAP && hsq[i0] > mhv) mhv = hsq[i0];
 
    if (mhv <= 0) {
-      fprintf (stderr, " maximum hsq <=0 %d\n", mhv);
+      fprintf (stderr, "*** error [%s:%d] - maximum hsq <=0 %d\n",
+	       __FILE__, __LINE__, mhv);
       exit (1);
    }
 
@@ -299,19 +300,23 @@ init_work (unsigned char *aa0, int n0,
    f_str->hmask = (hmax >> f_str->kshft) - 1;
 
    if ((f_str->harr = (int *) calloc (hmax, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate hash array\n");
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate hash array [%d]\n",
+	      __FILE__, __LINE__, hmax );
      exit (1);
    }
    if ((f_str->pamh1 = (int *) calloc (ppst->nsq+1, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate pamh1 array\n");
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate pamh1 array [%d]\n",
+	      __FILE__, __LINE__, ppst->nsq+1);
      exit (1);
    }
    if ((f_str->pamh2 = (int *) calloc (hmax, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate pamh2 array\n");
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate pamh2 array [%d]\n",
+	      __FILE__, __LINE__, hmax);
      exit (1);
    }
    if ((f_str->link = (int *) calloc (n0, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate hash link array");
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate hash link array [%d]",
+	      __FILE__, __LINE__, n0);
      exit (1);
    }
 
@@ -319,7 +324,8 @@ init_work (unsigned char *aa0, int n0,
    if ((f_str->aa1x =(unsigned char *)calloc((size_t)ppst->maxlen+2,
 					     sizeof(unsigned char)))
        == NULL) {
-     fprintf (stderr, "cannot allocate aa1x array %d\n", ppst->maxlen+2);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa1x array %d\n",
+	      __FILE__, __LINE__, ppst->maxlen+2);
      exit (1);
    }
    f_str->aa1x++;
@@ -327,7 +333,8 @@ init_work (unsigned char *aa0, int n0,
    if ((f_str->aa1y =(unsigned char *)calloc((size_t)ppst->maxlen+2,
 					     sizeof(unsigned char)))
        == NULL) {
-     fprintf (stderr, "cannot allocate aa1y array %d\n", ppst->maxlen+2);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa1y array %d\n",
+	      __FILE__, __LINE__, ppst->maxlen+2);
      exit (1);
    }
    f_str->aa1y++;
@@ -335,7 +342,8 @@ init_work (unsigned char *aa0, int n0,
    maxn0 = n0 + 2;
    if ((aa0x =(unsigned char *)calloc((size_t)maxn0,sizeof(unsigned char)))
        == NULL) {
-     fprintf (stderr, "cannot allocate aa0x array %d\n", maxn0);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa0x array %d\n",
+	      __FILE__, __LINE__, maxn0);
      exit (1);
    }
    aa0x++;
@@ -343,7 +351,8 @@ init_work (unsigned char *aa0, int n0,
 
    if ((aa0y =(unsigned char *)calloc((size_t)maxn0,sizeof(unsigned char)))
        == NULL) {
-     fprintf (stderr, "cannot allocate aa0y array %d\n", maxn0);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa0y array %d\n",
+	      __FILE__, __LINE__, maxn0);
      exit (1);
    }
    aa0y++;
@@ -438,22 +447,24 @@ init_work (unsigned char *aa0, int n0,
 #ifndef ALLOCN0
    if ((f_str->diag = (struct dstruct *) calloc ((size_t)MAXDIAG,
 						 sizeof (struct dstruct)))==NULL) {
-      fprintf (stderr," cannot allocate diagonal arrays: %ld\n",
+      fprintf (stderr,"*** error [%s:%d] - cannot allocate diagonal arrays: %ld\n",
+	       __FILE__, __LINE__, 
 	      (long) MAXDIAG *sizeof (struct dstruct));
       exit (1);
      };
 #else
    if ((f_str->diag = (struct dstruct *) calloc ((size_t)n0,
 					      sizeof (struct dstruct)))==NULL) {
-      fprintf (stderr," cannot allocate diagonal arrays: %ld\n",
-	      (long)n0*sizeof (struct dstruct));
+      fprintf (stderr,"*** error [%s:%d] - cannot allocate diagonal arrays: %ld\n",
+	       __FILE__, __LINE__, (long)n0*sizeof (struct dstruct));
       exit (1);
      };
 #endif
 
 
    if ((waa= (int *)malloc (sizeof(int)*(nsq+1)*n0)) == NULL) {
-     fprintf(stderr,"cannot allocate waa struct %3d\n",nsq*n0);
+     fprintf(stderr,"*** error [%s:%d] - cannot allocate waa struct %3d\n",
+	     __FILE__, __LINE__, nsq*n0);
      exit(1);
    }
 
@@ -467,7 +478,8 @@ init_work (unsigned char *aa0, int n0,
    f_str->waa0 = waa;
 
    if ((waa= (int *)malloc (sizeof(int)*(nsq+1)*n0)) == NULL) {
-     fprintf(stderr,"cannot allocate waa struct %3d\n",nsq*n0);
+     fprintf(stderr,"*** error [%s:%d] - cannot allocate waa struct %3d\n",
+	     __FILE__, __LINE__, nsq*n0);
      exit(1);
    }
 
@@ -489,7 +501,8 @@ init_work (unsigned char *aa0, int n0,
    maxn0 = max(4*n0,MIN_RES);
 #endif
    if ((res = (int *)calloc((size_t)maxn0,sizeof(int)))==NULL) {
-     fprintf(stderr,"cannot allocate alignment results array %d\n",maxn0);
+     fprintf(stderr,"*** error [%s:%d] -cannot allocate alignment results array %d\n",
+	     __FILE__, __LINE__, maxn0);
      exit(1);
    }
    f_str->res = res;
@@ -691,7 +704,8 @@ void do_fastx (const unsigned char *aa0, int n0,
    }
 
    if (n0+n1+1 >= MAXDIAG) {
-     fprintf(stderr,"n0,n1 too large: %d, %d\n",n0,n1);
+     fprintf(stderr,"*** error [%s:%d] - n0,n1 too large > %d: %d, %d\n",
+	     __FILE__, __LINE__, n0,n1, MAXDIAG);
      rst->score[0] = rst->score[1] = rst->score[2] = -1;
      return;
    }
@@ -1524,7 +1538,8 @@ pro_dna(const unsigned char *prot_seq,	/* array with prot. seq. numbers*/
   }
 
   if (i >= max_res) {
-    fprintf(stderr," alignment truncated: %d/%d\n", max_res,i);
+    fprintf(stderr,"*** error [%s:%d] -  alignment truncated: %d > %d (max_res)\n",
+	    __FILE__, __LINE__, i, max_res);
   }
 
   up = &up[-3]; down = &down[-3]; tp = &tp[-3];
@@ -1581,7 +1596,6 @@ local_align(int *x, int *y, int *ex, int *ey,
   ld += 2;
   init_ROW(up, ld+1);	/* set to zero */
   init_ROW(down, ld+1);	/* set to zero */
-
 
   cur = up+1;
   last = down+1; 
@@ -2071,30 +2085,74 @@ small_global(int x, int y, int ex, int ey,
 #define XTERNAL
 #include "upam.h"
 
+/* this code is not used by the program, it was included for testing */
+/* display_alig(*align_enc, *dna_p, *prot, length, ld) takes the
+
+   alignment encoding, and the DNA and protein sequences, and produces an alignment.
+   *dna_p  is the three phases of the translated DNA sequence
+   *prot is the original protein sequence
+
+   length is the length of the encoding
+   ld is the length of the alignment(?)
+
+   the first two entries in align_enc[] are the start of the protein
+   and DNA sequences.
+
+   The encoding is:  (why no code 1?:)
+
+   0:     delete amino acid.
+   2:     frame shift, 2 nucleotides match with an amino acid
+   3:     match an  amino acid with a codon
+   4:     the other type of frame shift
+   5:     delete of a codon
+
+   One of the properties of this encoding is that it indicates the
+   amount that the DNA sequence index needs to be incremented after
+   prot match (except for 5)
+
+ */
+
 extern void
-display_alig(int *a, unsigned char *dna, unsigned char * pro, int length, int ld)
+display_alig(int *a, unsigned char *dna_p, unsigned char * pro, int length, int ld)
 {
   int len = 0, i, j, x, y, lines, k;
   char line1[100], line2[100], line3[100],
     tmp[10] = "         ";
-  unsigned char *dna1, c1, c2, c3, *st;
+  unsigned char *dna_p1, c1, c2, c3, *st;
 
-  dna1 = ckalloc((size_t)ld);
-  for (st = dna, i = 0; i < ld; i++, st++) dna1[i] = NCBIstdaa[*st];
-  line1[0] = line2[0] = line3[0] = '\0'; x= a[0]; y = a[1]-1;
+  dna_p1 = ckalloc((size_t)ld);	/* dna_p1 is the ascii (sq0) translated-DNA residue */
+
+  /* generate the ascii aa characters */
+  for (st = dna_p, i = 0; i < ld; i++, st++) {
+    dna_p1[i] = NCBIstdaa[*st];
+  }
+  line1[0] = line2[0] = line3[0] = '\0';
+
+  x= a[0];	/* start in protein */
+  y = a[1]-1;	/* start in DNA */
  
   for (len = 0, j = 2, lines = 0; j < length; j++) {
-    i = a[j];
+    i = a[j];	/* i is align_enc value 0-5 */
     /*printf("%d %d %d\n", i, len, b->j);*/
+
     if (i > 0 && i < 5) tmp[i-2] = NCBIstdaa[pro[x++]];
-    if (i == 5) {
-      i = 3; tmp[0] = tmp[1] = tmp[2] = '-';
+    if (i == 5) {  /* special case */
+      i = 3;       /* increment DNA value by 3, prot by 0 */
+      tmp[0] = tmp[1] = tmp[2] = '-';
       if (a[j+1] == 2) tmp[2] = ' ';
     }
     if (i > 0) {
-      strncpy(&line1[len], (const char *)&dna1[y], i); y+=i;
-    } else {line1[len] = '-'; i = 1; tmp[0] = NCBIstdaa[pro[x++]];}
+      strncpy(&line1[len], (const char *)&dna_p1[y], i);
+      y+=i;
+    }
+    else {
+      line1[len] = '-';
+      i = 1;
+      tmp[0] = NCBIstdaa[pro[x++]];
+    }
+
     strncpy(&line2[len], tmp, i);
+
     for (k = 0; k < i; k++) {
       if (tmp[k] != ' ' && tmp[k] != '-') {
 	if (k == 2) tmp[k] = '\\';
@@ -2129,7 +2187,6 @@ display_alig(int *a, unsigned char *dna, unsigned char * pro, int length, int ld
   printf("\n     %s\n     %s\n     %s\n", line1, line3, line2);
 }
 
-
 /* alignment store the operation that align the protein and dna sequence.
    The code of the number in the array is as follows:
    0:     delete of an amino acid.
@@ -2138,7 +2195,6 @@ display_alig(int *a, unsigned char *dna, unsigned char * pro, int length, int ld
    4:     the other type of frame shift
    5:     delete of a codon
    
-
    Also the first two element of the array stores the starting point 
    in the protein and dna sequences in the local alignment.
 
@@ -2379,7 +2435,8 @@ fx_malign (const unsigned char *aa0, int n0,
 
   /* now we need alignment storage - get it */
   if ((cur_ares->res = (int *)calloc((size_t)max_res,sizeof(int)))==NULL) {
-    fprintf(stderr," *** cannot allocate alignment results array %d\n",max_res);
+    fprintf(stderr,"*** error [%s:%d] - cannot allocate alignment results array %d\n",
+	    __FILE__, __LINE__, max_res);
     exit(1);
   }
 
@@ -2600,7 +2657,8 @@ do_walign (const unsigned char *aa0, int n0,
   *have_ares = 0x3;	/* set 0x2 bit to indicate local copy */
 
   if ((a_res = (struct a_res_str *)calloc(1, sizeof(struct a_res_str)))==NULL) {
-    fprintf(stderr," [do_walign] Cannot allocate a_res");
+    fprintf(stderr,"*** error [%s:%d] - cannot allocate a_res [%lu]",
+	    __FILE__, __LINE__, sizeof(struct a_res_str));
     return NULL;
   }
 
@@ -2648,13 +2706,15 @@ do_walign (const unsigned char *aa0, int n0,
 #endif
   /*
   if (a_res->res[0] != 3) {
-    fprintf(stderr, "*** alignment does not start with match: %d\n",a_res->res[0]);
+    fprintf(stderr, "*** error [%s:%d] - alignment does not start with match: %d\n",
+    __FILE__, __LINE__, a_res->res[0]);
   }
   */
 
 #ifdef DEBUG
   if (adler32(1L,aa1,n1) != adler32_crc) {
-    fprintf(stderr,"[dropfx.c/do_walign] adler32_crc mismatch n1: %d\n",n1);
+    fprintf(stderr,"*** error [%s:%d] - adler32_crc mismatch n1: %d\n",
+	    __FILE__, __LINE__, n1);
   }
 #endif
 
@@ -2731,7 +2791,7 @@ pre_cons(const unsigned char *aa1, int n1, int frame, struct f_struct *f_str) {
 }
 
 /*
-   Alignment: store the operation that align the protein and dna sequence.
+   Alignment: store the operation that aligns the protein and dna sequences.
    The code of the number in the array is as follows:
    0:     delete of an amino acid.
    2:     frame shift, 2 nucleotides match with an amino acid
@@ -2978,22 +3038,22 @@ calc_cons_u( /* inputs */
   else if (calc_func_mode == CALC_ID || calc_func_mode == CALC_ID_DOM) {
     have_ann = (annotp_p && annotp_p->n_annot > 0);
     spa_p = &spa_c;
-    sp0_p = &sp0_c;
-    sp1_p = &sp1_c;
+    sp0_p = &sp1_c;
+    sp1_p = &sp0_c;
 
-    sp0a_p = &sp0a_c;
-    sp1a_p = &sp1a_c;
+    sp0a_p = &sp1a_c;
+    sp1a_p = &sp0a_c;
     annot_fmt = 3;
 
     /* does not require aa0a/aa1a, only for variants */
   }
   else if (calc_func_mode == CALC_CODE) {
     spa_p = &spa_c;
-    sp0_p = &sp0_c;
-    sp1_p = &sp1_c;
+    sp0_p = &sp1_c;
+    sp1_p = &sp0_c;
 
-    sp0a_p = &sp0a_c;
-    sp1a_p = &sp1a_c;
+    sp0a_p = &sp1a_c;
+    sp1a_p = &sp0a_c;
 
     show_code = (display_code & (SHOW_CODE_MASK+SHOW_CODE_EXT));	/* see defs.h; SHOW_CODE_ALIGN=2,_CIGAR=3,_CIGAR_EXT=4 */
     annot_fmt = 2;
@@ -3018,6 +3078,7 @@ calc_cons_u( /* inputs */
   rpmax = &a_res->res[a_res->nres];
 
   lenc = not_c = aln->nident = aln->nmismatch = aln->nsim = aln->npos = ngap_p = ngap_d = nfs= 0;
+
   i0 = a_res->min1;
   i1 = a_res->min0;
 
@@ -3142,7 +3203,12 @@ calc_cons_u( /* inputs */
       *spa_p = M_DEL;
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 2, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 2, *spa_p,*sp1_p,*sp0_p);
+#endif
+
       }
 
       if (calc_func_mode == CALC_CONS) {
@@ -3219,7 +3285,11 @@ calc_cons_u( /* inputs */
       *spa_p = align_type(itmp, *sp0_p, *sp1_p, 0, aln, ppst->pam_x_id_sim);
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       d1_alen++;
@@ -3321,7 +3391,11 @@ calc_cons_u( /* inputs */
       if (cumm_seq_score) *i_spa++ = itmp;
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST	
 	update_code(align_code_dyn, update_data_p, 3, *spa_p, *sp0_p, *sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 3, *spa_p, *sp1_p, *sp0_p);
+#endif
       
 	if (have_push_features) {
 	  add_annot_code(have_ann, *sp0_p, *sp1_p, *sp1a_p,
@@ -3367,7 +3441,11 @@ calc_cons_u( /* inputs */
       *spa_p = M_DEL;
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
         update_code(align_code_dyn, update_data_p, 4, *spa_p, *sp0_p, *sp1_p);
+#else
+        update_code(align_code_dyn, update_data_p, 4, *spa_p, *sp1_p, *sp0_p);
+#endif
       }
 
       if (calc_func_mode == CALC_CONS) {sp0_p++; sp1_p++; spa_p++;}
@@ -3436,7 +3514,11 @@ calc_cons_u( /* inputs */
       if (*spa_p == M_IDENT) {d1_ident++;}
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       if (cumm_seq_score) *i_spa++ = itmp;
@@ -3485,7 +3567,11 @@ calc_cons_u( /* inputs */
 
       if (calc_func_mode == CALC_CODE) {
 	*spa_p = 5;
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 5, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 5, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       if (calc_func_mode == CALC_CONS) {sp0_p++; sp1_p++; spa_p++;}
@@ -3615,7 +3701,7 @@ calc_astruct(struct a_struct *aln_p, struct a_res_str *a_res_p, struct f_struct 
 */
 
 static struct update_code_str *
-init_update_data(show_code) {
+init_update_data(int show_code) {
 
   struct update_code_str *update_data_p;
 
@@ -3717,8 +3803,18 @@ sprintf_btop(char *tmp_str,
 
   /* only aligned identities update counts */
   if (op==3 && sim_code == M_IDENT) {
-    up_dp->p_op_cnt++;
-    return;
+    if ((sp0 == '*' && (sp1 == '*' || toupper(sp1) == 'U'))
+	|| (sp1 == '*' && (sp0 == '*' || toupper(sp0) == 'U'))) {
+      if (up_dp->p_op_cnt > 0) {
+	sprintf(tmp_str,"%d**",up_dp->p_op_cnt);
+	up_dp->p_op_cnt = 0;
+	return;
+      }
+    }
+    else {
+      up_dp->p_op_cnt++;
+      return;
+    }
   }
   else {
     if (up_dp->p_op_cnt > 0) {
@@ -3786,10 +3882,18 @@ update_code(struct dyn_string_str *align_code_dyn,
       }
     }
     else {	/* have a termination codon, output for !SHOW_CODE_CIGAR */
-      if (!up_dp->cigar_order) {
-	if (sp0 == '*' || sp1 == '*') { op = 6;}
+      if (!up_dp->cigar_order) {  /* -m9c : -m9C and -m8CC are cigar_order */
+	if (sp0 == '*' || sp1 == '*') {
+	  /* op = 6 gets '*' from op_map="-x/=\\+*" when the string is closed */
+	  op = 6;
+	}
       }
-      else if (up_dp->show_ext && (sp0 != sp1)) { op = 1;}
+      else if (sp0=='*' && sp1=='*') {
+	op=6;
+      }
+      else if (up_dp->show_ext && (sp0 != sp1)) {
+	op = 1;
+      }
     }
 
     if (up_dp->p_op_cnt == 0) {

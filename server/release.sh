@@ -23,4 +23,7 @@ if [[ $1 == "production" ]]; then
     echo "sudo docker pull pike.bmrb.wisc.edu:5000/webapi; sudo docker stop webapi; sudo docker rm webapi; sudo docker run -d --name webapi -p 9002:9000 -p 9003:9001 --restart=always -v /tmp/.s.PGSQL.5432:/tmp/.s.PGSQL.5432 -v /websites/webapi/logs:/opt/wsgi/logs -v /websites/webapi/configuration.json:/opt/wsgi/bmrbapi/configuration.json pike.bmrb.wisc.edu:5000/webapi" | ssh web@blenny
 else
     echo "sudo docker pull pike.bmrb.wisc.edu:5000/webapi; sudo docker stop webapi-devel; sudo docker rm webapi-devel; sudo docker run -d --name webapi-devel -p 9004:9000 -p 9005:9001 --restart=always -v /tmp/.s.PGSQL.5432:/tmp/.s.PGSQL.5432 -v /websites/webapi/logs:/opt/wsgi/logs -v /websites/webapi/configuration_debug.json:/opt/wsgi/bmrbapi/configuration.json pike.bmrb.wisc.edu:5000/webapi" | ssh web@blenny
+    #sudo docker stop webapi
+    #sudo docker rm webapi
+    #sudo docker run -d --name webapi -p 9005:9001 --restart=always -v /tmp/logs:/opt/wsgi/logs -v /zfs/git/BMRB-API/server/wsgi/bmrbapi/configuration.json:/opt/wsgi/bmrbapi/configuration.json webapi
 fi

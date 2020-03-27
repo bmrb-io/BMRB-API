@@ -124,6 +124,7 @@ struct mngmsg 		/* Message from host to manager */
   char sqnam[4];	/* "aa" or "nt" */ 
   char sqtype[10];	/* "DNA" or "protein" */
   int long_info;	/* long description flag*/
+  int blast_ident;		/* calculate identities excluding gaps */
   long sq0off, sq1off;	/* virtual offset into aa0, aa1 */
   int markx;		/* alignment display type */
   int tot_markx;	/* markx as summ of all alternative markx */
@@ -157,6 +158,7 @@ struct mngmsg 		/* Message from host to manager */
   int ashow_set;	/* ashow set with -d */
   int nmlen;		/* length of name label */
   int show_code;	/* show alignment code in -m 9;  ==1 => identity only, ==2 alignment code*/
+  int m8_show_annot;	/* show annotations only in -m 8CB output */
   int tot_show_code;	/* show alignment for all outputs */
   int pre_load_done;	/* set after pre_load_best() call */
   int align_done;	/* do_walign() called */

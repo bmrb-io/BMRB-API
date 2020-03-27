@@ -1,20 +1,23 @@
 pdb_bmrb_map_text = """
 SELECT UPPER(pdb_id) || ' ' || string_agg(bmrb_id, ',' ORDER BY bmrb_id) AS string
-from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
+FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB'
-        AND "Relationship" != 'Exact'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
-      WHERE "Database_code" = 'PDB'
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+      UNION
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" != 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY UPPER(pdb_id)
 ORDER BY UPPER(pdb_id);
@@ -22,21 +25,24 @@ ORDER BY UPPER(pdb_id);
 
 pdb_bmrb_map_json = """
 SELECT UPPER(pdb_id) as pdb_id, array_agg(bmrb_id ORDER BY bmrb_id::int) AS bmrb_ids
-from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
+FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB'
-        AND "Relationship" != 'Exact'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
-      WHERE "Database_code" = 'PDB'
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+      UNION
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" != 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY UPPER(pdb_id)
 ORDER BY UPPER(pdb_id);
@@ -44,42 +50,48 @@ ORDER BY UPPER(pdb_id);
 
 bmrb_pdb_map_text = """
 SELECT bmrb_id || ' ' || string_agg(pdb_id, ',' ORDER BY pdb_id) AS string
-from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
+FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB'
-        AND "Relationship" != 'Exact'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
-      WHERE "Database_code" = 'PDB'
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+      UNION
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" != 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY bmrb_id
 ORDER BY bmrb_id::int;"""
 
 bmrb_pdb_map_json = """
 SELECT bmrb_id, array_agg(pdb_id ORDER BY pdb_id) AS pdb_ids
-from (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
+FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       FROM web.pdb_link
       UNION
-      SELECT "Database_accession_code", "Entry_ID", 'author', "Relationship"
+      SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB'
-        AND "Relationship" != 'Exact'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'blast', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
-      WHERE "Database_code" = 'PDB'
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
       UNION
-      SELECT "Accession_code", "Entry_ID", 'assembly', "Entry_details"
+      SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Assembly_db_link"
-      WHERE "Database_code" = 'PDB') AS sub
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+      UNION
+      SELECT UPPER("Accession_code"), "Entry_ID", 'blast', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Database_code" = 'PDB' AND "Author_supplied" != 'yes') AS sub
 WHERE link_type like %s AND pdb_id IS NOT NULL
 GROUP BY bmrb_id
 ORDER BY bmrb_id::int;"""

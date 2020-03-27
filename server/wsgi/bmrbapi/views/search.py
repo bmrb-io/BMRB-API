@@ -4,7 +4,7 @@ import textwrap
 import warnings
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
-from typing import List, Dict
+from typing import List, Dict, Iterable
 from urllib.parse import quote
 
 import psycopg2
@@ -70,26 +70,30 @@ def get_bmrb_ids_from_pdb_id(pdb_id: str) -> List[Dict[str, str]]:
 
     with PostgresConnection() as cur:
         query = '''
-    SELECT bmrb_id, array_agg(link_type) from 
-(SELECT bmrb_id, 'Exact' AS link_type, null AS comment
-  FROM web.pdb_link
-  WHERE pdb_id LIKE UPPER(%s)
-UNION
-SELECT "Entry_ID", 'Author Provided', "Relationship"
-  FROM macromolecules."Related_entries"
-  WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
-    AND "Relationship" != 'Exact'
-UNION
-SELECT "Entry_ID", 'BLAST Match', "Entry_details"
-  FROM macromolecules."Entity_db_link"
-  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB'
-UNION
-SELECT "Entry_ID", 'Assembly DB Link', "Entry_details"
-  FROM macromolecules."Assembly_db_link"
-  WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB') AS sub
-GROUP BY bmrb_id;'''
+        SELECT bmrb_id, array_agg(link_type) from 
+    (SELECT bmrb_id, 'Exact' AS link_type, null AS comment
+      FROM web.pdb_link
+      WHERE pdb_id LIKE UPPER(%s)
+    UNION
+    SELECT "Entry_ID", 'Author Provided', "Relationship"
+      FROM macromolecules."Related_entries"
+      WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
+        AND "Relationship" != 'BMRB Entry Tracking System'
+    UNION
+    SELECT "Entry_ID", 'Author Provided', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+    UNION
+    SELECT "Entry_ID", 'Author Provided', "Entry_details"
+      FROM macromolecules."Assembly_db_link"
+      WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+    UNION
+    SELECT "Entry_ID", 'BLAST Match', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Accession_code" LIKE UPPER(%s) AND "Database_code" = 'PDB' AND "Author_supplied" != 'yes') AS sub
+    GROUP BY bmrb_id;'''
 
-        cur.execute(query, [pdb_id, pdb_id, pdb_id, pdb_id])
+        cur.execute(query, [pdb_id, pdb_id, pdb_id, pdb_id, pdb_id])
 
         result = []
         for x in cur.fetchall():
@@ -234,34 +238,53 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
 def get_chemical_shifts():
     """ Return a list of all chemical shifts that match the selectors"""
 
-    shift_val = request.args.getlist('shift')
-    threshold = request.args.get('threshold', .03)
-    atom_type = request.args.get('atom_type', None)
-    atom_id = request.args.getlist('atom_id')
-    comp_id = request.args.getlist('comp_id')
-    conditions = request.args.get('conditions', False)
-    database = get_db("macromolecules")
+    shift_val: Iterable[float] = request.args.getlist('shift')
+    threshold: float = float(request.args.get('threshold', .03))
+    atom_type: str = request.args.get('atom_type', None)
+    atom_id: str = request.args.getlist('atom_id')
+    comp_id: str = request.args.getlist('comp_id')
+    conditions: bool = request.args.get('conditions', False)
+    database: str = get_db("macromolecules")
 
     sql = '''
-SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
-  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer
-FROM "Atom_chem_shift" as cs
+SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
+       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
+       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
+       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
+       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
+       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
+       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
+       "Ambiguity_code"                       AS "Atom_chem_shift.Ambiguity_code",
+       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID"
+FROM "Atom_chem_shift" AS cs
 WHERE
 '''
 
     if conditions:
         sql = '''
-SELECT cs."Entry_ID","Entity_ID"::integer,"Comp_index_ID"::integer,"Comp_ID","Atom_ID","Atom_type",
-  cs."Val"::numeric,cs."Val_err"::numeric,"Ambiguity_code","Assigned_chem_shift_list_ID"::integer,
-  web.convert_to_numeric(ph."Val") as ph,web.convert_to_numeric(temp."Val") as temp
-FROM "Atom_chem_shift" as cs
-LEFT JOIN "Assigned_chem_shift_list" as csf
-  ON csf."ID"=cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID"=cs."Entry_ID"
-LEFT JOIN "Sample_condition_variable" AS ph
-  ON csf."Sample_condition_list_ID"=ph."Sample_condition_list_ID" AND ph."Entry_ID"=cs."Entry_ID" AND ph."Type"='pH'
-LEFT JOIN "Sample_condition_variable" AS temp
-  ON csf."Sample_condition_list_ID"=temp."Sample_condition_list_ID" AND temp."Entry_ID"=cs."Entry_ID" AND 
-     temp."Type"='temperature' AND temp."Val_units"='K'
+SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
+       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
+       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
+       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
+       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
+       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
+       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
+       "Ambiguity_code"                       AS "Atom_chem_shift.Ambiguity_code",
+       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID",
+       web.convert_to_numeric(ph."Val")       AS "Sample_conditions.pH",
+       web.convert_to_numeric(temp."Val")     AS "Sample_conditions.Temperature_K"
+FROM "Atom_chem_shift" AS cs
+         LEFT JOIN "Assigned_chem_shift_list" AS csf
+                   ON csf."ID" = cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID" = cs."Entry_ID"
+         LEFT JOIN "Sample_condition_variable" AS ph
+                   ON csf."Sample_condition_list_ID" = ph."Sample_condition_list_ID" AND
+                      ph."Entry_ID" = cs."Entry_ID" AND ph."Type" = 'pH'
+         LEFT JOIN "Sample_condition_variable" AS temp
+                   ON csf."Sample_condition_list_ID" = temp."Sample_condition_list_ID" AND
+                      temp."Entry_ID" = cs."Entry_ID" AND
+                      temp."Type" = 'temperature' AND temp."Val_units" = 'K'
 WHERE
 '''
 
@@ -312,12 +335,7 @@ WHERE
         if configuration['debug']:
             result['debug'] = cur.query
 
-        result['columns'] = ["Atom_chem_shift." + desc[0] for desc in cur.description]
-
-        if conditions:
-            result['columns'][-2] = 'Sample_conditions.pH'
-            result['columns'][-1] = 'Sample_conditions.Temperature_K'
-
+        result['columns'] = [desc[0] for desc in cur.description]
         result['data'] = cur.fetchall()
     return jsonify(result)
 
@@ -402,17 +420,21 @@ def get_pdb_ids_from_bmrb_id(bmrb_id):
     SELECT "Database_accession_code", 'Author Provided', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
-        AND "Relationship" != 'Exact'
+        AND "Relationship" != 'BMRB Entry Tracking System'
+    UNION
+    SELECT "Accession_code", 'Author Provided', "Entry_details"
+      FROM macromolecules."Entity_db_link"
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
+    UNION
+    SELECT "Accession_code", 'Author Provided', "Entry_details"
+      FROM macromolecules."Assembly_db_link"
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB' AND "Author_supplied" = 'yes'
     UNION
     SELECT "Accession_code", 'BLAST Match', "Entry_details"
       FROM macromolecules."Entity_db_link"
-      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB'
-    UNION
-    SELECT "Accession_code", 'Assembly DB Link', "Entry_details"
-      FROM macromolecules."Assembly_db_link"
-      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB';'''
+      WHERE "Entry_ID" LIKE %s AND "Database_code" = 'PDB' AND "Author_supplied" != 'yes';'''
 
-        cur.execute(query, [bmrb_id, bmrb_id, bmrb_id, bmrb_id])
+        cur.execute(query, [bmrb_id, bmrb_id, bmrb_id, bmrb_id, bmrb_id])
         return jsonify([{"pdb_id": x[0], "match_type": x[1], "comment": x[2]} for x in cur.fetchall()])
 
 

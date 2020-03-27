@@ -185,17 +185,17 @@ void do_url1(FILE *fp, const struct mngmsg *m_msp, const struct pstruct *ppst,
   if (ref_url != NULL) {fprintf(fp,ref_url,db,my_l_name);}
 
   /* SRCH_URL should provide */
-  /* "<A HREF=\"http://localhost/fasta_www2/searchfa.cgi?query=%s&db=fasta_www.cgi&lib=%s&pgm=%s&start=%ld&stop=%ld&n1=%d&o_pgm=%s\">Re-search database</A>&nbsp;&nbsp;" */
+  /* "<A HREF=\"http://localhost/fasta_www2/searchfa.cgi?dummy=%s&query=%s&db=fasta_www.cgi&lib=%s&pgm=%s&start=%ld&stop=%ld&n1=%d&o_pgm=%s\">Re-search database</A>&nbsp;&nbsp;" */
   if (srch_url != NULL) {
-    fprintf(fp,srch_url,my_l_name,db,lib,pgm,
+    fprintf(fp,srch_url,my_q_name, my_l_name,db,lib,pgm,
 	    l_offset+aln_p->amin1+1,l_offset+aln_p->amax1,n1,m_msp->f_id0);
   }
 
   /* SRCH_URL1 should provide: */
-  /*  "<A HREF=\"http://localhost/fasta_www2/searchxf.cgi?query=%s&db=%s&lib=%s&pgm=%s&start=%ld&stop=%ld&n1=%d&o_pgm=%s\">General re-search</A>\n" */
+  /*  "<A HREF=\"http://localhost/fasta_www2/searchxf.cgi?dummy=%s&query=%s&db=%s&lib=%s&pgm=%s&start=%ld&stop=%ld&n1=%d&o_pgm=%s\">General re-search</A>\n" */
 
   if (srch_url1 != NULL) {
-    fprintf(fp,srch_url1,my_l_name,db,lib,pgm,
+    fprintf(fp,srch_url1,my_q_name, my_l_name,db,lib,pgm,
 	    l_offset+aln_p->amin1+1,l_offset+aln_p->amax1,n1,m_msp->f_id0);
   }
   
@@ -318,7 +318,7 @@ char *display_domains(char target, struct annot_entry **annot_arr_p, int n_annot
   char line[MAX_STR];
   int i, i_doms, n_domain_s = MAX_LSTR;
 
-  /* since (currently) annot_var_s is MAX_LSOTR, do the same for domain_s */
+  /* since (currently) annot_var_s is MAX_LSTR, do the same for domain_s */
   if ((domain_s = (char *)calloc(n_domain_s, sizeof(char)))==NULL) {
     fprintf(stderr,"*** error [%s:%d] *** cannot allocate domain_s[%d]\n",__FILE__, __LINE__,n_domain_s);
     return NULL;

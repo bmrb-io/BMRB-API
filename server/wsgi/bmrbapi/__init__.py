@@ -132,6 +132,12 @@ def handle_other_errors(error):
                                 'entered the URL manually please check your spelling and try again.',
                                 status_code=404).to_response()
 
+    # They are trying to hack the server. We catch this mainly just so we aren't spammed with server
+    #  error emails.
+    if isinstance(error, ValueError) and "A string literal cannot contain NUL" in str(error):
+        return RequestException("Invalid request. Requests cannot contain null characters.",
+                                status_code=400).to_response()
+
     application.logger.critical("Unhandled exception raised on request %s %s\n\n%s",
                                 request.method, request.url,
                                 traceback.format_exc())
@@ -148,9 +154,14 @@ def handle_other_errors(error):
 def log_request():
     """ Log all requests. """
 
+    try:
+        user_agent = request.headers.get('User-Agent', '?').split()[0]
+    except IndexError:
+        user_agent = '?'
+
     rlogger.info("%s %s %s %s %s", request.remote_addr, request.method,
                  request.full_path,
-                 request.headers.get('User-Agent', '?').split()[0],
+                 user_agent,
                  request.headers.get('Application', 'unknown'))
 
     jlogger.info({"user-agent": request.headers.get('User-Agent'),

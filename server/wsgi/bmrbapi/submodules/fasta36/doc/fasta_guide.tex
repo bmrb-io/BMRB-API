@@ -267,28 +267,41 @@ FASTA format files consist of a description line, beginning
 with a '$>$' character, followed by the sequence itself:
 \begin{quote}
 \begin{verbatim}
->sequence name and description 1
+>sequence_name1 and description
 A F A S Y T .... actual sequence.
 F S S       .... second line of sequence.
->sequence name and description 2
+>sequence_name2 and description 
 PMILTYV ... sequence 2
 \end{verbatim}
 \end{quote}
 All of the characters of the description line are read, and special
 characters can be used to indicate additional information about the
-sequence. In general, non-amino-acid/non-nucleotide sequences in the
-sequence lines are ignored.
+sequence. In particular, a \texttt{'@:C 12345'} at the end of the
+description line indicates that the first residue of the sequence has
+coordinate \texttt{'12345'}, instead of starting at \texttt{'1'}.
+Coordinates can be negative; a DNA sequence upstream from the start of
+transcription could be displayed with negative coordinates.
+
+In general, non-amino-acid/non-nucleotide sequences in the sequence
+lines are ignored, with the exception of \texttt{'*'}, which indicates
+a termination codon in a protein sequence, and can be used to indicate
+the match to a termination codon in protein:DNA alignments.
 
 FASTA format files from major sequence distributors, like the NCBI and
 EBI, have specially formatted description lines, e.g.:\\
 \indent
 \texttt{
->gi|54321|ref|np\_12345| example NCBI refseq sequence\\
+>np\_12345| example NCBI refseq sequence\\
 }
 or\\
 \indent
 \texttt{
->sw:gstm1\_human P01234 glutathione transferase GSTM1 - human\\
+>sp:gstm1\_human P01234 glutathione transferase GSTM1 - human\\
+}
+or
+\indent
+\texttt{
+>sp|P09488|GSTM1\_HUMAN glutathione transferase GSTM1 - human\\
 }
 
 Several sample test files are included with the FASTA distribution:
@@ -852,7 +865,11 @@ can use \texttt{-m 1 -m 6 -m 9}.
   comments, \texttt{-m 8XC} without comments) and, if available, an
   annotation encoding matching FASTA \texttt{-m 9C} output. All the
   \texttt{-m 9c/C/d/D} encodings are available with BLAST tabular
-  output using \texttt{-m 8C[c/C/d/D]}.
+  output using \texttt{-m 8C[c/C/d/D]}.  In the v36.3.8h release, a
+  new option has been added to \texttt{-m 8CB}, \texttt{-m 8CBL} (or
+  \texttt{-m 8CBl}. The \texttt{L/l} option adds the lengths of the
+  query and subject sequences after the \texttt{seqid}'s to BLAST
+  tabular output, e.g. \texttt{qseqid qlen sseqid slen percid ...}
 
 \item[\texttt{-m 9}] display alignment coordinates and scores with the
   best score information.  \texttt{-m 9i} provides alignment length,
@@ -926,7 +943,7 @@ while \texttt{-m 9D} would be:
 \texttt{1M1X2M4X2M1X2M7X3M9D1M2X1M4X2M1X1M1X2I1X1M1X1M3X1M2X1I3M1D1X1M2X1M}
 \end{footnotesize}
 \item[\texttt{-m 10}]
-a parseable format for use with other programs.
+a parseable format for use with other programs (this option no longer reliably tested; \texttt{-m 8CBL} is easier to parse and tested more extensively).
 \item[\texttt{-m 11}]
 Provide \texttt{lav}-like output (used by \texttt{lalign}) for graphical output.
 \begin{quote}
@@ -1124,17 +1141,24 @@ not treated as low complexity by the translated alignment
 programs. (There is an option in the \texttt{Makefile},
 \texttt{-DDNALIB\_LC}, to enable preserving case in DNA sequences.)
 
-\item[\texttt{-t \#}]
-Translation table - fastx36, tfastx36, fasty36, and
-tfasty3 now support the BLAST translation tables.  See
-\url{http://www.ncbi.nih.gov/Taxonomy/Utils/wprintgc.cgi}.
+\item[\texttt{-t \#}] Translation table - fastx36, tfastx36, fasty36,
+  and tfasty3 now support the BLAST translation tables.  See
+  \url{http://www.ncbi.nih.gov/Taxonomy/Utils/wprintgc.cgi}.  
 
-\texttt{-t t} or \texttt{-t t\#} enables the addition of
-an implicit termination codon to a protein:translated DNA match.  That
-is, each protein sequence implicitly ends with \texttt{*}, which
-matches the termination codes for the appropriate genetic code.
-\texttt{-t t\#} sets implicit termination and a different genetic
-code.
+  \texttt{-t 1} also enables translation of \texttt{'TGA'} to
+  \texttt{'U'} (seleno-cysteine) (by default, \texttt{'TGA'} is
+  translated to \texttt{'*'}). Because of the ambiguity of the
+  \texttt{'TGA'} codon, translated alignments of \texttt{'TGA'} with
+  \texttt{-t 1} match \texttt{'U'} and \texttt{'*'} (termination)
+  equally well.
+
+\texttt{-t t} enables the addition of an implicit termination codon to
+a protein:translated DNA match.  That is, each protein sequence
+implicitly ends with \texttt{*}, which matches the termination codes
+for the appropriate genetic code.  To change the translation table and
+insert a termination character after each protein sequence, use
+\texttt{-t 1 -t t}.
+
 \item[\texttt{-T \#}]
 set number of threads/workers.  Normally on a multi-core machine, the maximum
 number of processors/cores is used.
@@ -1349,7 +1373,13 @@ A number of rarely used options are now only available as extended options:
 \item[\texttt{X1}] sort output by \texttt{init1} score (for
   compatibility with FASTP; obsolete).
 
-\item[\texttt{XB}] (Previously \texttt{-B}.)  Show the z-score, rather
+\item[\texttt{XB}] Calculate pecent identity, percent similarity, and
+  alignment using the BLAST model, which excludes gapped residues.
+  This allows very high identity alignments with large gaps to look
+  much closer, but causes the alignment length to drop by the length
+  of the gap.
+
+\item[\texttt{Xb}] (Previously \texttt{-B}.)  Show the z-score, rather
   than the bit-score in the list of best scores (rarely used, provided
   for backward compatibility).
 
@@ -1470,8 +1500,8 @@ environment variables are used in HTML mode (\texttt{-m 6}) to provide
 links from the sequence alignment (see the links at
 \url{http://fasta.bioch.virginia.edu/fasta_www2/}). \texttt{REF\_URL}
 is associated with the \texttt{Entrez Lookup} link; \texttt{SRCH\_URL}
-with the \texttt{Re-search database} link, and \texttt{SRCH\_URL1}
-with the \texttt{General re-search} link.  In each case, the text
+with the \texttt{General re-search} link, and \texttt{SRCH\_URL1}
+with the \texttt{Pairwise alignment} link.  In each case, the text
 corresponds to a HTML URL, but with positions containing the
 \texttt{\%s} or \texttt{\%ld} (for numbers) part of a 'C'
 \texttt{sprintf()} call for specific variables. \texttt{REF\_URL} uses
@@ -1795,6 +1825,7 @@ read the libraries in the following formats:\\
 5 & NBRF/PIR VMS (\texttt{>P1;SEQID}/comment/sequence) (obsolete)\\
 6 & GCG (version 8.0) Unix Protein and DNA (compressed)\\
 7 & FASTQ (sequence only, quality ignored)\\
+9 & a script that is executed to produce FASTA format sequences \\ 
 10 & subset format (</slib2/swissprot.lseg 0:2 4|) \\
 11 & NCBI Blast1.3.2 format  (unix only) (obsolete)\\
 12 & NCBI Blast2.0 format\\
@@ -1870,11 +1901,15 @@ remember where the libraries are kept or how they are named.
 \section{Frequently Asked Questions (FAQs)}
 
 {\noindent}\textbf{Where can I get FASTA?} --
-\url{http://faculty.virginia.edu/wrpearson/fasta} has the latest
-versions of the FASTA programs.  This document describes
-\texttt{\CURRENT}, which is available from
-\url{http://faculty.virginia.edu/wrpearson/fasta/fasta3.tar.gz}.
-In addition, pre-compiled versions of the programs are available for
+
+The most current version of the FASTA source code is available from
+\url{http://github.com/wrpearson/fasta36}.  In addition, you can get
+the programs from \url{http://faculty.virginia.edu/wrpearson/fasta},
+but sometimes there is a lag between the latest release on GITHUB and
+the compiled versions at \url{faculty.virginia.edu}.  This document
+describes \texttt{\CURRENT}, which is available from
+\url{http://faculty.virginia.edu/wrpearson/fasta/fasta3.tar.gz}.  In
+addition, pre-compiled versions of the programs are available for
 MacOSX and Windows.
 
 \needspace{4\baselineskip}
@@ -1887,7 +1922,7 @@ Query & Library & FASTA pgm. & BLAST pgm. & \\[1.2ex]
 Prot. & Prot. & \texttt{fasta36} & \texttt{blastp} & heuristic local similarity \\
  &  & \texttt{ssearch36} &  & optimal local sim.\\
  &  & \texttt{ggearch36} &  & global:global sim. \\
- &  & \texttt{ggearch36} &  & global:local sim.\\
+ &  & \texttt{glearch36} &  & global:local sim.\\
 DNA & DNA & \texttt{fasta36}$^*$ & \texttt{blastn} & \\[1.2ex]
 \hline \\[-1.0ex]
 Prot. & Prot. & \texttt{lalign36} & & multiple non-intersecting \\
@@ -2029,7 +2064,7 @@ As always, please inform me of bugs as soon as possible.
 \begin{quote}
 William R. Pearson\\
 Department of Biochemistry\\
-Jordan Hall Box 800733\\
+Pinn Hall Box 800733\\
 U. of Virginia\\
 Charlottesville, VA\\
 wrp@virginia.EDU

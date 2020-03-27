@@ -43,6 +43,17 @@ class GetCitation(Schema):
 
 
 class SimulateHsqc(Schema):
+    class Format(enum.Enum):
+        html = "html"
+        csv = "csv"
+        json = "json"
+        sparky = "sparky"
+
+    class Filter(enum.Enum):
+        backbone = "backbone"
+        all = "all"
+    format = CustomErrorEnum(Format)
+    filter = CustomErrorEnum(Filter)
     pass
 
 

@@ -402,7 +402,6 @@ If those values are not available they will be returned as null.
 
 Examples:
 
-* [All chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts)
 * [All CA chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=CA)
 * [All HB* chemical shifts](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=HB*)
 * [All C1 chemical shifts from metabolomics database](http://webapi.bmrb.wisc.edu/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
@@ -495,9 +494,8 @@ by the BMRB entry tracking system. There is a one-to-one correspondence between
 this queried entry and the provided PDB ID.
 * `BLAST Match` - The entry was found during a routine BLAST search.
 It is similar to the queried entry in sequence but no other correlation is implied.
-* `Assembly DB Link` - Author provided PDB link from one of the entry assemblies.
-* `Author Provided` - If an author provided a "related entry" during deposition
-it will appear here.
+* `Author Provided` - If an author provided a "related entry" or "related assembly" 
+during deposition it will appear here.
 
 The `comment` field will only be present if it has a non-null value. It will contain any recorded
 notes on how the specific PDB ID is related to the queried BMRB ID if present.
@@ -523,9 +521,8 @@ by the BMRB entry tracking system. There is a one-to-one correspondence between
 this queried entry and the provided BMRB ID.
 * `BLAST Match` - The entry was found during a routine BLAST search.
 It is similar to the queried entry in sequence but no other correlation is implied.
-* `Assembly DB Link` - Author provided link from one of the entry assemblies.
-* `Author Provided` - If an author provided a "related entry" during deposition
-it will appear here.
+* `Author Provided` - If an author provided a "related entry" or "related assembly" 
+during deposition it will appear here.
 
 The `comment` field will usually be `null`, but if not, it will contain any recorded
 notes on how the specific BMRB ID is related to the queried PDB ID.
@@ -547,15 +544,15 @@ Parameters:
 * `format` - The format to return results in. Default is `json` but `text` is also supported.
 * `match_type` The type of match to use when generating the list. Allowed values:
   * `all`* - UniProt links from any of the other sources. This is the default.
-  * `author` - Entries supplied by the author as "related entries" during deposition.
-  * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
-   entry in sequence but no other correlation is implied.
-  * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
+  * `author` - Entries supplied by the author as "related entries" during deposition. Returns matches for both
+  entities and assembles with a database link.
+  * `blast` - The entry was found linked with a routine BLAST search. It is similar to the queried
+   entry in sequence but no other correlation is implied.     
 
 Examples:
 
 * [Exactly linked BMRB -> PDB mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/pdb?format=text&match_type=exact)
-* [BLAST linked PDB -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/pdb?format=text&match_type=blast)
+* [BLAST linked PDB -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=blast)
 
 #### Get a bulk BMRB<->UniProt ID mapping
 
@@ -577,14 +574,13 @@ Parameters:
   * `author` - Entries supplied by the author as "related entries" during deposition.
   * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
    entry in sequence but no other correlation is implied.
-  * `assembly` - Author provided link from one of the entry assemblies.     
   * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
 
 
 Examples:
 
-* [All link types BMRB -> UniProt mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=all)
-* [BLAST linked UniProt -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/pdb/bmrb?format=text&match_type=blast)
+* [All link types BMRB -> UniProt mapping in text](http://webapi.bmrb.wisc.edu/v2/mappings/bmrb/uniprot?format=text&match_type=all)
+* [BLAST linked UniProt -> BMRB mapping in json](http://webapi.bmrb.wisc.edu/v2/mappings/uniprot/bmrb?format=text&match_type=blast)
 
 
 ### Software
@@ -664,6 +660,6 @@ the default.
 
 Examples: 
 
-* [Results for all UniProt IDs in hupo-psi-id format](http://webapi.bmrb.wisc.edu/protein/uniprot?format=hupo-psi-id)
-* [Results for all UniProt ID P02769 in json format](http://webapi.bmrb.wisc.edu/protein/uniprot/P02769?format=json)
+* [Results for all UniProt IDs in hupo-psi-id format](http://webapi.bmrb.wisc.edu/v2/protein/uniprot?format=hupo-psi-id)
+* [Results for UniProt ID P02769 in json format](http://webapi.bmrb.wisc.edu/v2/protein/uniprot/P02769?format=json)
 

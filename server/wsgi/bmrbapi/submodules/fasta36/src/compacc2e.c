@@ -223,8 +223,8 @@ scanseq(unsigned char *seq, int n, char *str) {
 
 /* subs_env takes a string, possibly with ${ENV}, and looks up all the
    potential environment variables and substitutes them into the
-   string */
-
+   string
+*/
 void subs_env(char *dest, char *src, int dest_size) {
   char *last_src, *bp, *bp1;
 
@@ -274,7 +274,6 @@ void subs_env(char *dest, char *src, int dest_size) {
     dest[dest_size-1]='\0';
   }
 }
-
 
 void
 selectbest(struct beststr **bptr, int k, int n)	/* k is rank in array */
@@ -1404,7 +1403,7 @@ build_link_data(char **link_lib_file_p,
   char *link_lib_str;
   char link_script[MAX_LSTR];
   int link_lib_type;
-  char *bp, *link_bp;
+  char *bp, *link_bp, *bp_s;
   FILE *link_fd=NULL;		/* file for link accessions */
 
 #ifndef UNIX
@@ -1467,14 +1466,20 @@ build_link_data(char **link_lib_file_p,
   }
 
   strncpy(link_script,link_bp,sizeof(link_script));
+  /* un-edit m_msp->link_lname */
+  if (bp != NULL) *bp = ' ';
+
   link_script[sizeof(link_script)-1] = '\0';
+
+  /* convert + to space in script string */
+  for (bp_s = strchr(link_script+1,'+'); bp_s; bp_s=strchr(bp_s+1,'+')) {
+    *bp_s = ' ';
+  }
+
   SAFE_STRNCAT(link_script," ",sizeof(link_script));
   SAFE_STRNCAT(link_script,link_acc_file,sizeof(link_script));
   SAFE_STRNCAT(link_script," >",sizeof(link_script));
   SAFE_STRNCAT(link_script,link_lib_file,sizeof(link_script));
-
-  /* un-edit m_msp->link_lname */
-  if (bp != NULL) *bp = ' ';
 
   /* run link_script link_acc_file > link_lib_file */
   status = system(link_script);
@@ -1581,6 +1586,11 @@ build_lib_db(char *script_file) {
   }
 
   strncpy(lib_db_script,lib_bp,sizeof(lib_db_script));
+  bp = strchr(lib_db_script,'+');
+  for ( ; bp; bp=strchr(bp+1,'+')) {
+    *bp=' ';
+  }
+
   lib_db_script[sizeof(lib_db_script)-1] = '\0';
   SAFE_STRNCAT(lib_db_script," >",sizeof(lib_db_script));
   SAFE_STRNCAT(lib_db_script,lib_db_file,sizeof(lib_db_script));
@@ -1650,7 +1660,7 @@ update_tmp_annot(struct annot_mstr *this) {
 
   this->max_annot += (this->max_annot/2);
   if ((this->tmp_arr_p= (struct annot_entry *)realloc(this->tmp_arr_p, this->max_annot*sizeof(struct annot_entry)))==NULL) {
-    fprintf(stderr,"[*** error [%s:%d] - cannot reallocate tmp_ann_astr[%d]\n",
+    fprintf(stderr,"*** error [%s:%d] - cannot reallocate tmp_ann_astr[%d]\n",
 	    __FILE__, __LINE__, this->max_annot);
     return 0;
   }
@@ -1703,6 +1713,7 @@ get_annot_list(char *sname, struct mngmsg *m_msp, struct beststr **bestp_arr, in
        annotations back
     */
 
+    /* create filename for input accessions */
     annot_bline_file[0] = '\0';
 
     if ((annot_descr_file=(char *)calloc(MAX_STR,sizeof(char)))==NULL) {
@@ -1711,6 +1722,7 @@ get_annot_list(char *sname, struct mngmsg *m_msp, struct beststr **bestp_arr, in
     }
     annot_descr_file[0] = '\0';
 
+    /* add temporary directory if $TMP_DIR */
     if ((bp=getenv("TMP_DIR"))!=NULL) {
       strncpy(annot_bline_file,bp,sizeof(annot_bline_file));
       annot_bline_file[sizeof(annot_bline_file)-1] = '\0';
@@ -1729,6 +1741,7 @@ get_annot_list(char *sname, struct mngmsg *m_msp, struct beststr **bestp_arr, in
       goto no_annots;
     }
 
+    /* write out accessions, sequence length */
     for (i=0; i<nbest; i++) {
       if (bestp_arr[i]->mseq->annot_req_flag) {	continue; }
       if ((strlen(bestp_arr[i]->mseq->bline) > DESCR_OFFSET) &&
@@ -1744,7 +1757,13 @@ get_annot_list(char *sname, struct mngmsg *m_msp, struct beststr **bestp_arr, in
     }
     fclose(annot_fd);
 
-    subs_env(annot_script, sname+1, sizeof(annot_script));
+    /* convert '+' in annot_script to ' ' */
+    bp = strchr(sname+1,'+');
+    for ( ; bp; bp=strchr(bp+1,'+')) {
+      *bp=' ';
+    }
+
+    subs_env(annot_script,  sname+1, sizeof(annot_script));
     annot_script[sizeof(annot_script)-1] = '\0';
     SAFE_STRNCAT(annot_script," ",sizeof(annot_script));
     SAFE_STRNCAT(annot_script,annot_bline_file,sizeof(annot_script));
@@ -1753,6 +1772,13 @@ get_annot_list(char *sname, struct mngmsg *m_msp, struct beststr **bestp_arr, in
 
     /* run annot_script annot_bline_file > annot_descr_file */
     status = system(annot_script);
+
+#ifdef DEBUG
+    if (debug) {
+      fprintf(stderr,"%s\n",annot_script);
+    }
+#endif
+
     if (!debug) {
 #ifdef UNIX
       unlink(annot_bline_file);
@@ -1985,6 +2011,12 @@ next_annot_entry(FILE *annot_fd, char *tmp_line, int n_tmp_line, struct annot_st
       last_left_bracket = -1;
     }
 
+    if (f_end < f_pos) {
+	fprintf(stderr,"*** error [%s:%d] -- %s: domain start (%d) > domain end (%d)\n",
+		__FILE__,__LINE__, annot_acc, f_pos+1, f_end+1);
+	continue;
+    }
+
     if (tmp_comment[0]) {
       if ((tmp_ann_entry_arr[n_annot].comment=(char *)calloc(strlen(tmp_comment)+1,sizeof(char)))!=NULL) {
 	strncpy(tmp_ann_entry_arr[n_annot].comment,tmp_comment,strlen(tmp_comment));
@@ -2145,6 +2177,7 @@ get_annot(char *sname, struct mngmsg *m_msp, char *bline, long offset, int n1, s
   struct annot_mstr mtmp_annot;
 
 #ifndef UNIX
+  /* need pipes, system() */
   return 0;
 #else
 
@@ -2165,6 +2198,13 @@ get_annot(char *sname, struct mngmsg *m_msp, char *bline, long offset, int n1, s
 
     q_offset = m_msp->q_offset + m_msp->q_off - 1;
     if (q_offset < 0) { q_offset = 0;}
+
+    /* convert '+' in annot_script to ' ' */
+    bp = strchr(sname+1,'+');
+    for ( ; bp; bp=strchr(bp+1,'+')) {
+      *bp=' ';
+    }
+
     sprintf(annot_script,"%s \"%s\" %ld",sname+1, bline_descr,q_offset+m_msp->n0);
     annot_script[sizeof(annot_script)-1] = '\0';
 
@@ -3960,6 +4000,7 @@ process_annot_match(int *itmp, int *pam2aa0v,
 
       if (*left_domain_head_p == NULL) {
 	*left_domain_head_p = left_domain_p;
+	*d_score_p = init_score;
       }
       else { 
 	/* we already have a domain list - update scores for "live"
@@ -4096,6 +4137,14 @@ int align_type(int score, char sp0, char sp1, int nt_align, struct a_struct *aln
     /* add to gap count for 'N' matches ?? */
     else if (aln && toupper(sp0) == 'N') aln->ngap_q++;
     else if (aln && toupper(sp1) == 'N') aln->ngap_l++;
+  }
+  else if ((sp0 == '*' && toupper(sp1) == 'U') ||
+	   (toupper(sp0) == 'U' && sp1 == '*')) {
+    spa_val = M_IDENT;
+    if (aln) {
+      aln->nident++;
+      aln->nmismatch--;
+    }
   }
 
   /* correct nident, nmismatch for N:N / X:X */
@@ -4255,7 +4304,7 @@ display_push_features(void *annot_stack, struct dyn_string_str *annot_var_dyn,
       if (this_dom_p->n_alen - this_dom_p->n_gaplen > 0) {
 	lpercid = ((double)this_dom_p->n_ident)/(double)(this_dom_p->n_alen-this_dom_p->n_gaplen);
       }
-      else lpercid = -1.0;
+      else lpercid = 0.0;	/* was -1.0, but 0.0 for consistency with annot_blast_btop2.pl */
 
       if (d_type == 1) {
 	if (this_dom_p->annot_entry_p->target == 0) {
@@ -4306,3 +4355,28 @@ display_push_features(void *annot_stack, struct dyn_string_str *annot_var_dyn,
     }
   }
 }
+
+int count_not_seg(unsigned char *aa0, int n0, struct pstruct *ppst) {
+  int i;
+  int nseg_cnt = 0;
+  if (ppst->ext_sq_set != 1) {
+    return n0;
+  }
+  else {
+    for (i=0; i<n0; i++) {
+      if (aa0[i] < ppst->nsq) {nseg_cnt++;}
+    }
+    return nseg_cnt;
+  }
+}
+
+void upper_seq(unsigned char *aa0, int n0, int *xascii, unsigned char *sqx) {
+  int i;
+
+  for (i=0; i<n0; i++) {
+    if (sqx[aa0[i]] >= 'a' && sqx[aa0[i]] <= 'z') {
+      aa0[i] = xascii[sqx[aa0[i]] - ('a' - 'A')];
+    }
+  }
+}
+

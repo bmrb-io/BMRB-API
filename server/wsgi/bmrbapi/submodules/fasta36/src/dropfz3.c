@@ -219,13 +219,14 @@ init_weights(struct wgt ***weighti, struct wgtc ***weightci,
   char le[MAXLC+1][64];
 
   if (naa > MAXLC) {
-    fprintf(stderr,"*** dropfz2.c compilation problem naa(%d) > MAXLX(%d) ***\n",
-	   naa, MAXLC);
+    fprintf(stderr,"*** error [%s:%d] - compilation problem naa(%d) > MAXLC(%d) ***\n",
+	    __FILE__, __LINE__, naa, MAXLC);
   }
 
   if ((*weighti=(struct wgt **)calloc((size_t)(naa+1),sizeof(struct wgt *)))
       ==NULL) {
-    fprintf(stderr," cannot allocate weights array: %d\n",naa);
+    fprintf(stderr,"*** error [%s:%d] - cannot allocate weights array: %d\n",
+	    __FILE__, __LINE__, naa);
     exit(1);
   }
 
@@ -234,7 +235,8 @@ init_weights(struct wgt ***weighti, struct wgtc ***weightci,
   for (aa=0; aa <= naa; aa++) {
     if ((weight[aa]=(struct wgt *)calloc((size_t)256,sizeof(struct wgt)))
 	==NULL) {
-      fprintf(stderr," cannot allocate weight[]: %d/%d\n",aa,naa);
+      fprintf(stderr,"*** error [%s:%d] - cannot allocate weight[]: %d/%d\n",
+	      __FILE__, __LINE__, aa,naa);
       exit(1);
     }
   }
@@ -243,7 +245,8 @@ init_weights(struct wgt ***weighti, struct wgtc ***weightci,
   if (weightci !=NULL) {
     if ((*weightci=(struct wgtc **)calloc((size_t)(naa+1),
 					  sizeof(struct wgtc *)))==NULL) {
-      fprintf(stderr," cannot allocate weight_c array: %d\n",naa);
+      fprintf(stderr,"*** error [%s:%d] -  cannot allocate weight_c array: %d\n",
+	      __FILE__, __LINE__, naa);
       exit(1);
     }
     weightc = *weightci;
@@ -251,7 +254,8 @@ init_weights(struct wgt ***weighti, struct wgtc ***weightci,
     for (aa=0; aa <= naa; aa++) {
       if ((weightc[aa]=(struct wgtc *)calloc((size_t)256,sizeof(struct wgtc)))
 	  ==NULL) {
-	fprintf(stderr," cannot allocate weightc[]: %d/%d\n",aa,naa);
+	fprintf(stderr,"*** error [%s:%d] -  cannot allocate weightc[]: %d/%d\n",
+		__FILE__, __LINE__, aa,naa);
 	exit(1);
       }
     }
@@ -412,7 +416,8 @@ init_work (unsigned char *aa0, int n0,
 #endif
 
    if (nt[NT_N] != 'N') {
-     fprintf(stderr," nt[NT_N] (%d) != 'X' (%c) - recompile\n",NT_N,nt[NT_N]);
+     fprintf(stderr,"*** error [%s:%d] -  nt[NT_N] (%d) != 'X' (%c) - recompile\n",
+	     __FILE__, __LINE__, NT_N,nt[NT_N]);
      exit(1);
    }     
 
@@ -461,7 +466,8 @@ init_work (unsigned char *aa0, int n0,
    if ((aa0x =(unsigned char *)calloc((size_t)maxn0,
 					     sizeof(unsigned char)))
        == NULL) {
-     fprintf (stderr, "cannot allocate aa0x array %d\n", maxn0);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa0x array %d\n",
+	      __FILE__, __LINE__, maxn0);
      exit (1);
    }
    aa0x++;
@@ -471,7 +477,8 @@ init_work (unsigned char *aa0, int n0,
    if ((aa0v =(unsigned char *)calloc((size_t)maxn0,
 					     sizeof(unsigned char)))
        == NULL) {
-     fprintf (stderr, "cannot allocate aa0v array %d\n", maxn0);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa0v array %d\n",
+	      __FILE__, __LINE__, maxn0);
      exit (1);
    }
    aa0v++;
@@ -523,9 +530,9 @@ init_work (unsigned char *aa0, int n0,
       if (hsq[i0] < NMAP && hsq[i0] > mhv)
 	 mhv = ppst->hsq[i0];
 
-   if (mhv <= 0)
-   {
-      fprintf (stderr, " maximum hsq <=0 %d\n", mhv);
+   if (mhv <= 0) {
+      fprintf (stderr, "*** error [%s:%d] -  maximum hsq <=0 %d\n",
+	       __FILE__, __LINE__, mhv);
       exit (1);
    }
 
@@ -540,19 +547,23 @@ init_work (unsigned char *aa0, int n0,
    f_str->hmask = (hmax >> f_str->kshft) - 1;
 
    if ((f_str->harr = (int *) calloc (hmax, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate hash array\n");
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate hash array [%d]\n",
+	      __FILE__, __LINE__, hmax);
      exit (1);
    }
    if ((f_str->pamh1 = (int *) calloc (ppst->nsq+1, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate pamh1 array\n");
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate pamh1 array [%d]\n",
+	      __FILE__, __LINE__, ppst->nsq+1);
      exit (1);
    }
-   if ((f_str->pamh2 = (int *) calloc (hmax, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate pamh2 array\n");
+   if ((f_str->pamh2 = (int *)calloc (hmax, sizeof (int))) == NULL) {
+     fprintf (stderr, "*** error [%s:%d] -  cannot allocate pamh2 array [%d]\n",
+	      __FILE__, __LINE__, hmax);
      exit (1);
    }
    if ((f_str->link = (int *) calloc (n0, sizeof (int))) == NULL) {
-     fprintf (stderr, " cannot allocate hash link array");
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate hash link array [%d]",
+	      __FILE__, __LINE__, n0);
      exit (1);
    }
 
@@ -615,15 +626,15 @@ init_work (unsigned char *aa0, int n0,
 #ifndef ALLOCN0
    if ((f_str->diag = (struct dstruct *) calloc ((size_t)MAXDIAG,
 						 sizeof (struct dstruct)))==NULL) {
-      fprintf (stderr," cannot allocate diagonal arrays: %lu\n",
-	       MAXDIAG *sizeof (struct dstruct));
+      fprintf (stderr,"*** error [%s:%d] - cannot allocate diagonal arrays: %lu\n",
+	       __FILE__, __LINE__, MAXDIAG *sizeof (struct dstruct));
       exit (1);
      };
 #else
    if ((f_str->diag = (struct dstruct *) calloc ((size_t)n0,
 					      sizeof (struct dstruct)))==NULL) {
-      fprintf (stderr," cannot allocate diagonal arrays: %ld\n",
-	      (long)n0*sizeof (struct dstruct));
+      fprintf (stderr,"*** error [%s:%d] - cannot allocate diagonal arrays: %ld\n",
+	       __FILE__, __LINE__, (long)n0*sizeof (struct dstruct));
       exit (1);
      };
 #endif
@@ -637,14 +648,16 @@ init_work (unsigned char *aa0, int n0,
    if ((f_str->aa1x =(unsigned char *)calloc((size_t)ppst->maxlen+4,
 					     sizeof(unsigned char)))
        == NULL) {
-     fprintf (stderr, "cannot allocate aa1x array %d\n", ppst->maxlen+4);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa1x array %d\n",
+	      __FILE__, __LINE__, ppst->maxlen+4);
      exit (1);
    }
    f_str->aa1x++;
 
    if ((f_str->aa1v =(unsigned char *)calloc((size_t)ppst->maxlen+4,
 					     sizeof(unsigned char))) == NULL) {
-     fprintf (stderr, "cannot allocate aa1v array %d\n", ppst->maxlen+4);
+     fprintf (stderr, "*** error [%s:%d] - cannot allocate aa1v array %d\n",
+	      __FILE__, __LINE__, ppst->maxlen+4);
      exit (1);
    }
    f_str->aa1v++;
@@ -652,7 +665,8 @@ init_work (unsigned char *aa0, int n0,
 #endif
 
    if ((waa= (int *)malloc (sizeof(int)*(nsq+1)*n0)) == NULL) {
-     fprintf(stderr,"cannot allocate waa struct %3d\n",nsq*n0);
+     fprintf(stderr,"*** error [%s:%d] - cannot allocate waa struct %3d\n",
+	     __FILE__, __LINE__, nsq*n0);
      exit(1);
    }
 
@@ -671,7 +685,8 @@ init_work (unsigned char *aa0, int n0,
    maxn0 = max(4*n0,MIN_RES);
 #endif
    if ((res = (int *)calloc((size_t)maxn0,sizeof(int)))==NULL) {
-     fprintf(stderr,"cannot allocate alignment results array %d\n",maxn0);
+     fprintf(stderr,"*** error [%s:%d] - cannot allocate alignment results array %d\n",
+	     __FILE__, __LINE__, maxn0);
      exit(1);
    }
    f_str->res = res;
@@ -849,7 +864,8 @@ void do_fastz (const unsigned char *aa0, int n0,
   }
 
   if (n0+n1+1 >= MAXDIAG) {
-    fprintf(stderr,"n0,n1 too large: %d, %d\n",n0,n1);
+    fprintf(stderr,"*** error [%s:%d] - n0,n1 too large > %d: %d, %d\n",
+	    __FILE__, __LINE__, n0,n1, MAXDIAG);
     rst->score[0] = rst->score[1] = rst->score[2] = -1;
     return;
   }
@@ -1097,7 +1113,8 @@ void do_work (const unsigned char *aa0, int n0,
   aa1x = f_str->aa1x;
 #ifdef DEBUG
   if (frame > 1) {
-    fprintf(stderr, "*** fz_walign - frame: %d - out of range [0,1]\n",frame);
+    fprintf(stderr, "*** error [%s:%d] - fz_walign - frame: %d - out of range [0,1]\n",
+	    __FILE__, __LINE__, frame);
   }
 #endif
 
@@ -1633,7 +1650,8 @@ pro_dna(const unsigned char *prot_seq,  /* array with prot. seq. numbers*/
     aq = ap->next; free(ap); ap = aq;
   }
   if (i >= max_res)
-    fprintf(stderr,"***alignment truncated: %d/%d***\n", max_res,i);
+    fprintf(stderr,"*** error [%s:%d] - alignment truncated: %d >= %d***\n",
+	    __FILE__, __LINE__, i, max_res);
 
   /*   up = &up[-3]; down = &down[-3]; tp = &tp[-3]; */
   free(&f_str->up[-3]); free(&f_str->tp[-3]); free(&f_str->down[-3]);
@@ -2479,7 +2497,8 @@ fz_malign (const unsigned char *aa0, int n0,
 
   /* now we need alignment storage - get it */
   if ((cur_ares->res = (int *)calloc((size_t)max_res,sizeof(int)))==NULL) {
-    fprintf(stderr," *** cannot allocate alignment results array %d\n",max_res);
+    fprintf(stderr,"*** error [%s:%d] - cannot allocate alignment results array %d\n",
+	    __FILE__, __LINE__, max_res);
     exit(1);
   }
 
@@ -2650,7 +2669,8 @@ do_walign (const unsigned char *aa0, int n0,
   *have_ares = 0x3;	/* set 0x2 bit to indicate local copy */
 
   if ((a_res = (struct a_res_str *)calloc(1, sizeof(struct a_res_str)))==NULL) {
-    fprintf(stderr," [do_walign] Cannot allocate a_res");
+    fprintf(stderr,"*** error [%s:%d] - cannot allocate a_res [%lu]",
+	    __FILE__, __LINE__, sizeof(struct a_res_str));
     return NULL;
   }
 
@@ -2941,7 +2961,7 @@ calc_cons_u( /* inputs */
     update_data_p = init_update_data(show_code);
   }
   else {
-    fprintf(stderr,"*** error [%s:%d] --- cal_cons_u() invalid calc_func_mode: %d\n",
+    fprintf(stderr,"*** error [%s:%d] --- calc_cons_u() invalid calc_func_mode: %d\n",
 	    __FILE__, __LINE__, calc_func_mode);
     exit(1);
   }
@@ -2973,22 +2993,22 @@ calc_cons_u( /* inputs */
   else if (calc_func_mode == CALC_ID || calc_func_mode == CALC_ID_DOM)  {
     have_ann = (annotp_p && annotp_p->n_annot > 0);
     spa_p = &spa_c;
-    sp0_p = &sp0_c;
-    sp1_p = &sp1_c;
+    sp0_p = &sp1_c;
+    sp1_p = &sp0_c;
 
-    sp0a_p = &sp0a_c;
-    sp1a_p = &sp1a_c;
+    sp0a_p = &sp1a_c;
+    sp1a_p = &sp0a_c;
     annot_fmt = 3;
 
     /* does not require aa0a/aa1a, only for variants */
   }
   else if (calc_func_mode == CALC_CODE) {
     spa_p = &spa_c;
-    sp0_p = &sp0_c;
-    sp1_p = &sp1_c;
+    sp0_p = &sp1_c;
+    sp1_p = &sp0_c;
 
-    sp0a_p = &sp0a_c;
-    sp1a_p = &sp1a_c;
+    sp0a_p = &sp1a_c;
+    sp1a_p = &sp0a_c;
 
     show_code = (display_code & (SHOW_CODE_MASK+SHOW_CODE_EXT));	/* see defs.h; SHOW_CODE_ALIGN=2,_CIGAR=3,_CIGAR_EXT=4 */
     annot_fmt = 2;
@@ -3002,7 +3022,7 @@ calc_cons_u( /* inputs */
     update_data_p = init_update_data(show_code);
   }
   else {
-    fprintf(stderr,"*** error [%s:%d] --- cal_cons_u() invalid calc_func_mode: %d\n",
+    fprintf(stderr,"*** error [%s:%d] --- calc_cons_u() invalid calc_func_mode: %d\n",
 	    __FILE__, __LINE__, calc_func_mode);
     exit(1);
   }
@@ -3118,7 +3138,11 @@ calc_cons_u( /* inputs */
       if (cumm_seq_score) *i_spa++ = itmp;
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 3, *spa_p, *sp0_p, *sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 3, *spa_p, *sp1_p, *sp0_p);
+#endif
 
 	if (have_ann && have_push_features) {
     	  add_annot_code(have_ann, *sp0_p, *sp1_p, *sp1a_p,
@@ -3160,7 +3184,11 @@ calc_cons_u( /* inputs */
       *spa_p = M_DEL;
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 2, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 2, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       if (cumm_seq_score) *i_spa++ = ppst->gshift;
@@ -3233,7 +3261,11 @@ calc_cons_u( /* inputs */
       *spa_p = align_type(itmp, *sp0_p, *sp1_p, 0, aln, ppst->pam_x_id_sim);
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       d1_alen++;
@@ -3280,7 +3312,11 @@ calc_cons_u( /* inputs */
       *spa_p = M_DEL;
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
         update_code(align_code_dyn, update_data_p, 4, *spa_p,*sp0_p,*sp1_p);
+#else
+        update_code(align_code_dyn, update_data_p, 4, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       if (calc_func_mode == CALC_CONS) {sp0_p++; sp1_p++; spa_p++;}
@@ -3345,7 +3381,11 @@ calc_cons_u( /* inputs */
       *spa_p = align_type(itmp, *sp0_p, *sp1_p, 0, aln, ppst->pam_x_id_sim);
 
       if (calc_func_mode == CALC_CODE) {
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 3, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       d1_alen++;
@@ -3393,7 +3433,11 @@ calc_cons_u( /* inputs */
 
       if (calc_func_mode == CALC_CODE) {
 	*spa_p = 5;
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 5, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 5, *spa_p,*sp1_p,*sp0_p);
+#endif
       }
 
       lenc++;
@@ -3409,7 +3453,11 @@ calc_cons_u( /* inputs */
 
       if (calc_func_mode == CALC_CODE) {
 	*spa_p = 5; /* indel code */
+#ifndef TFAST
 	update_code(align_code_dyn, update_data_p, 0, *spa_p,*sp0_p,*sp1_p);
+#else
+	update_code(align_code_dyn, update_data_p, 0, *spa_p,*sp1_p,*sp0_p);
+#endif	
       }
 
       if (cumm_seq_score) {
@@ -3595,7 +3643,7 @@ calc_astruct(struct a_struct *aln_p, struct a_res_str *a_res_p, struct f_struct 
 */
 
 static struct update_code_str *
-init_update_data(show_code) {
+init_update_data(int show_code) {
 
   struct update_code_str *update_data_p;
 
@@ -3641,14 +3689,16 @@ close_update_data(struct dyn_string_str *align_code_dyn,
 
   if (!up_dp) return;
 
-  if (up_dp->btop_enc) {
-    sprintf(tmp_cnt,"%d",up_dp->p_op_cnt);
-    up_dp->p_op_cnt = 0;
+  if (up_dp->p_op_cnt) {
+    if (up_dp->btop_enc) {
+      sprintf(tmp_cnt,"%d",up_dp->p_op_cnt);
+      up_dp->p_op_cnt = 0;
+    }
+    else {
+      sprintf_code(tmp_cnt,up_dp, up_dp->p_op_idx, up_dp->p_op_cnt);
+    }
+    dyn_strcat(align_code_dyn, tmp_cnt);
   }
-  else {
-    sprintf_code(tmp_cnt,up_dp, up_dp->p_op_idx, up_dp->p_op_cnt);
-  }
-  dyn_strcat(align_code_dyn, tmp_cnt);
 
   free(up_dp);
 }
@@ -3701,8 +3751,18 @@ sprintf_btop(char *tmp_str,
 
   /* only aligned identities update counts */
   if (op==3 && sim_code == M_IDENT) {
-    up_dp->p_op_cnt++;
-    return;
+    if ((sp0 == '*' && (sp1 == '*' || toupper(sp1) == 'U'))
+	|| (sp1 == '*' && (sp0 == '*' || toupper(sp0) == 'U'))) {
+      if (up_dp->p_op_cnt > 0) {
+	sprintf(tmp_str,"%d**",up_dp->p_op_cnt);
+	up_dp->p_op_cnt = 0;
+	return;
+      }
+    }
+    else {
+      up_dp->p_op_cnt++;
+      return;
+    }
   }
   else {
     if (up_dp->p_op_cnt > 0) {

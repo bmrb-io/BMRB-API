@@ -1,20 +1,65 @@
 
 ## The FASTA package - protein and DNA sequence similarity searching and alignment programs
 
-The **FASTA** (pronounced FAST-Aye, not FAST-Ah) programs are a
-comprehensive set of similarity searching and alignment programs for
-searching protein and DNA sequence databases.  Like the **BLAST** programs `blastp` and `blastn`, the `fasta` program itself uses a rapid heuristic strategy for finding similar regions in protein and DNA sequences.  But in
-addition to heuristic similarity searching, the FASTA package provides
-programs for rigorous local (`ssearch`) and global (`ggsearch`)
-similarity searching, as well as a program for finding non-overlapping
-sequence similarities (`lalign`).  Like BLAST, the FASTA package also
-includes programs for aligning translated DNA sequences against
-proteins (`fastx`, `fasty` are equivalent to `blastx`, `tfastx`,
-`tfasty` are similar to `tblastn`).
+The **FASTA** (pronounced FAST-Aye, not FAST-Ah) programs are a comprehensive set of similarity searching and alignment programs for searching protein and DNA sequence databases.  Like the **BLAST** programs `blastp` and `blastn`, the `fasta` program itself uses a rapid heuristic strategy for finding similar regions in protein and DNA sequences.  But in addition to heuristic similarity searching, the FASTA package provides
+programs for rigorous local (`ssearch`) and global (`ggsearch`) similarity searching, as well as a program for finding non-overlapping sequence similarities (`lalign`).  Like BLAST, the FASTA package also includes programs for aligning translated DNA sequences against proteins (`fastx`, `fasty` are equivalent to `blastx`,  and  `tfastx`, `tfasty` are similar to `tblastn`).
 
-####September, 2016
+#### August, 2019
 
-The current FASTA version is fasta-36.3.8e.
+See doc/README_v36.3.8h.md and doc/readme.v36 for a more complete summary of changes.
+
+Bug fix to recover properly when memory mapped databases are too large.
+
+Modifications to support makeblastdb format v5 databases. Currently,
+only simple database reads have been tested.
+
+#### March, 2019
+
+An updated release of the FASTA package (`fasta-36.3.8h`) is
+available.  In addition to minor bug fixes, the latest version can
+generate query and library sequences using program scripts.
+
+#### December, 2018
+
+The latest version of the FASTA package is `fasta-36.3.8h`, Dec. 2018.
+
+See doc/README_v36.3.8h.md for a more complete summary of changes.
+
+#### November, 2018
+
+The current released version of the FASTA package is `fasta-36.3.8h`, Nov. 2018
+
+See doc/README_v36.3.8h.md for a more complete summary of changes.
+
+#### October, 2018
+
+The current version of the FASTA package is fasta-36.3.8g, Oct. 2018
+
+See doc/README_v36.3.8h.md for a more complete summary of changes.
+
+#### April, 2018
+The current version of the FASTA package is fasta-36.3.8g, Apr. 2018
+
+#### December, 2017
+The current FASTA version is fasta-36.3.8g, Dec. 2017
+
+The statistics routines for normally distributed scores (ggsearch36,
+glsearch36) are more robust to very low E()-value thresholds.
+
+#### Sept, 2017
+The current FASTA version is fasta-36.3.8f, Sept. 2017
+
+If the -S option is used and a query sequence has no upper case
+letters, it is re-read with lower-case letters converted to upper-case.
+
+#### May, 2017
+The current FASTA version is fasta-36.3.8f, May. 2017
+
+Various bugs in sub-alignment scoring corrected and support for the
+EBI SP:GSTM1_HUMAN P09488 added.  The format for the `$SRCH_URL` and
+`$SRCH_URL2` format strings has changed to enable pairwise alignment.
+
+#### September, 2016
 
 The fasta-36.3.6e version includes a new directory, `psisearch2`, with
 scripts to run iterative PSSM (PSI-BLAST or SSEARCH36) searches using
