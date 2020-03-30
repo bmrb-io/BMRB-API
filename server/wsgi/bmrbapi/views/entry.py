@@ -549,7 +549,7 @@ def simulate_hsqc(entry_id):
             sparky_file = "Assignment         w1        w2\n\n"
             for row in dict_format:
                 if row['H_shift'] and row['N_shift']:
-                    assignment = f'{three_letter_code_to_one[row["chem_comp_ID"]]}{row["sequence"]}' \
+                    assignment = f'{three_letter_code_to_one.get(row["chem_comp_ID"],"X")}{row["sequence"]}' \
                                  f'{row["H_atom_name"]}-{row["N_atom_name"]}'
                     if filter_ == "all" or (row['H_atom_name'] == 'H' and row['N_atom_name'] == 'N'):
                         sparky_file += f'{assignment:12} {row["H_shift"]:8} {row["N_shift"]:8}\n'
