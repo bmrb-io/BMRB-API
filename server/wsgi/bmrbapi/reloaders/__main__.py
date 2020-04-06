@@ -95,7 +95,7 @@ opt.add_option("--sql-host", action="store", dest='sql_host', default=configurat
                help="Host to run the SQL updater on.")
 opt.add_option("--sql-database", action="store", dest='sql_database', default=configuration['postgres']['database'],
                help="Database to run the SQL updater on.")
-opt.add_option("--sql-user", action="store", dest='sql_user', default=configuration['postgres']['user'],
+opt.add_option("--sql-user", action="store", dest='sql_user', default=configuration['postgres']['reload_user'],
                help="User to run the SQL updater as.")
 opt.add_option("--all-entries", action="store_true", dest="all", default=False,
                help="Update all the databases, and run all reloaders. Equivalent to: --metabolomics --macromolecules "
