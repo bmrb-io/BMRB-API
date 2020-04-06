@@ -152,6 +152,7 @@ if options.sql:
 
 # Load the metabolomics data
 if options.metabolomics:
+    logger.info('Calculating metabolomics entries to process...')
     entries = querymod.select(["Entry_ID"], "Release", database="metabolomics")
     entries = sorted(set(entries["Release.Entry_ID"]))
 
@@ -159,9 +160,11 @@ if options.metabolomics:
     for entry in entries:
         entry_dir = configuration['metabolomics_entry_directory'] % ((entry,) * substitution_count)
         to_process['metabolomics'].append((entry, entry_dir))
+    logger.info('Finished calculating metabolomics entries to process.')
 
 # Get the released entries from ETS
 if options.macromolecules:
+    logger.info('Calculating macromolecule entries to process...')
     with PostgresConnection(user=configuration['ets']['user'],
                             host=configuration['ets']['host'],
                             database=configuration['ets']['database'],
@@ -179,13 +182,16 @@ if options.macromolecules:
     for entry_id in valid_ids:
         entry_dir = configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count)
         to_process['macromolecules'].append([str(entry_id), entry_dir])
+    logger.info('Finished calculating macromolecule entries to process.')
 
 # Load the chemcomps
 if options.chemcomps:
+    logger.info('Calculating chemcomp entries to process...')
     comp_ids = querymod.select(["BMRB_code"], "Entity", database="chemcomps")
     comp_ids = comp_ids['Entity.BMRB_code']
     chemcomps = ["chemcomp_" + x for x in comp_ids]
     to_process['chemcomps'].extend([[x, None] for x in chemcomps])
+    logger.info('Finished calculating chemcomp entries to process.')
 
 # Generate the flat list of entries to process
 to_process['combined'] = (to_process['chemcomps'] + to_process['macromolecules'] + to_process['metabolomics'])
@@ -199,6 +205,7 @@ if options.flush:
 processes = []
 num_threads = cpu_count()
 
+logger.info('Beginning to update entries in Redis...')
 for thread in range(0, num_threads):
 
     # Set up the pipes
@@ -256,8 +263,10 @@ for thread in range(0, num_threads):
     res = os.wait()
     if data:
         add_to_loaded(data)
+logger.info('Finished updating entries in Redis...')
 
 if options.metabolomics or options.macromolecules or options.chemcomps:
+    logger.info('Updating list of entries present in Redis...')
     with RedisConnection(db=options.db) as r_conn:
         # Use a Redis list so other applications can read the list of entries
         if options.metabolomics:
@@ -272,6 +281,7 @@ if options.metabolomics or options.macromolecules or options.chemcomps:
                               r_conn.lrange('macromolecules:entry_list', 0, -1) +
                               r_conn.lrange('chemcomps:entry_list', 0, -1))
         make_entry_list('combined')
+    logger.info('Finished updating list of entries present in Redis...')
 
 # MolProbity should run last since it takes so long
 if options.molprobity:
