@@ -202,71 +202,69 @@ if options.flush:
     with RedisConnection(db=options.db) as r:
         r.flushdb()
 
-processes = []
-num_threads = cpu_count()
+if options.chemcomps or options.macromolecules or options.metabolomics:
+    processes = []
+    num_threads = cpu_count()
 
-logger.info('Beginning to update entries in Redis...')
-for thread in range(0, num_threads):
+    logger.info('Beginning to update entries in Redis...')
+    for thread in range(0, num_threads):
 
-    # Set up the pipes
-    parent_conn, child_conn = Pipe()
-    # Start the process
-    processes.append([parent_conn, child_conn])
+        # Set up the pipes
+        parent_conn, child_conn = Pipe()
+        # Start the process
+        processes.append([parent_conn, child_conn])
 
-    # Use the fork to get through!
-    new_pid = os.fork()
-    # Okay, we are the child
-    if new_pid == 0:
+        # Use the fork to get through!
+        new_pid = os.fork()
+        # Okay, we are the child
+        if new_pid == 0:
 
-        # Each child gets a Redis
-        with RedisConnection(db=options.db) as red:
+            # Each child gets a Redis
+            with RedisConnection(db=options.db) as red:
 
-            child_conn.send("ready")
-            while True:
-                parent_message = child_conn.recv()
-                if parent_message == "die":
-                    child_conn.close()
-                    parent_conn.close()
-                    child_exit(0)
+                child_conn.send("ready")
+                while True:
+                    parent_message = child_conn.recv()
+                    if parent_message == "die":
+                        child_conn.close()
+                        parent_conn.close()
+                        child_exit(0)
 
-                # Do work based on parent_message
-                result = one_entry(parent_message[0], parent_message[1], red)
+                    # Do work based on parent_message
+                    result = one_entry(parent_message[0], parent_message[1], red)
 
-                # Tell our parent we are ready for the next job
-                child_conn.send(result)
+                    # Tell our parent we are ready for the next job
+                    child_conn.send(result)
 
-    # We are the parent, don't need the child connection
-    else:
-        child_conn.close()
+        # We are the parent, don't need the child connection
+        else:
+            child_conn.close()
 
-# Check if entries have completed by listening on the sockets
-while len(to_process['combined']) > 0:
+    # Check if entries have completed by listening on the sockets
+    while len(to_process['combined']) > 0:
 
-    time.sleep(.001)
-    # Poll for processes ready to listen
-    for process in processes:
-        if process[0].poll():
-            data = process[0].recv()
-            if data:
-                if data != "ready":
-                    add_to_loaded(data)
-            process[0].send(to_process['combined'].pop())
-            break
+        time.sleep(.001)
+        # Poll for processes ready to listen
+        for process in processes:
+            if process[0].poll():
+                data = process[0].recv()
+                if data:
+                    if data != "ready":
+                        add_to_loaded(data)
+                process[0].send(to_process['combined'].pop())
+                break
 
-# Reap the children
-for thread in range(0, num_threads):
-    # Get the last ready message from the child
-    data = processes[thread][0].recv()
-    # Tell the child to shut down
-    processes[thread][0].send("die")
+    # Reap the children
+    for thread in range(0, num_threads):
+        # Get the last ready message from the child
+        data = processes[thread][0].recv()
+        # Tell the child to shut down
+        processes[thread][0].send("die")
 
-    res = os.wait()
-    if data:
-        add_to_loaded(data)
-logger.info('Finished updating entries in Redis...')
+        res = os.wait()
+        if data:
+            add_to_loaded(data)
 
-if options.metabolomics or options.macromolecules or options.chemcomps:
-    logger.info('Updating list of entries present in Redis...')
     with RedisConnection(db=options.db) as r_conn:
         # Use a Redis list so other applications can read the list of entries
         if options.metabolomics:
