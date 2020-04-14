@@ -17,7 +17,7 @@ from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.decorators import require_content_type_json
-from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, select, \
+from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, select as qselect, \
     get_database_from_entry_id, get_valid_entries_from_redis, \
     get_category_and_tag, wrap_it_up, select as querymod_select
 
@@ -396,7 +396,7 @@ def get_id_from_search(tag_name, tag_value):
                                "Entry.Experimental_method_subtype")
 
     id_field = get_entry_id_tag(tag_name, database)
-    result = select([id_field], sp[0], where_dict={sp[1]: tag_value}, modifiers=['lower'], database=database)
+    result = qselect([id_field], sp[0], where_dict={sp[1]: tag_value}, modifiers=['lower'], database=database)
     return jsonify(result[list(result.keys())[0]])
 
 
