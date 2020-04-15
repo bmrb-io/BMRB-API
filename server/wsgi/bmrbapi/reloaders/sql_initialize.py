@@ -12,7 +12,6 @@ def sql_initialize(host=configuration['postgres']['host'],
     """ Prepare the DB for querying. """
 
     with NamedTemporaryFile('w', delete=False) as temp:
-        '/website/www/ftp/pub/bmrb/nmr_pdb_integrated_data/adit_nmr_matched_pdb_bmrb_entry_ids.csv'
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql"), 'r') as sql_file:
             link_file_path = os.path.join(configuration['nmr_integrated_data_directory'],
                                           'adit_nmr_matched_pdb_bmrb_entry_ids.csv')
