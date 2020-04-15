@@ -129,7 +129,7 @@ ORDER BY uniprot_id
 """
 
 uniprot_uniprot_map = """
-SELECT DISTINCT(uniprot_id || ' ' || uniprot_id) AS string
+SELECT DISTINCT(uniprot_id || '\t' || uniprot_id) AS string
 FROM web.uniprot_mappings
 GROUP BY uniprot_id
-ORDER BY uniprot_id || ' ' || uniprot_id"""
+ORDER BY uniprot_id || '\t' || uniprot_id"""
