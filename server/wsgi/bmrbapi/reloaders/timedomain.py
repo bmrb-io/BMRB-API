@@ -51,5 +51,11 @@ CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
         cur.execute('''
 ALTER TABLE IF EXISTS web.timedomain_data RENAME TO timedomain_data_old;
 ALTER TABLE web.timedomain_data_tmp RENAME TO timedomain_data;
-DROP TABLE IF EXISTS web.timedomain_data_old;''')
+DROP TABLE IF EXISTS web.timedomain_data_old;
+GRANT USAGE ON schema web TO PUBLIC;
+GRANT SELECT ON ALL TABLES IN schema web TO PUBLIC;
+ALTER DEFAULT PRIVILEGES IN schema web GRANT SELECT ON TABLES TO PUBLIC;
+GRANT ALL PRIVILEGES ON TABLE web.timedomain_data to web;
+GRANT ALL PRIVILEGES ON TABLE web.timedomain_data to bmrb;
+''')
         psql.commit()

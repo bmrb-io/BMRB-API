@@ -1,6 +1,9 @@
 -- Molprobity schema
 
 CREATE SCHEMA IF NOT EXISTS molprobity;
+GRANT USAGE ON schema molprobity TO PUBLIC;
+GRANT SELECT ON ALL TABLES IN schema molprobity TO PUBLIC;
+ALTER DEFAULT PRIVILEGES IN schema molprobity GRANT SELECT ON TABLES TO PUBLIC;
 
 DROP TABLE IF EXISTS molprobity.oneline_tmp;
 CREATE table molprobity.oneline_tmp (
