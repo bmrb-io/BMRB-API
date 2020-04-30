@@ -175,8 +175,6 @@ By default returns the given BMRB entry in [JSON format](ENTRY.md#entry). If
 The formats available are:
 
 * `json` - The default format. Returns the entry in JSON format. [Example](http://webapi.bmrb.wisc.edu/v2/entry/15000)
-* `nmrstar` - The response is still JSON but the entire entry is returned
-as one large text string rather than JSON. [Example](http://webapi.bmrb.wisc.edu/v2/entry/15000?format=nmrstar)
 * `rawnmrstar` - The entry is returned in pure NMR-STAR format. There is
 no wrapping JSON. If you need to fetch a large number of NMR-STAR entries
 in text form you may be better served getting them from the [FTP site](http://www.bmrb.wisc.edu/ftp/pub/bmrb/entry_directories/). [Example](http://webapi.bmrb.wisc.edu/v2/entry/15000?format=rawnmrstar)
