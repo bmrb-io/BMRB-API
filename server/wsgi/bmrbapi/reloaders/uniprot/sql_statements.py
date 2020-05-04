@@ -70,7 +70,7 @@ INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, lin
     );
 
 DELETE FROM web.uniprot_mappings_tmp WHERE uniprot_id = '' OR uniprot_id IS NULL;
-UPDATE web.uniprot_mappings
+UPDATE web.uniprot_mappings_tmp
 SET uniprot_id = REPLACE(uniprot_id, '.', '-')
 WHERE uniprot_id LIKE '%.%';
 
