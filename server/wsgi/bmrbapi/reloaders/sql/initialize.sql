@@ -250,6 +250,9 @@ LEFT JOIN metabolomics."Citation_author" AS citation_author
 WHERE entry."ID" like 'bmst%'
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
+-- Make sure nothing in procque gets into the released tables
+DELETE FROM macromolecules."Entry" e USING web.procque pq WHERE e."ID" = pq.accno;
+
 -- Processing
 INSERT INTO web.instant_cache_tmp
 SELECT
