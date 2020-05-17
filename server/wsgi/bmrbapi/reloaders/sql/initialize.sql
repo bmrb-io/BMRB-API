@@ -172,7 +172,7 @@ DROP TABLE IF EXISTS web.instant_extra_search_terms_old;
 
 
 -- Create tsvector table
-DROP TABLE IF EXISTS web.instant_cache;
+DROP TABLE IF EXISTS web.instant_cache_tmp;
 CREATE TABLE web.instant_cache_tmp (
  id varchar(12) PRIMARY KEY,
  title text,
