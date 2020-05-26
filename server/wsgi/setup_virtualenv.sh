@@ -8,5 +8,6 @@ if [[ ! -d "${SCRIPT_DIR}/virtual_env" ]]; then
   pip3 install -r ${SCRIPT_DIR}/requirements.txt
 else
   source "${SCRIPT_DIR}"/virtual_env/bin/activate
+  pip3 install --upgrade pip --quiet
   pip3 install -r ${SCRIPT_DIR}/requirements.txt --quiet
 fi
