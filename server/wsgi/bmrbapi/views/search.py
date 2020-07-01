@@ -316,8 +316,11 @@ WHERE
         sql += "("
         for val in shift_val:
             sql += '''(cs."Val"::float  < %s AND cs."Val"::float > %s) OR '''
-            range_low = float(val) - threshold
-            range_high = float(val) + threshold
+            try:
+                range_low = float(val) - threshold
+                range_high = float(val) + threshold
+            except ValueError:
+                raise RequestException('Invalid chemical shift specified: %s' % val)
             args.append(range_high)
             args.append(range_low)
         sql += "1 = 2) AND "
