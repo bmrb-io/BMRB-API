@@ -17,10 +17,11 @@
 # governing permissions and limitations under the License.
 ################################################################
 
-import argparse
-import re
-import subprocess
 import sys
+import os
+import argparse
+import subprocess
+import re
 
 # python re-write of psisearch2_msa.pl
 #
@@ -302,7 +303,7 @@ if (args.srch_pgm) :
     srch_pgm = args.srch_pgm
 
 if (not quiet) :
-    print pgm_command
+    print(pgm_command)
 
 del_file_ext = ["msa","psibl_out","hit_db","asntxt","asnbin"]
 

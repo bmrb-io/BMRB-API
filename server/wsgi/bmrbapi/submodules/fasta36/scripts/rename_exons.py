@@ -1,8 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # 
 # given a -m8CB file with exon annotations for the query and subject,
 # adjust the subject exon names to match the query exon names
-
+#
+# see test_py.sh for sample use
+#
 ################################################################
 # copyright (c) 2018 by William R. Pearson and The Rector &
 # Visitors of the University of Virginia */
@@ -20,12 +22,11 @@
 # governing permissions and limitations under the License. 
 ################################################################
 
+import fileinput
+import sys
+import re
 import argparse
 import copy
-import fileinput
-import re
-import sys
-
 
 ################
 # "domain" class that describes a domain/exon alignment annotation
@@ -234,7 +235,7 @@ def parse_protein(line_data,fields, req_name):
     # last part (domain annotions) split('|') and parsed by parse_domain()
 
     data = {}
-    data = dict(zip(fields, line_data))
+    data = dict(list(zip(fields, line_data)))
     if (re.search(r'\|',data['qseqid'])):
         data['qseq_acc'] = data['qseqid'].split('|')[1]
     else:
@@ -295,9 +296,11 @@ def parse_protein(line_data,fields, req_name):
 
     return data
 
+################
 # "domain" : RX:1-38:3-40:s=37;b=17.0;I=0.289;Q=15.9;C=exon_1~1
 # "name"   : like exon_2
 # expanded for domain: RX:1-38:3-40:s=37;b=17.0;I=0.289;Q=15.9;C=exon_1{chr1:12345678-123456987}~1
+#
 def replace_name(domain_text, new_name, new_color_s):
     out = "=".join(domain_text.split("=")[:-1])  # out has everything to last '='
 
@@ -568,7 +571,7 @@ def label_doms(qdom_list, sdom_list, multi_q_dict, multi_s_dict):
 
     # done with labeling sdoms based on qdoms, but some may be unlabeled
     # check for missing s_doms
-    while (len(sdom_displayed_dict.keys()) < len(sdom_list)):
+    while (len(list(sdom_displayed_dict.keys())) < len(sdom_list)):
         for sdom in sdom_list:
             if (sdom.idnum not in sdom_displayed_dict):
                 sdom.out_str = replace_name(sdom.text, "exon_X","0")
@@ -659,7 +662,7 @@ def set_data_fields(args, line_data) :
 
 def main():
 
-    parser=argparse.ArgumentParser(description='scan_exons.py result_file.m8CB : re-label subject exons to match query')
+    parser=argparse.ArgumentParser(description='rename_exons.py result_file.m8CB : re-label subject exons to match query')
     parser.add_argument('--have_qslen', help='bl_tab fields include query/subject lengths',dest='have_qslen',action='store_true',default=False)
     parser.add_argument('--dom_info', help='raw domain coordinates included',action='store_true',default=False)
     parser.add_argument('--fill_gcoords', help='fill in genomic coordinates',action='store_true',default=False)
@@ -681,7 +684,7 @@ def main():
     for line in fileinput.input(args.files):
     # pass through comments
         if (line[0] == '#'):
-            print line,	# ',' because have not stripped
+            print(line, end='')	# ',' because have not stripped
             continue
 
         ################
@@ -697,7 +700,7 @@ def main():
         data = parse_protein(line_data,fields,"exon")	# get score/alignment/domain data
 
         if (len(data['sdom_list'])==0 and len(data['qdom_list'])==0):
-            print line	# no domains to be edited, print stripped line and contine
+            print(line)	# no domains to be edited, print stripped line and contine
             continue
 
         # qdom_list=[] outside of loop for cases where the qseqid==sseqid match is not first
@@ -717,7 +720,7 @@ def main():
         # print out non-exon info
     
         if (len(qdom_list) == 0):
-            print line
+            print(line)
             continue
 
         btab_str = '\t'.join(str(data[x]) for x in fields[:end_field])
@@ -741,7 +744,7 @@ def main():
         #
         q_exon_list = data['qdom_list']
 
-        s_exon_list = [sdom_displayed_dict[x] for x in sdom_displayed_dict.keys()]
+        s_exon_list = [sdom_displayed_dict[x] for x in list(sdom_displayed_dict.keys())]
 
         ################
         # if args.fill_gcoords, then do the transformations on the current exon lists
@@ -788,7 +791,7 @@ def main():
         for info in data['qinfo_list'] + data['sinfo_list']:
             info_bar_str += info.text 
 
-        print '\t'.join((btab_str, dom_bar_str, info_bar_str))
+        print('\t'.join((btab_str, dom_bar_str, info_bar_str)))
 
 ################
 # run the program ...

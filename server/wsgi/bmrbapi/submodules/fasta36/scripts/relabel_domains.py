@@ -1,8 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Given a blast_tabular file with search results from one or more protein queries
+# Given a blast_tabular file with search results from one or more
+# protein queries, modify the domain color numbers (e.g. ~1, ~2) so
+# that the query and subject domains use the same color numbers, even
+# when the different annotation scripts may have assigned different
+# numbers.
 # 
-
 ################################################################
 # copyright (c) 2018 by William R. Pearson and The Rector & Visitors
 # of the University of Virginia */
@@ -19,12 +22,12 @@
 # ###############################################################
 
 
-import argparse
 import fileinput
+import sys
 import re
+import argparse
 
 from rename_exons import *
-
 
 def replace_dom_number(line):
 
@@ -86,7 +89,7 @@ def main():
     for line in fileinput.input(args.files):
     # pass through comments
         if (line[0] == '#'):
-            print line,	# ',' because have not stripped
+            print(line, end='')	# ',' because have not stripped
             continue
 
         ################
@@ -102,7 +105,7 @@ def main():
         data = parse_protein(line_data,fields,'')	# get score/alignment/domain data
 
         if (len(data['sdom_list'])==0 and len(data['qdom_list'])==0):
-            print line	# no domains to be edited, print stripped line and contine
+            print(line)	# no domains to be edited, print stripped line and continue
             continue
 
         ################
@@ -146,7 +149,7 @@ def main():
         for dom in sorted(data['qdom_list']+data['sdom_list'],key=lambda r: r.idnum):
             dom_bar_str += dom.make_bar_str()
 
-        print btab_str+dom_bar_str
+        print(btab_str+dom_bar_str)
 
 
 if __name__ == '__main__':

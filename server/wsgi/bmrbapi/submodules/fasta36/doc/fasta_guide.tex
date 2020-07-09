@@ -221,17 +221,17 @@ Current versions of the FASTA programs expect a query file and library, if you s
 \begin{verbatim}
 % ssearch36
 USAGE
- ssearch36 [-options] query_file library_file
+ ssearch36 [-options] query_file library_file [ktup]
  ssearch36 -help for a complete option list
 
 DESCRIPTION
- SSEARCH performs a Smith-Waterman search
- version: 36.3.4 Mar, 2011
+ FASTA searches a protein or DNA sequence data bank
+ version: 36.3.8h Aug, 2019
 
-COMMON OPTIONS (options must precede query_file library_file)
- -s:  [BL50] scoring matrix;
- -f:  [-10] gap-open penalty;
- -g:  [-2] gap-extension penalty;
+COMMON OPTIONS (options must preceed query_file library_file)
+ -s:  scoring matrix;
+ -f:  gap-open penalty;
+ -g:  gap-extension penalty;
  -S   filter lowercase (seg) residues;
  -b:  high scores reported (limited by -E by default);
  -d:  number of alignments shown (limited by -E by default);
@@ -863,13 +863,36 @@ can use \texttt{-m 1 -m 6 -m 9}.
   comment lines.  BLAST tabular format has been extended to include
   either a CIGAR string alignment encoding (\texttt{-m 8CC} with BLAST
   comments, \texttt{-m 8XC} without comments) and, if available, an
-  annotation encoding matching FASTA \texttt{-m 9C} output. All the
-  \texttt{-m 9c/C/d/D} encodings are available with BLAST tabular
-  output using \texttt{-m 8C[c/C/d/D]}.  In the v36.3.8h release, a
-  new option has been added to \texttt{-m 8CB}, \texttt{-m 8CBL} (or
-  \texttt{-m 8CBl}. The \texttt{L/l} option adds the lengths of the
-  query and subject sequences after the \texttt{seqid}'s to BLAST
+  annotation encoding matching FASTA \texttt{-m 9C} output. \texttt{-m
+    8CB} provides the BLAST BTOP encoding, rather than the CIGAR
+  encoding provided by \texttt{-m 8CC}.  All the \texttt{-m 9c/C/d/D}
+  encodings are available with BLAST tabular output using \texttt{-m
+    8C[c/C/d/D]}.  In addition to the BLAST BTOP/CIGAR encoding field
+  added with \texttt{-m 8CB/8CC}, a second additional annotation field is added if annotations are available. The annotation field provides the same annotation boundary and score information as in standard alignment, but in a more compact form:
+\begin{verbatim}
+  |RX:3-82:3-82:s=780;b=201.;I=0.866;Q=570.;C=C.Thio|XR:3-82:3-82:s=780;b=201.;I=0.866;Q=570.5;C=C.Thio...
+\end{verbatim}
+  \texttt{|RX} annotations are based on the query sequence; \texttt{|XR} on the subject. In the example above, the boundaries of the domain in the query and subject are shown (\texttt{3-82:3-82}, as well as the raw score, bit-score, identity, Q-score, and domain name.
+
+  In the v36.3.8h release, 
+  new options have been added to \texttt{-m 8CB}: (a) \texttt{-m 8CBl} to show the query and subject sequence lengths;
+  (b) \texttt{-m8CBs} to show percent similarity in addition to percent identity; (c) \texttt{-m8CBd} adds an additional output field that shows raw domain information. \texttt{-m8CBL} provides both query/subject sequence lengths and raw domain informatio.
+
+ The \texttt{- m8CBl} option adds the lengths of
+  the query and subject sequences after the \texttt{seqid}'s to BLAST
   tabular output, e.g. \texttt{qseqid qlen sseqid slen percid ...}
+
+  \texttt{-m 8CBs}. The \texttt{- m8CBs} includes percent similarity after percent identity,
+  e.g. \texttt{qseqid, sseqid \% identity, \% similar, ... }
+
+  \texttt{-m 8CBd} adds a new field with
+  the raw domain coordinate information for the query and subject, with \texttt{DX/XD} used to indicate the domains.
+  \texttt{-m 8CBL} provides both query/subject lengths and raw domain information.
+\begin{verbatim}
+  |DX:3-82;C=C.Thio|DX:105-201;C=C.GST_C|XD:3-82;C=C.Thio|XD:105-201;C=C.GST_C
+\end{verbatim}
+
+  These \texttt{-m 8CB} options, \texttt{'l/L'}, \texttt{'s'}, \texttt{'d'} can be combined in any order.
 
 \item[\texttt{-m 9}] display alignment coordinates and scores with the
   best score information.  \texttt{-m 9i} provides alignment length,
@@ -1143,7 +1166,7 @@ programs. (There is an option in the \texttt{Makefile},
 
 \item[\texttt{-t \#}] Translation table - fastx36, tfastx36, fasty36,
   and tfasty3 now support the BLAST translation tables.  See
-  \url{http://www.ncbi.nih.gov/Taxonomy/Utils/wprintgc.cgi}.  
+  \url{http://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi}.  
 
   \texttt{-t 1} also enables translation of \texttt{'TGA'} to
   \texttt{'U'} (seleno-cysteine) (by default, \texttt{'TGA'} is
@@ -1536,8 +1559,8 @@ is \texttt{"/seqdata"}, then the resulting substitution yields:
 
 The FASTA program package does not include any protein or DNA sequence
 libraries.  Protein and DNA sequence databases are available via
-anonymous FTP from the NCBI (\url{ftp://ftp.ncbi.nih.gov/blast/db},
-\url{ftp://ftp.ncbi.nih.gov/blast/db}), UniProt
+anonymous FTP from the NCBI (\url{ftp://ftp.ncbi.nlm.nih.gov/blast/db},
+\url{ftp://ftp.ncbi.nlm.nih.gov/blast/db}), UniProt
 (\url{ftp://ftp.uniprot.org/pub/databases/uniprot}), and the EBI
 (\texttt{ftp.ebi.ac.uk/pub/databases}).
 
@@ -1554,7 +1577,7 @@ comparisons with \texttt{fastx36} or \texttt{fasty36}, show be scanned
 to remove low-complexity regions.  Matches between low complexity
 regions can violate the composition assumptions used by the FASTA
 statistical estimates. The \texttt{pseg} program (\cite{woo935},
-\url{ftp://ftp.ncbi.nih.gov/pub/seg/pseg}) can be used to lower-case
+\url{ftp://ftp.ncbi.nlm.nih.gov/pub/seg/pseg}) can be used to lower-case
 low complexity regions, which then can be ignored during the initial
 database search by using the \texttt{-S} option.  To lower-case low
 complexity regions, run the \texttt{pseg} program against the protein sequence database:
@@ -1672,7 +1695,7 @@ which are available from the NCBI \texttt{ftp} site.
 
 The NCBI also provides the comprehensive \texttt{nt} DNA database, and
 several EST databases in Blast2.0/\texttt{formatdb} format from
-\texttt{ftp://ncbi.nih.gov/blast/db}.
+\texttt{ftp://ncbi.nlm.nih.gov/blast/db}.
 
 
 \subsection{Finding the library files}
