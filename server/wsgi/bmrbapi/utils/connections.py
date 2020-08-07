@@ -67,8 +67,8 @@ class RedisConnection:
 
         # If there is only one sentinel, just treat that as the Redis instance itself, and not a sentinel
         if len(configuration['redis']['sentinels']) == 1:
-            self._redis_host = configuration['redis']['sentinels'][0]
-            self._redis_port = configuration['redis']['sentinels'][1]
+            self._redis_host = configuration['redis']['sentinels'][0][0]
+            self._redis_port = configuration['redis']['sentinels'][0][1]
         else:
             # Connect to the sentinels to determine the master
             try:
