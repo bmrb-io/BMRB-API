@@ -81,10 +81,15 @@ class RedisConnection:
 
     def __enter__(self) -> redis.StrictRedis:
         try:
-            self._redis_con = redis.StrictRedis(host=self._redis_host,
-                                                port=self._redis_port,
-                                                db=self._db,
-                                                password=configuration['redis']['password'])
+            if configuration['redis']['password']:
+                self._redis_con = redis.StrictRedis(host=self._redis_host,
+                                                    port=self._redis_port,
+                                                    db=self._db,
+                                                    password=configuration['redis']['password'])
+            else:
+                self._redis_con = redis.StrictRedis(host=self._redis_host,
+                                                    port=self._redis_port,
+                                                    db=self._db)
         except redis.exceptions.ConnectionError:
             raise ServerException('Could not connect to Redis server.')
         return self._redis_con
