@@ -53,7 +53,7 @@ class RedisConnection:
 
     If only one "sentinel" is defined, then just connect directly to that machine rather than checking the sentinels. """
 
-    def __init__(self, db: int = None, host: string = None):
+    def __init__(self, db: int = None, host: str = None):
         """ Creates a connection instance. Optionally specify a non-default db. """
 
         # If they didn't specify a DB then use the configuration default
