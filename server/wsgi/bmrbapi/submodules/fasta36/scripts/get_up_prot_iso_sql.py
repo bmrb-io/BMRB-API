@@ -1,15 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
-import re
 import sys
+import re
 import textwrap
-
+import argparse
 import MySQLdb.cursors
 
-ncbi_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?"
-uniprot_url = "https://www.uniprot.org/uniprot/"
-
-db = MySQLdb.connect(db='uniprot', host='xdb', user='web_user', passwd='fasta_www',
+db = MySQLdb.connect(db='uniprot', host='wrpxdb.bioch.virginia.edu', user='web_user', passwd='fasta_www',
                      cursorclass=MySQLdb.cursors.DictCursor)
 
 cur1 = db.cursor()
@@ -41,8 +38,8 @@ for acc in sys.argv[1:]:
     fasta_seqs.append(row)
 
   for row in fasta_seqs:
-    print ">%s|%s|%s %s"%(row['db'],row['acc'],row['id'],row['descr'])
-    print '\n'.join(textwrap.wrap(row['seq']))
+    print(">%s|%s|%s %s"%(row['db'],row['acc'],row['id'],row['descr']))
+    print('\n'.join(textwrap.wrap(row['seq'])))
 
 
 

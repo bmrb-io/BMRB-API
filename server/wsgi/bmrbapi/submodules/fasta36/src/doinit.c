@@ -231,7 +231,7 @@ void initenv (int argc, char **argv, struct mngmsg *m_msp,
 #ifdef MPI_SRC
   MPI_Comm_size(MPI_COMM_WORLD,&fa_max_workers);
   if (fa_max_workers <= 1) {
-    fprintf(stderr," nnodes = %d; no workers available\n",fa_max_workers);
+    fprintf(stderr,"*** ERROR [%s:%d] nnodes = %d; no workers available\n",__FILE__,__LINE__,fa_max_workers);
     exit(1);
   }
   else {
@@ -412,8 +412,10 @@ void initenv (int argc, char **argv, struct mngmsg *m_msp,
 	  m_msp->outfile[MAX_FN-1]='\0';
 	  break;
 	case 'q':
-	case 'Q':
 	  m_msp->quiet = 1;
+	  break;
+	case 'Q':
+	  m_msp->quiet = 2;
 	  break;
 	case 'R':
 	  strncpy (m_msp->dfile, optarg, MAX_FN);
@@ -535,7 +537,7 @@ ann_scan(unsigned char *aa0, int n0, unsigned char **aa0a_p, int seqtype)
   aa0d = aa0;
   /* n_n0 has the real sequence length */
   if ((*aa0a_p = calloc(n_n0+2, sizeof(char)))==NULL) {
-    fprintf(stderr," cannot allocate annotation sequence: %d\n",n_n0);
+    fprintf(stderr,"*** Warning [%s:%d]  cannot allocate annotation sequence: %d\n",__FILE__,__LINE__,n_n0);
 
     /* this section is for failure, simply copy the correct sequence
        and ignore the annotations */
@@ -642,8 +644,8 @@ get_annot_def_file(struct mngmsg *m_msp, char *fa_annot_env) {
   subs_env(tmp_annot_env, fa_annot_env, sizeof(tmp_annot_env));
   /* check that the file exists */
   if ((def_fp = fopen(tmp_annot_env,"r"))==NULL) {
-    fprintf(stderr,"*** error *** annotation definition file: %s not found\n",
-	    tmp_annot_env);
+    fprintf(stderr,"*** ERROR [%s:%d] *** annotation definition file: %s not found\n",
+	    __FILE__, __LINE__, tmp_annot_env);
     if (bpf) *bpf=' ';
     return;
   }
@@ -735,7 +737,7 @@ pre_parse_markx(char *opt_arg, struct mngmsg *m_msp) {
   }
   else {
     if ((tmp_markx = (struct markx_str *)calloc(1,sizeof(struct markx_str)))==NULL) {
-      fprintf(stderr,"[error] Cannot allocate markx_list\n");
+      fprintf(stderr,"*** ERROR [%s:%d] Cannot allocate markx_list\n",__FILE__,__LINE__);
       return;
     }
 
@@ -772,12 +774,12 @@ pre_parse_markx(char *opt_arg, struct mngmsg *m_msp) {
   /* first check for -m "F file" format */
   if (optarg[0] == 'F') {
     if ((bp=strchr(optarg+1,' '))==NULL && (bp=strchr(optarg+1,'='))==NULL) {
-      fprintf(stderr,"-m F missing file name: %s\n",optarg);
+      fprintf(stderr,"*** Warning [%s:%d] -m F missing file name: %s\n",__FILE__,__LINE__,optarg);
       return;
     }
     /* allocate space for file name */
     if ((tmp_markx->out_file = calloc(strlen(bp+1)+1,sizeof(char)))==NULL) {
-      fprintf(stderr,"[error] Cannot allocate markx->out_file\n");
+      fprintf(stderr,"*** ERROR [%s:%d] Cannot allocate markx->out_file\n",__FILE__,__LINE__);
       return;
     }
     strncpy(tmp_markx->out_file, bp+1, strlen(bp+1));
@@ -838,9 +840,12 @@ void
 parse_markx(char *optarg, struct markx_str *this) {
   int itmp;
   char ctmp, ctmp2, ctmp3;
+  char stmp[20];
+
 
   itmp = 0;
   ctmp = ctmp2 = ctmp3 = '\0';
+  stmp[19] = stmp[0]='\0';
 
   if (optarg[0] == 'B') {	/* BLAST alignment output */
     this->markx = MX_MBLAST;
@@ -867,7 +872,13 @@ parse_markx(char *optarg, struct markx_str *this) {
     return;
   }
   else {
-    sscanf(optarg,"%d%c%c%c",&itmp,&ctmp,&ctmp2,&ctmp3);
+    if (strlen(optarg) < sizeof(stmp)) {
+      sscanf(optarg,"%d%c%c%s",&itmp,&ctmp,&ctmp2,stmp);
+    }
+    else {
+      fprintf(stderr,"*** ERROR [%s:%d] -m option too long: %s\n",__FILE__,__LINE__,optarg);
+      sscanf(optarg,"%d%c%c%c",&itmp,&ctmp,&ctmp2,&ctmp3);
+    }
   }
   if (itmp==9) {
     if (ctmp=='c') {this->show_code = SHOW_CODE_ALIGN;}
@@ -891,14 +902,19 @@ parse_markx(char *optarg, struct markx_str *this) {
     else if (ctmp2 == 'D') {this->show_code = SHOW_CODE_CIGAR + SHOW_CODE_EXT;}
     else if (ctmp2 == 'B') {this->show_code = SHOW_CODE_BTOP;}
     
-    if (ctmp3 == 'L') {
+    if (strchr(stmp,'L')) {
       this->markx |= MX_M8_BTAB_LEN;
       this->show_code |= SHOW_CODE_DOMINFO;
     }
-    else if (ctmp3 == 'l') {
+    else if (strchr(stmp,'l')) {
       this->markx |= MX_M8_BTAB_LEN;
     }
-
+    if (strchr(stmp,'s')) {
+      this->markx |= MX_M8_BTAB_SIM;
+    }
+    if (strchr(stmp,'d')) {
+      this->show_code |= SHOW_CODE_DOMINFO;
+    }
   }
 }
 
@@ -943,7 +959,7 @@ build_optstr(char *opt_str, int max_len, struct opt_def_str *opt_defs) {
   opt_pos = opt_str;
   for (i=0; opt_defs[i].opt_char != '\0'; i++) {
     if (opt_len + 2 > max_len) {
-      fprintf(stderr," *** error -- options too long %d >= %d\n", opt_len, max_len);
+      fprintf(stderr,"*** ERROR [%s:%d] -- options too long %d >= %d\n", __FILE__, __LINE__, opt_len, max_len);
       break;
     }
     *opt_pos++ = opt_defs[i].opt_char;

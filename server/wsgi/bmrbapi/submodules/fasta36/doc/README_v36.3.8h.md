@@ -1,10 +1,27 @@
 
 ## The FASTA package - protein and DNA sequence similarity searching and alignment programs
 
+Changes in **fasta-36.3.8h** May, 2020
+
+1. fasta-36.3.8h (May 2020) fixes a bug that appeared when
+multiple query sequences were searched against a large library
+that would not fit in memory. In that case, the number of
+library sequences and residues increased by the library size
+with each new search.
+
+2. More consistent formats for *** ERROR and *** Warning messages.
+
+3. Corrections to code to address compiler warnings with gcc8/9.
+
+4. addition of 's' option to show similarity in -m8CBls (or -m8CBs, -m8CBsl) and 'd' option to show raw (unaligned) domain information.
+
+Changes in **fasta-36.3.8h** February, 2020
+
+1. The license for Michael Farrar's Smith-Waterman sse2 code and global/glocal sse2 code is now open source (BSD), see COPYRIGHT.sse2 for details.
+
 Changes in **fasta-36.3.8h** August, 2019
 
 1. Modifications to support makeblastdb format v5 databases. Currently, only simple database reads have been tested.
-
 
 Changes in **fasta-36.3.8h** March, 2019
 
