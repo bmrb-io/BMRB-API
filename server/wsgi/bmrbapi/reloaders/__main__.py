@@ -100,7 +100,7 @@ opt.add_option("--sql-user", action="store", dest='sql_user', default=configurat
 opt.add_option("--all-entries", action="store_true", dest="all", default=False,
                help="Update all the databases, and run all reloaders. Equivalent to: --metabolomics --macromolecules "
                     "--chemcomps --molprobity --uniprot --sql --timedomain")
-opt.add_option("--redis-db", action="store", dest="db", default=1, help="The Redis DB to use. 0 is master.")
+opt.add_option("--redis-db", action="store", dest="db", default=0, help="The Redis DB to use. 0 is master.")
 opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will interrupt service until the DB is rebuilt! "
                     "(So only use it on the staging DB.)")
