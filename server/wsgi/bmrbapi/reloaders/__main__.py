@@ -279,6 +279,8 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
                               r_conn.lrange('macromolecules:entry_list', 0, -1) +
                               r_conn.lrange('chemcomps:entry_list', 0, -1))
         make_entry_list('combined')
+        # Trigger a manual save to disk after reload
+        r_conn.save()
     logger.info('Finished updating list of entries present in Redis...')
 
 # MolProbity should run last since it takes so long
