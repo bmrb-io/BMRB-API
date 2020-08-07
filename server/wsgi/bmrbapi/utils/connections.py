@@ -49,30 +49,35 @@ class RedisConnection:
     """ Figures out where the master redis instance is (and other parameters
     needed to connect like which database to use), and opens a connection
     to it. It passes back that connection object, using a context manager
-    to clean up after use."""
+    to clean up after use.
+
+    If only one "sentinel" is defined, then just connect directly to that machine rather than checking the sentinels. """
 
     def __init__(self, db: int = None):
         """ Creates a connection instance. Optionally specify a non-default db. """
 
-        # Connect to redis
-        try:
-            # Figure out where we should connect
-            sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
-            self._redis_host, self._redis_port = sentinel.discover_master(configuration['redis']['master_name'])
+        # If they didn't specify a DB then use the configuration default
+        if db is None:
+            # If in debug, use debug database
+            if configuration['debug']:
+                db = 1
+            else:
+                db = configuration['redis']['db']
+        self._db = db
 
-            # If they didn't specify a DB then use the configuration default
-            if db is None:
-                # If in debug, use debug database
-                if configuration['debug']:
-                    db = 1
-                else:
-                    db = configuration['redis']['db']
+        # If there is only one sentinel, just treat that as the Redis instance itself, and not a sentinel
+        if len(configuration['redis']['sentinels']) == 1:
+            self._redis_host = configuration['redis']['sentinels'][0]
+            self._redis_port = configuration['redis']['sentinels'][1]
+        else:
+            # Connect to the sentinels to determine the master
+            try:
+                sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
+                self._redis_host, self._redis_port = sentinel.discover_master(configuration['redis']['master_name'])
 
-            self._db = db
-
-        # Raise an exception if we cannot connect to the database server
-        except redis.sentinel.MasterNotFoundError:
-            raise ServerException('Could not determine Redis host. Sentinels offline?')
+            # Raise an exception if we cannot connect to the database server
+            except redis.sentinel.MasterNotFoundError:
+                raise ServerException('Could not determine Redis host. Sentinels offline?')
 
     def __enter__(self) -> redis.StrictRedis:
         try:
