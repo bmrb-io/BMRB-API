@@ -101,6 +101,8 @@ opt.add_option("--all-entries", action="store_true", dest="all", default=False,
                help="Update all the databases, and run all reloaders. Equivalent to: --metabolomics --macromolecules "
                     "--chemcomps --molprobity --uniprot --sql --timedomain")
 opt.add_option("--redis-db", action="store", dest="db", default=0, help="The Redis DB to use. 0 is master.")
+opt.add_option("--redis-host", action="store", dest="redis_host", default=None,
+               help="The Redis host to use, if not using sentinels.")
 opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will interrupt service until the DB is rebuilt! "
                     "(So only use it on the staging DB.)")
@@ -199,7 +201,7 @@ to_process['combined'] = (to_process['chemcomps'] + to_process['macromolecules']
 # If specified, flush the DB
 if options.flush:
     logging.info("Flushing the DB.")
-    with RedisConnection(db=options.db) as r:
+    with RedisConnection(db=options.db, host=options.redis_host) as r:
         r.flushdb()
 
 if options.chemcomps or options.macromolecules or options.metabolomics:

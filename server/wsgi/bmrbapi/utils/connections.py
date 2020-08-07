@@ -53,7 +53,7 @@ class RedisConnection:
 
     If only one "sentinel" is defined, then just connect directly to that machine rather than checking the sentinels. """
 
-    def __init__(self, db: int = None):
+    def __init__(self, db: int = None, host: string = None):
         """ Creates a connection instance. Optionally specify a non-default db. """
 
         # If they didn't specify a DB then use the configuration default
@@ -64,6 +64,15 @@ class RedisConnection:
             else:
                 db = configuration['redis']['db']
         self._db = db
+
+        # If they manually specify a host, prioritize that
+        if host:
+            self._redis_host = host
+            if port:
+                self._redis_port = port
+            else:
+                self._redis_port = 6379
+            return
 
         # If there is only one sentinel, just treat that as the Redis instance itself, and not a sentinel
         if len(configuration['redis']['sentinels']) == 1:
