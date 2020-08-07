@@ -20,7 +20,8 @@
     "ets": {
         "user": "ets_user",
         "database": "ets_db",
-        "host": "ets_host"
+        "host": "ets_host",
+        "port": 5432
     },
     "smtp": {
         "admins": ["example@example.com"],
