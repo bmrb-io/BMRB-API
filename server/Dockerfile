@@ -34,8 +34,10 @@ RUN apk update && \
 COPY wsgi/requirements.txt /tmp/
 RUN pip install --no-cache -r /tmp/requirements.txt
 
-COPY ./wsgi /opt/wsgi/
+COPY ./wsgi/bmrbapi/submodules/fasta36 /opt/wsgi/bmrbapi/submodules/fasta36
 RUN cd /opt/wsgi/bmrbapi/submodules/fasta36/src && make -f ../make/Makefile.linux64_sse2 all
+
+COPY ./wsgi /opt/wsgi/
 
 COPY wsgi.conf /opt/wsgi/wsgi.conf
 
