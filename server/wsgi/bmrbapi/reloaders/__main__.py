@@ -173,7 +173,7 @@ if options.macromolecules:
     logger.info('Calculating macromolecule entries to process...')
     with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
         cur.execute('SELECT DISTINCT "ID" FROM macromolecules."Entry" ORDER BY "ID" asc;')
-        valid_ids = sorted([x[0] for x in cur.fetchall()](
+        valid_ids = sorted([x[0] for x in cur.fetchall()])
 
     if len(valid_ids) < 10000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
