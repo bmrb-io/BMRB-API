@@ -155,8 +155,12 @@ if options.sql:
 # Load the metabolomics data
 if options.metabolomics:
     logger.info('Calculating metabolomics entries to process...')
-    entries = querymod.select(["Entry_ID"], "Release", database="metabolomics")
-    entries = sorted(set(entries["Release.Entry_ID"]))
+    with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
+        cur.execute('SELECT DISTINCT "Entry_ID" FROM metabolomics."Release" ORDER BY "Entry_ID" asc');
+        entries = sorted([x[0] for x in cur.fetchall()])
+
+    if len(entries) < 1000:
+        raise ValueError("Refusing to continue, the DB appears corrupted.")
 
     substitution_count = configuration['metabolomics_entry_directory'].count("%s")
     for entry in entries:
@@ -167,16 +171,12 @@ if options.metabolomics:
 # Get the released entries from ETS
 if options.macromolecules:
     logger.info('Calculating macromolecule entries to process...')
-    with PostgresConnection(user=configuration['ets']['user'],
-                            host=configuration['ets']['host'],
-                            database=configuration['ets']['database'],
-                            port=configuration['ets']['port']) as cur:
+    with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
+        cur.execute('SELECT DISTINCT "ID" FROM macromolecules."Entry" ORDER BY "ID" asc;')
+        valid_ids = sorted([x[0] for x in cur.fetchall()](
 
-        cur.execute("SELECT bmrbnum FROM entrylog;")
-        all_ids = [x[0] for x in cur.fetchall()]
-
-        cur.execute("SELECT bmrbnum FROM entrylog WHERE status LIKE 'rel%';")
-        valid_ids = sorted([int(x[0]) for x in cur.fetchall()])
+    if len(valid_ids) < 10000:
+        raise ValueError("Refusing to continue, the DB appears corrupted.")
 
     substitution_count = configuration['macromolecule_entry_directory'].count("%s")
 
@@ -189,8 +189,11 @@ if options.macromolecules:
 # Load the chemcomps
 if options.chemcomps:
     logger.info('Calculating chemcomp entries to process...')
-    comp_ids = querymod.select(["BMRB_code"], "Entity", database="chemcomps")
-    comp_ids = comp_ids['Entity.BMRB_code']
+    with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
+        cur.execute('SELECT DISTINCT "BMRB_code" FROM chemcomps."Entity" ORDER BY "BMRB_code" asc');
+        comp_ids = sorted([x[0] for x in cur.fetchall()])
+    if len(comp_ids) < 1000:
+        raise ValueError("Refusing to continue, the DB appears corrupted.")
     chemcomps = ["chemcomp_" + x for x in comp_ids]
     to_process['chemcomps'].extend([[x, None] for x in chemcomps])
     logger.info('Finished calculating chemcomp entries to process.')
@@ -222,7 +225,7 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
         if new_pid == 0:
 
             # Each child gets a Redis
-            with RedisConnection(db=options.db) as red:
+            with RedisConnection(db=options.db, host=options.redis_host) as red:
 
                 child_conn.send("ready")
                 while True:
@@ -267,7 +270,7 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
         if data:
             add_to_loaded(data)
 
-    with RedisConnection(db=options.db) as r_conn:
+    with RedisConnection(db=options.db, host=options.redis_host) as r_conn:
         # Use a Redis list so other applications can read the list of entries
         if options.metabolomics:
             make_entry_list('metabolomics')
