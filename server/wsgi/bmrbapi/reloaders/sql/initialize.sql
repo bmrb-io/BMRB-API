@@ -199,7 +199,7 @@ SELECT
  '/data_library/summary/index.php?bmrbId=' || entry."ID",
  to_date(entry."Submission_date", 'YYYY-MM-DD'),
  False,
- json_agg(json_build_object('type', datum."Type", 'count', datum."Count"))
+ json_agg(jsonb_build_object('type', datum."Type", 'count', datum."Count"))
 FROM macromolecules."Entry" AS entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
@@ -222,7 +222,7 @@ SELECT
  '/metabolomics/mol_summary/show_data.php?id=' || entry."ID",
  entry."Submission_date",
  True,
- json_agg(json_build_object('type', datum."Type", 'count', datum."Count"))
+ json_agg(jsonb_build_object('type', datum."Type", 'count', datum."Count"))
 FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
@@ -248,7 +248,7 @@ SELECT
  '/metabolomics/mol_summary/show_theory.php?id=' || entry."ID",
  entry."Submission_date",
  True,
- json_agg(json_build_object('type', datum."Type", 'count', datum."Count"))
+ json_agg(jsonb_build_object('type', datum."Type", 'count', datum."Count"))
 FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
