@@ -2,11 +2,14 @@
 
 """ Verify the DB load worked. """
 
-import sys
+import datetime
 import logging
 import optparse
+import sys
+
 import psycopg2
-import datetime
+
+from bmrbapi.utils.configuration import configuration
 
 
 def get_postgres_connection(user, host, database, port):
@@ -19,23 +22,23 @@ def get_postgres_connection(user, host, database, port):
 # Specify some basic information about our command
 opt = optparse.OptionParser(usage="usage: %prog", version="1.0",
                             description="Verify the database is loaded.")
-opt.add_option("--host", action="store", dest="host",
-               default="manta", help="Hostname of the machine with the DB to check.")
-opt.add_option("--port", action="store", dest="port",
-               default="5432", help="Port of the machine with the DB to check.")
-opt.add_option("--database", action="store", dest="db",
-               default="bmrbeverything", help="The name of the database that the data resides in.")
-opt.add_option("--user", action="store", dest="user",
-               default="bmrb", help="The user to use to connect to the database.")
+opt.add_option("--host", action="store", dest="host", default=configuration['postgres']['host'],
+               help="Hostname of the machine with the DB to check.")
+opt.add_option("--port", action="store", dest="port", default=configuration['postgres']['port'],
+               help="Port of the machine with the DB to check.")
+opt.add_option("--database", action="store", dest="db", default=configuration['postgres']['database'],
+               help="The name of the database that the data resides in.")
+opt.add_option("--user", action="store", dest="user", default=configuration['postgres']['user'],
+               help="The user to use to connect to the database.")
 
-opt.add_option("--ets-host", action="store", dest="ets_host",
-               default="torpedo", help="Hostname of the machine with the ETS DB to check.")
+opt.add_option("--ets-host", action="store", dest="ets_host", default=configuration['ets']['host'],
+               help="Hostname of the machine with the ETS DB to check.")
 opt.add_option("--ets-port", action="store", dest="ets_port",
-               default="5432", help="Port of the machine with the ETS PGDBDB to check.")
-opt.add_option("--ets-database", action="store", dest="ets_db",
-               default="ETS", help="The name of the ETS database that the data resides in.")
-opt.add_option("--ets-user", action="store", dest="ets_user",
-               default="ets", help="The user to use to connect to the ETS database.")
+               default=configuration['ets']['port'], help="Port of the machine with the ETS DB to check.")
+opt.add_option("--ets-database", action="store", dest="ets_db", default=configuration['ets']['database'],
+               help="The name of the ETS database that the data resides in.")
+opt.add_option("--ets-user", action="store", dest="ets_user", default=configuration['ets']['user'],
+               help="The user to use to connect to the ETS database.")
 
 opt.add_option("--level", action="store", dest="level", type='choice',
                choices=['debug', 'info', 'warning', 'error', 'critical'],

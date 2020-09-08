@@ -1,0 +1,9 @@
+**/.git
+**/.svn
+**/.idea
+**/e2e
+**/node_modules
+**/node_env
+**/env
+**/virtual_env
+
