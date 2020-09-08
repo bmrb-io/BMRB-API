@@ -600,26 +600,29 @@ def validate_entry(entry_id):
                                        "-star_output", star_file.name])
 
         error_loop = pynmrstar.Entry.from_string(res.decode())
-        error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
-        error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
-                                        "Entity_ID", "Comp_index_ID",
-                                        "Comp_ID",
-                                        "Comp_overall_assignment_score",
-                                        "Comp_typing_score",
-                                        "Comp_SRO_score",
-                                        "Comp_1H_shifts_analysis_status",
-                                        "Comp_13C_shifts_analysis_status",
-                                        "Comp_15N_shifts_analysis_status"])
-        error_loop.category = "AVS_analysis"
+        try:
+            error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
+            error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
+                                            "Entity_ID", "Comp_index_ID",
+                                            "Comp_ID",
+                                            "Comp_overall_assignment_score",
+                                            "Comp_typing_score",
+                                            "Comp_SRO_score",
+                                            "Comp_1H_shifts_analysis_status",
+                                            "Comp_13C_shifts_analysis_status",
+                                            "Comp_15N_shifts_analysis_status"])
+            error_loop.category = "AVS_analysis"
 
-        # Modify the chemical shift loops with the new data
-        shift_lists = entry.get_loops_by_category("atom_chem_shift")
-        for loop in shift_lists:
-            loop.add_tag(["AVS_analysis_status", "PANAV_analysis_status"])
-            for row in loop.data:
-                row.extend(["Consistent", "Consistent"])
+            # Modify the chemical shift loops with the new data
+            shift_lists = entry.get_loops_by_category("atom_chem_shift")
+            for loop in shift_lists:
+                loop.add_tag(["AVS_analysis_status", "PANAV_analysis_status"])
+                for row in loop.data:
+                    row.extend(["Consistent", "Consistent"])
 
-        result[entry_id]["avs"] = error_loop.get_json(serialize=False)
+            result[entry_id]["avs"] = error_loop.get_json(serialize=False)
+        except IndexError:
+            result[entry_id]["avs"] = {'error': "AVS failed to run on this entry."}
 
     # PANAV
     # For each chemical shift loop
