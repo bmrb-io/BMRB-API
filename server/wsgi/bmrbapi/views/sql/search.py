@@ -5,6 +5,7 @@ SELECT instant_cache.id,
        authors,
        link,
        sub_date,
+       data_types,
        ms.formula,
        ms.inchi,
        ms.smiles,
@@ -31,6 +32,7 @@ SELECT DISTINCT ON (tt.id) term,
                         link,
                         sub_date,
                         is_metab,
+                        data_types,
                         NULL     AS "formula",
                         NULL     AS "inchi",
                         NULL     AS "smiles",
@@ -55,6 +57,7 @@ FROM (
                                  link,
                                  sub_date,
                                  is_metab,
+                                 data_types,
                                  ms.formula,
                                  ms.inchi,
                                  ms.smiles,
@@ -73,7 +76,7 @@ FROM (
 WHERE is_metab = 'True'"""
 
 macromolecules_instant_query_one = '''
-SELECT id, title, citations, authors, link, sub_date
+SELECT id, title, citations, authors, link, sub_date, data_types
 FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
   AND is_metab = 'False'
@@ -91,7 +94,8 @@ SELECT DISTINCT ON (tt.id) term,
                                       authors,
                                       link,
                                       sub_date,
-                                      is_metab
+                                      is_metab,
+                                      data_types
 FROM web.instant_cache
          LEFT JOIN web.instant_extra_search_terms AS tt
                    ON instant_cache.id = tt.id
@@ -108,7 +112,8 @@ FROM (
                                                authors,
                                                link,
                                                sub_date,
-                                               is_metab
+                                               is_metab,
+                                               data_types
          FROM web.instant_cache
                   LEFT JOIN web.instant_extra_search_terms AS tt
                             ON instant_cache.id = tt.id
@@ -122,7 +127,7 @@ LIMIT 75;
 
 
 combined_instant_query_one = '''
-SELECT id, title, citations, authors, link, sub_date
+SELECT id, title, citations, authors, link, sub_date, data_types
 FROM web.instant_cache
 WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY id = %s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;
@@ -139,7 +144,8 @@ SELECT DISTINCT ON (tt.id) term,
                                       authors,
                                       link,
                                       sub_date,
-                                      is_metab
+                                      is_metab,
+                                      data_types
 FROM web.instant_cache
          LEFT JOIN web.instant_extra_search_terms AS tt
                    ON instant_cache.id = tt.id
@@ -156,7 +162,8 @@ FROM (
                                                authors,
                                                link,
                                                sub_date,
-                                               is_metab
+                                               is_metab,
+                                               data_types
          FROM web.instant_cache
                   LEFT JOIN web.instant_extra_search_terms AS tt
                             ON instant_cache.id = tt.id

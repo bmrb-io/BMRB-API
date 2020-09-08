@@ -548,6 +548,7 @@ def instant():
                    "link": item['link'],
                    "value": item['id'],
                    "sub_date": str(item['sub_date']),
+                   "data_types": item['data_types'],
                    "label": "%s" % (item['title'])}
 
             if database == "metabolomics":
@@ -581,6 +582,7 @@ def instant():
                        "link": item['link'],
                        "value": item['id'],
                        "sub_date": str(item['sub_date']),
+                       "data_types": item['data_types'],
                        "label": "%s" % (item['title']),
                        "extra": {"term": item['term'],
                                  "termname": item['termname']},

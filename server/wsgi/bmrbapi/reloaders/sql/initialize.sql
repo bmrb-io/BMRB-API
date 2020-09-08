@@ -166,11 +166,6 @@ ALTER TABLE IF EXISTS web.instant_extra_search_terms RENAME TO instant_extra_sea
 ALTER TABLE web.instant_extra_search_terms_tmp RENAME TO instant_extra_search_terms;
 DROP TABLE IF EXISTS web.instant_extra_search_terms_old;
 
-
-
-
-
-
 -- Create tsvector table
 DROP TABLE IF EXISTS web.instant_cache_tmp;
 CREATE TABLE web.instant_cache_tmp (
@@ -199,7 +194,7 @@ SELECT
  '/data_library/summary/index.php?bmrbId=' || entry."ID",
  to_date(entry."Submission_date", 'YYYY-MM-DD'),
  False,
- json_agg(jsonb_build_object('type', datum."Type", 'count', datum."Count"))
+ json_agg(distinct(jsonb_build_object('type', datum."Type", 'count', datum."Count")))
 FROM macromolecules."Entry" AS entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
@@ -222,7 +217,7 @@ SELECT
  '/metabolomics/mol_summary/show_data.php?id=' || entry."ID",
  entry."Submission_date",
  True,
- json_agg(jsonb_build_object('type', datum."Type", 'count', datum."Count"))
+ json_agg(distinct(jsonb_build_object('type', datum."Type", 'count', datum."Count")))
 FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
@@ -248,7 +243,7 @@ SELECT
  '/metabolomics/mol_summary/show_theory.php?id=' || entry."ID",
  entry."Submission_date",
  True,
- json_agg(jsonb_build_object('type', datum."Type", 'count', datum."Count"))
+ json_agg(distinct(jsonb_build_object('type', datum."Type", 'count', datum."Count")))
 FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
