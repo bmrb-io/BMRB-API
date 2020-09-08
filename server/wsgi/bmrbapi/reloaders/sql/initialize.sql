@@ -181,9 +181,7 @@ CREATE TABLE web.instant_cache_tmp (
  link text,
  sub_date date,
  is_metab boolean,
- tsv tsvector,
- full_tsv tsvector,
- full_text text);
+ tsv tsvector);
 
 
 -- Macromolecules
