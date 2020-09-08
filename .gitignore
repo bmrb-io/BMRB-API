@@ -68,3 +68,10 @@ configuration.json
 .DS_STORE
 
 virtual_env
+
+# Don't commit the uniprot reload reference files
+server/wsgi/bmrbapi/reloaders/uniprot/*csv
+server/wsgi/bmrbapi/reloaders/uniprot/errors.txt
+
+
+server/wsgi/bmrbapi/version.txt
