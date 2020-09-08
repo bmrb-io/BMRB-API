@@ -308,12 +308,6 @@ UPDATE web.instant_cache_tmp SET tsv =
     setweight(to_tsvector(array_to_string(instant_cache_tmp.citations, '
 ')), 'D');
 
--- Create the index for the text search using tsvector
-CREATE INDEX ON web.instant_cache_tmp USING gin(full_tsv);
--- Create a trigram index on the full text
-CREATE INDEX ON web.instant_cache_tmp USING gin(full_text gin_trgm_ops);
-
-
 -- Move the new table into place
 ALTER TABLE IF EXISTS web.instant_cache RENAME TO instant_cache_old;
 ALTER TABLE web.instant_cache_tmp RENAME TO instant_cache;
