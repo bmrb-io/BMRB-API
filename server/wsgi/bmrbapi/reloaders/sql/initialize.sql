@@ -181,7 +181,7 @@ CREATE TABLE web.instant_cache_tmp (
  link text,
  sub_date date,
  is_metab boolean,
- data_types json,
+ data_types jsonb,
  tsv tsvector
  );
 
