@@ -194,14 +194,14 @@ SELECT
  '/data_library/summary/index.php?bmrbId=' || entry."ID",
  to_date(entry."Submission_date", 'YYYY-MM-DD'),
  False,
- json_agg(distinct(jsonb_build_object('type', datum."Type", 'count', datum."Count")))
+ json_agg(distinct(jsonb_build_object('type', data_set."Type", 'count', data_set."Count")))
 FROM macromolecules."Entry" AS entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
 LEFT JOIN macromolecules."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID" AND citation_author."Citation_ID" = '1'
-LEFT JOIN macromolecules."Datum" AS datum
-  ON datum."Entry_ID"=entry."ID"
+LEFT JOIN macromolecules."Data_set" AS data_set
+  ON data_set."Entry_ID"=entry."ID"
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
 -- Metabolomics bmse
@@ -217,7 +217,7 @@ SELECT
  '/metabolomics/mol_summary/show_data.php?id=' || entry."ID",
  entry."Submission_date",
  True,
- json_agg(distinct(jsonb_build_object('type', datum."Type", 'count', datum."Count")))
+ json_agg(distinct(jsonb_build_object('type', data_set."Type", 'count', data_set."Count")))
 FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
@@ -225,8 +225,8 @@ LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
 LEFT JOIN metabolomics."Chem_comp" AS chem_comp
   ON entry."ID"=chem_comp."Entry_ID"
-LEFT JOIN metabolomics."Datum" AS datum
-  ON datum."Entry_ID"=entry."ID"
+LEFT JOIN metabolomics."Data_set" AS data_set
+  ON data_set."Entry_ID"=entry."ID"
 WHERE entry."ID" like 'bmse%'
 GROUP BY entry."ID",chem_comp."Name", entry."Submission_date";
 
@@ -243,14 +243,14 @@ SELECT
  '/metabolomics/mol_summary/show_theory.php?id=' || entry."ID",
  entry."Submission_date",
  True,
- json_agg(distinct(jsonb_build_object('type', datum."Type", 'count', datum."Count")))
+ json_agg(distinct(jsonb_build_object('type', data_set."Type", 'count', data_set."Count")))
 FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
 LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
-LEFT JOIN metabolomics."Datum" AS datum
-  ON datum."Entry_ID"=entry."ID"
+LEFT JOIN metabolomics."Data_set" AS data_set
+  ON data_set."Entry_ID"=entry."ID"
 WHERE entry."ID" like 'bmst%'
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
