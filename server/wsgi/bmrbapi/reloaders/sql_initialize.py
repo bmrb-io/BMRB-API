@@ -8,7 +8,7 @@ from bmrbapi.utils.configuration import configuration
 
 def sql_initialize(host=configuration['postgres']['host'],
                    database=configuration['postgres']['database'],
-                   user=configuration['postgres']['reload_user']) -> None:
+                   user=configuration['postgres']['reload_user']) -> bool:
     """ Prepare the DB for querying. """
 
     with NamedTemporaryFile('w', delete=False) as temp:
