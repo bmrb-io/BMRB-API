@@ -7,6 +7,7 @@ from bmrbapi.schemas.default import *
 from bmrbapi.schemas.dictionary import *
 from bmrbapi.schemas.entry import *
 from bmrbapi.schemas.internal import *
+from bmrbapi.schemas.metadata import *
 from bmrbapi.schemas.molprobity import *
 from bmrbapi.schemas.search import *
 from bmrbapi.schemas.software import *

@@ -23,6 +23,7 @@ from bmrbapi.views.db_links import db_endpoints
 from bmrbapi.views.dictionary import dictionary_endpoints
 from bmrbapi.views.entry import entry_endpoints
 from bmrbapi.views.internal import internal_endpoints
+from bmrbapi.views.metadata import meta_endpoints
 from bmrbapi.views.molprobity import molprobity_endpoints
 from bmrbapi.views.search import search_endpoints
 
@@ -34,6 +35,7 @@ application.register_blueprint(db_endpoints)
 application.register_blueprint(entry_endpoints)
 application.register_blueprint(internal_endpoints)
 application.register_blueprint(dictionary_endpoints)
+application.register_blueprint(meta_endpoints)
 
 # Set debug if running from command line
 if application.debug:

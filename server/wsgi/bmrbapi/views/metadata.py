@@ -1,0 +1,66 @@
+import datetime
+from typing import List, Tuple
+
+from flask import Blueprint, jsonify, Response
+# Set up the blueprint
+from psycopg2.extras import DictCursor
+
+from bmrbapi.utils.configuration import configuration
+from bmrbapi.utils.connections import PostgresConnection
+from bmrbapi.views.sql.metadata import *
+
+meta_endpoints = Blueprint('metadata', __name__)
+
+
+@meta_endpoints.route('/meta/release_statistics')
+def get_release_statistics() -> Response:
+    """ Returns statistics about released entries. """
+
+    results = {}
+
+    def get_query_results(cursor: DictCursor, query: str) -> List[Tuple[int, int]]:
+        cursor.execute(query, [])
+        return cursor.fetchall()
+
+    with PostgresConnection(host=configuration['ets']['host'],
+                            user=configuration['ets']['user'],
+                            database=configuration['ets']['database'],
+                            port=configuration['ets'].get('port', 5432)) as cur:
+
+        years_to_show = range(1995, datetime.datetime.now().year + 1)
+
+        # Do the queries
+        total_released_in_year = get_query_results(cur, released_in_year)
+        original_released_in_year = get_query_results(cur, original_release_in_year)
+        structure_released_in_year = get_query_results(cur, structure_in_year)
+        nonstructure_released_in_year = get_query_results(cur, nonstructure_in_year)
+
+        def lookup_year(res, search_year: int):
+            """ Returns the number of entries for a year from a list. """
+            for row in res:
+                if row[0] == search_year:
+                    return row[1]
+            return 0
+
+        # Use this do to the calculations
+        release_by_year = {'total_released_by_year': 0,
+                           'original_released_by_year': 0,
+                           'structure_released_by_year': 0,
+                           'nonstructure_released_by_year': 0}
+        for year in years_to_show:
+            release_by_year['total_released_by_year'] += lookup_year(total_released_in_year, year)
+            release_by_year['original_released_by_year'] += lookup_year(original_released_in_year, year)
+            release_by_year['structure_released_by_year'] += lookup_year(structure_released_in_year, year)
+            release_by_year['nonstructure_released_by_year'] += lookup_year(nonstructure_released_in_year, year)
+            results[year] = {
+                'total_released_by_year': release_by_year['total_released_by_year'],
+                'original_released_by_year': release_by_year['original_released_by_year'],
+                'structure_released_by_year': release_by_year['structure_released_by_year'],
+                'nonstructure_released_by_year': release_by_year['nonstructure_released_by_year'],
+                'released_in_year': lookup_year(total_released_in_year, year),
+                'original_release_in_year': lookup_year(original_released_in_year, year),
+                'structure_release_in_year': lookup_year(structure_released_in_year, year),
+                'nonstructure_release_in_year': lookup_year(nonstructure_released_in_year, year)
+            }
+
+    return jsonify({'release_information': results})
