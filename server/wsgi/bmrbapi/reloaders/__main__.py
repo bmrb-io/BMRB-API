@@ -12,11 +12,10 @@ from multiprocessing import Pipe, cpu_count
 from os import _exit as child_exit
 
 from bmrbapi.reloaders.database import one_entry
-from bmrbapi.reloaders.molprobity import molprobity
+from bmrbapi.reloaders.molprobity import molprobity, molprobity_visualizations
 from bmrbapi.reloaders.sql_initialize import sql_initialize
 from bmrbapi.reloaders.timedomain import timedomain
 from bmrbapi.reloaders.uniprot import uniprot
-from bmrbapi.utils import querymod
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 
@@ -291,5 +290,6 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
 # MolProbity should run last since it takes so long
 if options.molprobity:
     logger.info('Doing MolProbity reload...')
+    molprobity_visualizations(host=options.sql_host, database=options.sql_database, user=options.sql_user)
     molprobity(host=options.sql_host, database=options.sql_database, user=options.sql_user)
     logger.info('Finished MolProbity reload...')
