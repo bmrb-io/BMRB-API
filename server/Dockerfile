@@ -31,11 +31,13 @@ RUN apk update && \
     if [[ ! -e /usr/bin/python ]]; then ln -sf /usr/bin/python3 /usr/bin/python; fi && \
     rm -r /root/.cache
 
-COPY wsgi/requirements.txt /tmp/
-RUN pip install --no-cache -r /tmp/requirements.txt
+RUN cd /opt/wsgi/bmrbapi/reloaders/molprobity_binary && make
 
 COPY ./wsgi/bmrbapi/submodules/fasta36 /opt/wsgi/bmrbapi/submodules/fasta36
 RUN cd /opt/wsgi/bmrbapi/submodules/fasta36/src && make -f ../make/Makefile.linux64_sse2 all
+
+COPY wsgi/requirements.txt /tmp/
+RUN pip install --no-cache -r /tmp/requirements.txt
 
 COPY ./wsgi /opt/wsgi/
 
