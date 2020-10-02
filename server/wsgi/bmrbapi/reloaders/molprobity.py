@@ -66,9 +66,9 @@ CREATE TABLE molprobity.distributions_working(experiment_type TEXT,
                         cur_file = "/tmp/%s_%s_%s" % (experiment_type, hydrogen_flip_state, backbone_trim_state)
 
                         # Run the stat calculating program
-                        logging.info(os.path.join(script_dir, "calculate_statistics"), cur_file, experiment_type,
+                        logging.info(os.path.join(script_dir, "molprobity_binary", "calculate_statistics"), cur_file, experiment_type,
                                      hydrogen_flip_state, backbone_trim_state)
-                        stats_calc = Popen([os.path.join(script_dir, "calculate_statistics"), cur_file, experiment_type,
+                        stats_calc = Popen([os.path.join(script_dir, "molprobity_binary", "calculate_statistics"), cur_file, experiment_type,
                                             hydrogen_flip_state, backbone_trim_state], stdout=PIPE, stderr=PIPE)
 
                         # Copy to the results to the appropriate table
@@ -150,7 +150,6 @@ def molprobity(host=configuration['postgres']['host'],
                database=configuration['postgres']['database'],
                user=configuration['postgres']['reload_user']) -> bool:
     """ This takes a long time. """
-
     cmd = subprocess.Popen('LC_ALL=C find %s/residue_files/combined/ -name \\*.csv -print0 | xargs -0 cat | '
                            'sort -u -i -S2G --compress-program gzip -' %
                            configuration['molprobity_directory'], shell=True, stderr=subprocess.PIPE,
