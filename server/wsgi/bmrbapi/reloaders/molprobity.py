@@ -1,10 +1,11 @@
-import json
 import logging
 import os
 import subprocess
-from io import StringIO
+from io import BytesIO
 from subprocess import Popen, PIPE
 from urllib.request import urlopen
+
+import simplejson as json
 
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
@@ -18,6 +19,10 @@ def molprobity_visualizations(host=configuration['postgres']['host'],
 
     conn = PostgresConnection(user=user, host=host, database=database)
     with conn as cur:
+
+        cur.execute('CREATE SCHEMA IF NOT EXISTS molprobity;')
+        cur.execute('GRANT USAGE ON SCHEMA molprobity to web;')
+        conn.commit()
 
         script_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -66,14 +71,18 @@ CREATE TABLE molprobity.distributions_working(experiment_type TEXT,
                         cur_file = "/tmp/%s_%s_%s" % (experiment_type, hydrogen_flip_state, backbone_trim_state)
 
                         # Run the stat calculating program
-                        logging.info(os.path.join(script_dir, "molprobity_binary", "calculate_statistics"), cur_file, experiment_type,
-                                     hydrogen_flip_state, backbone_trim_state)
+                        logging.info("Running: %s %s %s %s %s",
+                                     os.path.join(script_dir, "molprobity_binary", "calculate_statistics"),
+                                     cur_file,
+                                     experiment_type,
+                                     hydrogen_flip_state,
+                                     backbone_trim_state)
                         stats_calc = Popen([os.path.join(script_dir, "molprobity_binary", "calculate_statistics"), cur_file, experiment_type,
                                             hydrogen_flip_state, backbone_trim_state], stdout=PIPE, stderr=PIPE)
 
                         # Copy to the results to the appropriate table
-                        cur.copy_from(stats_calc.stderr, 'distributions_working', sep=",", null="-1")
-                        cur.copy_from(stats_calc.stdout, 'averages_working', sep=",", null="-1.000000")
+                        cur.copy_from(stats_calc.stderr, 'molprobity.distributions_working', sep=",", null="-1")
+                        cur.copy_from(stats_calc.stdout, 'molprobity.averages_working', sep=",", null="-1.000000")
 
                         stats_calc.wait()
 
@@ -90,7 +99,7 @@ CREATE TABLE molprobity.distributions_working(experiment_type TEXT,
         logging.info("Loading PDB information...")
         pdb_url = "http://www.rcsb.org/pdb/rest/customReport.csv?pdbids=*&customReportColumns=structureId," \
                   "structureTitle,experimentalTechnique&format=csv&service=wsfile"
-        pdb_csv = StringIO(urlopen(pdb_url).read())
+        pdb_csv = BytesIO(urlopen(pdb_url).read())
         cur.execute("DROP TABLE IF EXISTS molprobity.pdb_info_working;")
         cur.execute("CREATE TABLE molprobity.pdb_info_working(pdb TEXT, title TEXT, experiment_type TEXT);")
         cur.copy_expert("COPY molprobity.pdb_info_working from STDIN WITH CSV HEADER QUOTE '\"';", pdb_csv)
@@ -99,7 +108,7 @@ CREATE TABLE molprobity.distributions_working(experiment_type TEXT,
         cur.execute("""
 UPDATE molprobity.pdb_info_working
   SET valid = True
-  WHERE LOWER(pdb_info_working.pdb) IN (SELECT distinct(pdb) FROM averages);""")
+  WHERE LOWER(pdb_info_working.pdb) IN (SELECT distinct(pdb) FROM molprobity.averages);""")
         cur.execute("DROP TABLE IF EXISTS molprobity.pdb_info;")
         cur.execute("ALTER TABLE molprobity.pdb_info_working RENAME TO pdb_info;")
         conn.commit()
@@ -142,14 +151,18 @@ UPDATE molprobity.pdb_info_working
                             data_field] = processed_list
 
         # Write the json file
-        with open(os.path.join(script_dir, "..", "data.js"), "w") as json_file:
+        with open(os.path.join(configuration['molprobity_directory'], "derived_data", "data.js"), "w") as json_file:
             json_file.write("encoded_data=" + json.dumps(json_dictionary))
+
+        cur.execute('GRANT SELECT ON ALL TABLES IN SCHEMA molprobity to web;')
+        conn.commit()
 
 
 def molprobity(host=configuration['postgres']['host'],
                database=configuration['postgres']['database'],
                user=configuration['postgres']['reload_user']) -> bool:
     """ This takes a long time. """
+
     cmd = subprocess.Popen('LC_ALL=C find %s/residue_files/combined/ -name \\*.csv -print0 | xargs -0 cat | '
                            'sort -u -i -S2G --compress-program gzip -' %
                            configuration['molprobity_directory'], shell=True, stderr=subprocess.PIPE,
