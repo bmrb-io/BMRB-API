@@ -12,7 +12,7 @@ from multiprocessing import Pipe, cpu_count
 from os import _exit as child_exit
 
 from bmrbapi.reloaders.database import one_entry
-from bmrbapi.reloaders.molprobity import molprobity, molprobity_visualizations
+from bmrbapi.reloaders.molprobity import molprobity_full, molprobity_visualizations
 from bmrbapi.reloaders.sql_initialize import sql_initialize
 from bmrbapi.reloaders.timedomain import timedomain
 from bmrbapi.reloaders.uniprot import uniprot
@@ -83,8 +83,10 @@ opt.add_option("--metabolomics", action="store_true", dest="metabolomics", defau
 opt.add_option("--macromolecules", action="store_true", dest="macromolecules", default=False,
                help="Update the macromolecule entries.")
 opt.add_option("--chemcomps", action="store_true", dest="chemcomps", default=False, help="Update the chemcomp entries.")
-opt.add_option("--molprobity", action="store_true", dest="molprobity", default=False,
-               help="Update the MolProbity tables.")
+opt.add_option("--molprobity-visualization", action="store_true", dest="molprobity_visualization", default=False,
+               help="Update the MolProbity visualization tables.")
+opt.add_option("--molprobity-full", action="store_true", dest="molprobity_full", default=False,
+               help="Update the large MolProbity API tables.")
 opt.add_option("--timedomain", action="store_true", dest="timedomain", default=False,
                help="Update the timedomain tables.")
 opt.add_option("--uniprot", action="store_true", dest="uniprot", default=False, help="Update the UniProt tables.")
@@ -100,7 +102,7 @@ opt.add_option("--sql-port", action="store", dest='sql_port', default=configurat
                help="Port to connect to Postgres on.")
 opt.add_option("--all-entries", action="store_true", dest="all", default=False,
                help="Update all the databases, and run all reloaders. Equivalent to: --metabolomics --macromolecules "
-                    "--chemcomps --molprobity --uniprot --sql --timedomain")
+                    "--chemcomps --molprobity-visualization --molprobity-full --uniprot --sql --timedomain")
 opt.add_option("--redis-db", action="store", dest="redis_db", default=configuration['redis']['db'],
                help="The Redis DB to use. 0 is master.")
 opt.add_option("--redis-host", action="store", dest="redis_host", default=None,
@@ -131,8 +133,8 @@ else:
     logger.setLevel(logging.WARNING)
 
 # Make sure they specify a DB
-if not (options.metabolomics or options.macromolecules or options.chemcomps or options.molprobity or options.uniprot
-        or options.sql or options.timedomain or options.all):
+if not (options.metabolomics or options.macromolecules or options.chemcomps or options.molprobity_visualization
+        or options.molprobity_full or options.uniprot or options.sql or options.timedomain or options.all):
     logging.exception("You must specify at least one of the reloaders.")
     sys.exit(1)
 
@@ -141,7 +143,8 @@ if options.all:
     options.metabolomics = True
     options.macromolecules = True
     options.chemcomps = True
-    options.molprobity = True
+    options.molprobity_visualization = True
+    options.molprobity_full = True
     options.uniprot = True
     options.sql = True
     options.timedomain = True
@@ -150,7 +153,6 @@ if options.timedomain:
     logger.info('Doing timedomain data reload...')
     timedomain()
     logger.info('Finished timedomain data reload...')
-
 
 if options.uniprot:
     logger.info('Doing UniProt reload...')
@@ -163,7 +165,6 @@ if options.sql:
         logger.info('Finished SQL initialization...')
     else:
         logger.exception('SQL reloading exited with exception.')
-
 
 # Load the metabolomics data
 if options.metabolomics:
@@ -301,9 +302,14 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
         r_conn.save()
     logger.info('Finished updating list of entries present in Redis...')
 
-# MolProbity should run last since it takes so long
-if options.molprobity:
-    logger.info('Doing MolProbity reload...')
+# The quicker molprobity code to generate the data for the molprobity visualizer
+if options.molprobity_visualization:
+    logger.info('Doing MolProbity visualization reload...')
     molprobity_visualizations()
-    molprobity()
-    logger.info('Finished MolProbity reload...')
+    logger.info('Finished MolProbity visualization reload...')
+
+# Full MolProbity should run last since it takes so long
+if options.molprobity_full:
+    logger.info('Doing full MolProbity reload...')
+    molprobity_full()
+    logger.info('Finished full MolProbity reload...')

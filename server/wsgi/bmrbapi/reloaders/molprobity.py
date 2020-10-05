@@ -161,7 +161,7 @@ UPDATE molprobity.pdb_info_working
         conn.commit()
 
 
-def molprobity() -> bool:
+def molprobity_full() -> bool:
     """ This takes a long time. """
 
     cmd = subprocess.Popen('LC_ALL=C find %s/residue_files/combined/ -name \\*.csv -print0 | xargs -0 cat | '
@@ -169,8 +169,13 @@ def molprobity() -> bool:
                            configuration['molprobity_directory'], shell=True, stderr=subprocess.PIPE,
                            stdout=subprocess.PIPE)
 
-    psql = PostgresConnection(write_access=True)
-    with psql as cur:
+    conn = PostgresConnection(write_access=True)
+    with conn as cur:
+
+        cur.execute('CREATE SCHEMA IF NOT EXISTS molprobity;')
+        cur.execute('GRANT USAGE ON SCHEMA molprobity to web;')
+        conn.commit()
+
         # Do the oneline files and prepare for the residue file
         sql_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", 'molprobity_one.sql')
         with open(sql_path, 'r') as sql_file:
@@ -204,6 +209,7 @@ def molprobity() -> bool:
         with open(sql_path, 'r') as sql_file:
             cur.execute(sql_file.read())
 
-        psql.commit()
+        cur.execute('GRANT SELECT ON ALL TABLES IN SCHEMA molprobity to web;')
+        conn.commit()
 
     return True
