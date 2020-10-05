@@ -101,7 +101,7 @@ opt.add_option("--sql-port", action="store", dest='sql_port', default=configurat
 opt.add_option("--all-entries", action="store_true", dest="all", default=False,
                help="Update all the databases, and run all reloaders. Equivalent to: --metabolomics --macromolecules "
                     "--chemcomps --molprobity --uniprot --sql --timedomain")
-opt.add_option("--redis-db", action="store", dest="db", default=configuration['redis']['db'],
+opt.add_option("--redis-db", action="store", dest="redis_db", default=configuration['redis']['db'],
                help="The Redis DB to use. 0 is master.")
 opt.add_option("--redis-host", action="store", dest="redis_host", default=None,
                help="The Redis host to use, if not using sentinels.")
