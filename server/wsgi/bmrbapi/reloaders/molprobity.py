@@ -70,14 +70,20 @@ CREATE TABLE molprobity.distributions_working(experiment_type TEXT,
                     for backbone_trim_state in ['full', 'core']:
                         cur_file = "/tmp/%s_%s_%s" % (experiment_type, hydrogen_flip_state, backbone_trim_state)
 
+                        # Compile the binary if necessary
+                        stats_binary_location = os.path.join(script_dir, "molprobity_binary", "calculate_statistics")
+                        if not os.path.exists(stats_binary_location):
+                            logging.info('Binary stats program not found, compiling...')
+                            Popen(['make'], cwd=os.path.join(script_dir, "molprobity_binary")).wait()
+
                         # Run the stat calculating program
                         logging.info("Running: %s %s %s %s %s",
-                                     os.path.join(script_dir, "molprobity_binary", "calculate_statistics"),
+                                     stats_binary_location,
                                      cur_file,
                                      experiment_type,
                                      hydrogen_flip_state,
                                      backbone_trim_state)
-                        stats_calc = Popen([os.path.join(script_dir, "molprobity_binary", "calculate_statistics"), cur_file, experiment_type,
+                        stats_calc = Popen([stats_binary_location, cur_file, experiment_type,
                                             hydrogen_flip_state, backbone_trim_state], stdout=PIPE, stderr=PIPE)
 
                         # Copy to the results to the appropriate table
