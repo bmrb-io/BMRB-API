@@ -96,18 +96,32 @@ opt.add_option("--sql-database", action="store", dest='sql_database', default=co
                help="Database to run the SQL updater on.")
 opt.add_option("--sql-user", action="store", dest='sql_user', default=configuration['postgres']['reload_user'],
                help="User to run the SQL updater as.")
+opt.add_option("--sql-port", action="store", dest='sql_port', default=configuration['postgres']['port'],
+               help="Port to connect to Postgres on.")
 opt.add_option("--all-entries", action="store_true", dest="all", default=False,
                help="Update all the databases, and run all reloaders. Equivalent to: --metabolomics --macromolecules "
                     "--chemcomps --molprobity --uniprot --sql --timedomain")
-opt.add_option("--redis-db", action="store", dest="db", default=0, help="The Redis DB to use. 0 is master.")
+opt.add_option("--redis-db", action="store", dest="db", default=configuration['redis']['db'],
+               help="The Redis DB to use. 0 is master.")
 opt.add_option("--redis-host", action="store", dest="redis_host", default=None,
                help="The Redis host to use, if not using sentinels.")
+opt.add_option("--redis-port", action="store", dest="redis_port", default=None,
+               help="The port to try to connect to Redis on.")
 opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will interrupt service until the DB is rebuilt! "
                     "(So only use it on the staging DB.)")
 opt.add_option("--verbose", action="store_true", dest="verbose", default=False, help="Be verbose")
 # Parse the command line input
 (options, cmd_input) = opt.parse_args()
+
+# Set all of the config options from the command line - way easier than trying to pass them through everywhere
+configuration['postgres']['reload_user'] = options.sql_user
+configuration['postgres']['host'] = options.sql_host
+configuration['postgres']['database'] = options.sql_database
+configuration['postgres']['port'] = options.sql_port
+configuration['redis']['db'] = options.redis_db
+if options.redis_host and options.redis_port:
+    configuration['redis']['sentinels'] = [options.redis_host, options.redis_port]
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -154,7 +168,7 @@ if options.sql:
 # Load the metabolomics data
 if options.metabolomics:
     logger.info('Calculating metabolomics entries to process...')
-    with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
+    with PostgresConnection() as cur:
         cur.execute('SELECT DISTINCT "Entry_ID" FROM metabolomics."Release" ORDER BY "Entry_ID"')
         entries = sorted([x[0] for x in cur.fetchall()])
 
@@ -170,7 +184,7 @@ if options.metabolomics:
 # Get the released entries from ETS
 if options.macromolecules:
     logger.info('Calculating macromolecule entries to process...')
-    with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
+    with PostgresConnection() as cur:
         cur.execute('SELECT DISTINCT "ID" FROM macromolecules."Entry" ORDER BY "ID";')
         valid_ids = sorted([x[0] for x in cur.fetchall()])
 
@@ -188,7 +202,7 @@ if options.macromolecules:
 # Load the chemcomps
 if options.chemcomps:
     logger.info('Calculating chemcomp entries to process...')
-    with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
+    with PostgresConnection() as cur:
         cur.execute('SELECT DISTINCT "BMRB_code" FROM chemcomps."Entity" ORDER BY "BMRB_code"')
         comp_ids = sorted([x[0] for x in cur.fetchall()])
     if len(comp_ids) < 1000:
@@ -203,7 +217,7 @@ to_process['combined'] = (to_process['chemcomps'] + to_process['macromolecules']
 # If specified, flush the DB
 if options.flush:
     logging.info("Flushing the DB.")
-    with RedisConnection(db=options.db, host=options.redis_host) as r:
+    with RedisConnection() as r:
         r.flushdb()
 
 if options.chemcomps or options.macromolecules or options.metabolomics:
@@ -224,7 +238,7 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
         if new_pid == 0:
 
             # Each child gets a Redis
-            with RedisConnection(db=options.db, host=options.redis_host) as red:
+            with RedisConnection() as red:
 
                 child_conn.send("ready")
                 while True:
@@ -269,7 +283,7 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
         if data:
             add_to_loaded(data)
 
-    with RedisConnection(db=options.db, host=options.redis_host) as r_conn:
+    with RedisConnection() as r_conn:
         # Use a Redis list so other applications can read the list of entries
         if options.metabolomics:
             make_entry_list('metabolomics')
