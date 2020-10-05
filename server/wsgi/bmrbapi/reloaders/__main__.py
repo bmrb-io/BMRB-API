@@ -155,7 +155,7 @@ if options.sql:
 if options.metabolomics:
     logger.info('Calculating metabolomics entries to process...')
     with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
-        cur.execute('SELECT DISTINCT "Entry_ID" FROM metabolomics."Release" ORDER BY "Entry_ID" asc');
+        cur.execute('SELECT DISTINCT "Entry_ID" FROM metabolomics."Release" ORDER BY "Entry_ID"')
         entries = sorted([x[0] for x in cur.fetchall()])
 
     if len(entries) < 1000:
@@ -171,7 +171,7 @@ if options.metabolomics:
 if options.macromolecules:
     logger.info('Calculating macromolecule entries to process...')
     with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
-        cur.execute('SELECT DISTINCT "ID" FROM macromolecules."Entry" ORDER BY "ID" asc;')
+        cur.execute('SELECT DISTINCT "ID" FROM macromolecules."Entry" ORDER BY "ID";')
         valid_ids = sorted([x[0] for x in cur.fetchall()])
 
     if len(valid_ids) < 10000:
@@ -189,7 +189,7 @@ if options.macromolecules:
 if options.chemcomps:
     logger.info('Calculating chemcomp entries to process...')
     with PostgresConnection(user=options.sql_user, host=options.sql_host, database=options.sql_database) as cur:
-        cur.execute('SELECT DISTINCT "BMRB_code" FROM chemcomps."Entity" ORDER BY "BMRB_code" asc');
+        cur.execute('SELECT DISTINCT "BMRB_code" FROM chemcomps."Entity" ORDER BY "BMRB_code"')
         comp_ids = sorted([x[0] for x in cur.fetchall()])
     if len(comp_ids) < 1000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
