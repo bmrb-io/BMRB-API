@@ -506,7 +506,7 @@ def create_combined_view() -> None:
     """ Create the combined schema from the other three schemas."""
 
     # Connect as the user that has write privileges
-    psql = PostgresConnection(user=configuration['postgres']['reload_user'])
+    psql = PostgresConnection(write_access=True)
     with psql as cur:
 
         # Create the new schema if needed

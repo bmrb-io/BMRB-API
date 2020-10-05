@@ -6,14 +6,11 @@ from psycopg2.extras import execute_values
 
 from bmrbapi.reloaders.uniprot import sql_statements as sql_statements
 from bmrbapi.reloaders.uniprot.file_mappers import UniProtMapper, PDBMapper, UniProtValidator
-from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
 
-def uniprot(host=configuration['postgres']['host'],
-            database=configuration['postgres']['database'],
-            user=configuration['postgres']['reload_user']):
-    psql_conn = PostgresConnection(user=user, host=host, database=database)
+def uniprot():
+    psql_conn = PostgresConnection(write_access=True)
     this_dir = os.path.dirname(os.path.abspath(__file__))
     with UniProtMapper('uniname.csv') as uni_name, \
             PDBMapper('pdb_uniprot.csv') as pdb_map, \

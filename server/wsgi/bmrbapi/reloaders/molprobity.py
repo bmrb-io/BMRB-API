@@ -11,13 +11,10 @@ from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
 
-def molprobity_visualizations(host=configuration['postgres']['host'],
-                              database=configuration['postgres']['database'],
-                              user=configuration['postgres']['reload_user'],
-                              resolution: int = 3000):
+def molprobity_visualizations(resolution: int = 3000):
     csv_location = configuration['molprobity_directory'] + '/oneline_files/'
 
-    conn = PostgresConnection(user=user, host=host, database=database)
+    conn = PostgresConnection(write_access=True)
     with conn as cur:
 
         cur.execute('CREATE SCHEMA IF NOT EXISTS molprobity;')
@@ -164,9 +161,7 @@ UPDATE molprobity.pdb_info_working
         conn.commit()
 
 
-def molprobity(host=configuration['postgres']['host'],
-               database=configuration['postgres']['database'],
-               user=configuration['postgres']['reload_user']) -> bool:
+def molprobity() -> bool:
     """ This takes a long time. """
 
     cmd = subprocess.Popen('LC_ALL=C find %s/residue_files/combined/ -name \\*.csv -print0 | xargs -0 cat | '
@@ -174,7 +169,7 @@ def molprobity(host=configuration['postgres']['host'],
                            configuration['molprobity_directory'], shell=True, stderr=subprocess.PIPE,
                            stdout=subprocess.PIPE)
 
-    psql = PostgresConnection(user=user, host=host, database=database)
+    psql = PostgresConnection(write_access=True)
     with psql as cur:
         # Do the oneline files and prepare for the residue file
         sql_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", 'molprobity_one.sql')

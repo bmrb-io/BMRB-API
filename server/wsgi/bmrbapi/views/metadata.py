@@ -5,7 +5,6 @@ from flask import Blueprint, jsonify, Response
 # Set up the blueprint
 from psycopg2.extras import DictCursor
 
-from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.views.sql.metadata import *
 
@@ -22,10 +21,7 @@ def get_release_statistics() -> Response:
         cursor.execute(query, [])
         return cursor.fetchall()
 
-    with PostgresConnection(host=configuration['ets']['host'],
-                            user=configuration['ets']['user'],
-                            database=configuration['ets']['database'],
-                            port=configuration['ets'].get('port', 5432)) as cur:
+    with PostgresConnection(ets=True) as cur:
 
         years_to_show = range(1995, datetime.datetime.now().year + 1)
 

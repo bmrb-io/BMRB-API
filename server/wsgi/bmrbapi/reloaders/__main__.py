@@ -121,7 +121,7 @@ configuration['postgres']['database'] = options.sql_database
 configuration['postgres']['port'] = options.sql_port
 configuration['redis']['db'] = options.redis_db
 if options.redis_host and options.redis_port:
-    configuration['redis']['sentinels'] = [options.redis_host, options.redis_port]
+    configuration['redis']['sentinels'] = [[options.redis_host, options.redis_port]]
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -148,13 +148,13 @@ if options.all:
 
 if options.timedomain:
     logger.info('Doing timedomain data reload...')
-    timedomain(host=options.sql_host, database=options.sql_database, user=options.sql_user)
+    timedomain()
     logger.info('Finished timedomain data reload...')
 
 
 if options.uniprot:
     logger.info('Doing UniProt reload...')
-    uniprot(host=options.sql_host, database=options.sql_database, user=options.sql_user)
+    uniprot()
     logger.info('Finished UniProt reload...')
 
 if options.sql:
@@ -304,6 +304,6 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
 # MolProbity should run last since it takes so long
 if options.molprobity:
     logger.info('Doing MolProbity reload...')
-    molprobity_visualizations(host=options.sql_host, database=options.sql_database, user=options.sql_user)
-    molprobity(host=options.sql_host, database=options.sql_database, user=options.sql_user)
+    molprobity_visualizations()
+    molprobity()
     logger.info('Finished MolProbity reload...')
