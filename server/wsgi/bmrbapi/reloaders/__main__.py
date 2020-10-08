@@ -122,8 +122,10 @@ configuration['postgres']['host'] = options.sql_host
 configuration['postgres']['database'] = options.sql_database
 configuration['postgres']['port'] = options.sql_port
 configuration['redis']['db'] = options.redis_db
-if options.redis_host and options.redis_port:
-    configuration['redis']['sentinels'] = [[options.redis_host, options.redis_port]]
+if options.redis_host:
+    configuration['redis']['sentinels'][0][0] = options.redis_host
+if options.redis_port:
+    configuration['redis']['sentinels'][0][1] = options.redis_port
 
 logging.basicConfig()
 logger = logging.getLogger()
