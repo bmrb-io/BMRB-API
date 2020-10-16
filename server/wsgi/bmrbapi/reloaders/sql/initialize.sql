@@ -166,11 +166,6 @@ ALTER TABLE IF EXISTS web.instant_extra_search_terms RENAME TO instant_extra_sea
 ALTER TABLE web.instant_extra_search_terms_tmp RENAME TO instant_extra_search_terms;
 DROP TABLE IF EXISTS web.instant_extra_search_terms_old;
 
-
-
-
-
-
 -- Create tsvector table
 DROP TABLE IF EXISTS web.instant_cache_tmp;
 CREATE TABLE web.instant_cache_tmp (
@@ -181,9 +176,9 @@ CREATE TABLE web.instant_cache_tmp (
  link text,
  sub_date date,
  is_metab boolean,
- tsv tsvector,
- full_tsv tsvector,
- full_text text);
+ data_types jsonb,
+ tsv tsvector
+ );
 
 
 -- Macromolecules
@@ -198,12 +193,15 @@ SELECT
 ' ')),
  '/data_library/summary/index.php?bmrbId=' || entry."ID",
  to_date(entry."Submission_date", 'YYYY-MM-DD'),
- False
-FROM macromolecules."Entry" as entry
+ False,
+ json_agg(distinct(jsonb_build_object('type', data_set."Type", 'count', data_set."Count")))
+FROM macromolecules."Entry" AS entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
 LEFT JOIN macromolecules."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID" AND citation_author."Citation_ID" = '1'
+LEFT JOIN macromolecules."Data_set" AS data_set
+  ON data_set."Entry_ID"=entry."ID"
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
 -- Metabolomics bmse
@@ -218,14 +216,17 @@ SELECT
 ' ')),
  '/metabolomics/mol_summary/show_data.php?id=' || entry."ID",
  entry."Submission_date",
- True
-FROM metabolomics."Entry" as entry
+ True,
+ json_agg(distinct(jsonb_build_object('type', data_set."Type", 'count', data_set."Count")))
+FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
 LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
 LEFT JOIN metabolomics."Chem_comp" AS chem_comp
   ON entry."ID"=chem_comp."Entry_ID"
+LEFT JOIN metabolomics."Data_set" AS data_set
+  ON data_set."Entry_ID"=entry."ID"
 WHERE entry."ID" like 'bmse%'
 GROUP BY entry."ID",chem_comp."Name", entry."Submission_date";
 
@@ -241,12 +242,15 @@ SELECT
 ' ')),
  '/metabolomics/mol_summary/show_theory.php?id=' || entry."ID",
  entry."Submission_date",
- True
-FROM metabolomics."Entry" as entry
+ True,
+ json_agg(distinct(jsonb_build_object('type', data_set."Type", 'count', data_set."Count")))
+FROM metabolomics."Entry" AS entry
 LEFT JOIN metabolomics."Citation" AS citation
   ON entry."ID"=citation."Entry_ID"
 LEFT JOIN metabolomics."Citation_author" AS citation_author
   ON entry."ID"=citation_author."Entry_ID"
+LEFT JOIN metabolomics."Data_set" AS data_set
+  ON data_set."Entry_ID"=entry."ID"
 WHERE entry."ID" like 'bmst%'
 GROUP BY entry."ID",entry."Title", entry."Submission_date";
 
@@ -299,25 +303,10 @@ UPDATE web.instant_cache_tmp SET tsv =
     setweight(to_tsvector(array_to_string(instant_cache_tmp.citations, '
 ')), 'D');
 
--- Create the index for the text search using tsvector
-CREATE INDEX ON web.instant_cache_tmp USING gin(full_tsv);
--- Create a trigram index on the full text
-CREATE INDEX ON web.instant_cache_tmp USING gin(full_text gin_trgm_ops);
-
-
 -- Move the new table into place
 ALTER TABLE IF EXISTS web.instant_cache RENAME TO instant_cache_old;
 ALTER TABLE web.instant_cache_tmp RENAME TO instant_cache;
 DROP TABLE IF EXISTS web.instant_cache_old;
-
-
--- Load the ETS PDB links into the database
-DROP TABLE IF EXISTS web.pdb_link_tmp;
-CREATE TABLE web.pdb_link_tmp (bmrb_id text, pdb_id text);
-\copy web.pdb_link_tmp from {{nmr_integrated_data_directory}} CSV;
-ALTER TABLE IF EXISTS web.pdb_link RENAME TO pdb_link_old;
-ALTER TABLE web.pdb_link_tmp RENAME TO pdb_link;
-DROP TABLE IF EXISTS web.pdb_link_old;
 
 -- Clean up
 DROP FUNCTION web.clean_title(varchar);

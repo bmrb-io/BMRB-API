@@ -2,7 +2,7 @@ import csv
 import logging
 import os
 import xml
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree
 
 import requests
 
@@ -88,7 +88,7 @@ class PDBMapper(MappingFile):
 
         # Load the PDB ID chains into the mapping
         mapping_url = f'http://www.rcsb.org/pdb/rest/describeMol?structureId={pdb_id}'
-        root = ET.fromstring(requests.get(mapping_url).text)
+        root = ElementTree.fromstring(requests.get(mapping_url).text)
         num_polymers = len(list(root.iter('polymer')))
         for polymer in root.iter('polymer'):
             # Get the UniProt for the polymer
@@ -132,7 +132,7 @@ class UniProtValidator(MappingFile):
         mapping_url = f'http://www.uniprot.org/uniprot/{uniprot_id}.xml'
 
         try:
-            root = ET.fromstring(requests.get(mapping_url).text)
+            root = ElementTree.fromstring(requests.get(mapping_url).text)
             # Add all the mappings found
             for entry in root.iter('{http://uniprot.org/uniprot}entry'):
                 for accession in entry.iter('{http://uniprot.org/uniprot}accession'):

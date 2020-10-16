@@ -32,7 +32,6 @@
     "molprobity_directory": "/websites/extras/files/pdb/molprobity/",
     "macromolecule_entry_directory": "/share/subedit/entries/bmr%s/clean/bmr%s_3.str",
     "metabolomics_entry_directory": "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s/%s.str",
-    "nmr_integrated_data_directory": "/websites/www/ftp/pub/bmrb/nmr_pdb_integrated_data",
     "local-ips": ["127.0.0.1", "your.sub.net"],
     "secret_key": "CHANGE_ME!",
     "log": {

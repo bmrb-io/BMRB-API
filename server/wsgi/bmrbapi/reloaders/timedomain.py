@@ -6,9 +6,7 @@ from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
 
-def timedomain(host=configuration['postgres']['host'],
-               database=configuration['postgres']['database'],
-               user=configuration['postgres']['reload_user']) -> None:
+def timedomain() -> None:
     """Creates the time domain links table."""
 
     def get_dir_size(start_path='.'):
@@ -38,7 +36,7 @@ def timedomain(host=configuration['postgres']['host'],
             entry_id = int("".join([_ for _ in x if _.isdigit()]))
             yield entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x))
 
-    psql = PostgresConnection(user=user, host=host, database=database)
+    psql = PostgresConnection(write_access=True)
     with psql as cur:
         cur.execute('''
 CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (

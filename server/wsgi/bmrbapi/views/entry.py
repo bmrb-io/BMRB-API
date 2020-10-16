@@ -10,7 +10,7 @@ from time import time as unix_time
 from typing import List, Dict
 
 import pynmrstar
-from flask import Blueprint, Response, request, jsonify, send_file
+from flask import Blueprint, Response, request, jsonify, send_file, make_response
 from pybmrb import csviz
 
 from bmrbapi.exceptions import ServerException, RequestException
@@ -62,13 +62,15 @@ def get_loops_by_category(entry_id: str, loop_categories: List[str], format_: st
         for loop_category in loop_categories:
             matches = entry[1].get_loops_by_category(loop_category)
 
-            if format_ == "nmrstar":
-                matching_loops = [str(x) for x in matches]
+            if format_ == "rawnmrstar":
+                response = make_response("\n".join([str(x) for x in matches]), 200)
+                response.mimetype = "text/plain"
+                return response
             else:
                 matching_loops = [x.get_json(serialize=False) for x in matches]
             result[entry[0]][loop_category] = matching_loops
 
-    return result
+    return jsonify(result)
 
 
 def get_saveframes_by_category(entry_id: str, saveframe_categories: List[str], format_: str) -> \
@@ -82,12 +84,14 @@ def get_saveframes_by_category(entry_id: str, saveframe_categories: List[str], f
     result[entry[0]] = {}
     for saveframe_category in saveframe_categories:
         matches = entry[1].get_saveframes_by_category(saveframe_category)
-        if format_ == "nmrstar":
-            matching_frames = [str(x) for x in matches]
+        if format_ == "rawnmrstar":
+            response = make_response("\n".join([str(x) for x in matches]), 200)
+            response.mimetype = "text/plain"
+            return response
         else:
             matching_frames = [x.get_json(serialize=False) for x in matches]
         result[entry[0]][saveframe_category] = matching_frames
-    return result
+    return jsonify(result)
 
 
 def get_saveframes_by_name(entry_id: str, saveframe_names: List[str], format_: str) -> \
@@ -102,14 +106,16 @@ def get_saveframes_by_name(entry_id: str, saveframe_names: List[str], format_: s
     for saveframe_name in saveframe_names:
         try:
             sf = entry[1].get_saveframe_by_name(saveframe_name)
-            if format_ == "nmrstar":
-                result[entry[0]][saveframe_name] = str(sf)
+            if format_ == "rawnmrstar":
+                response = make_response(str(sf), 200)
+                response.mimetype = "text/plain"
+                return response
             else:
                 result[entry[0]][saveframe_name] = sf.get_json(serialize=False)
         except KeyError:
             continue
 
-    return result
+    return jsonify(result)
 
 
 def panav_parser(panav_text: bytes) -> dict:
@@ -215,17 +221,15 @@ def get_entry(entry_id=None):
 
         # See if they are requesting one or more saveframe
         elif request.args.get('saveframe_category', None):
-            result = get_saveframes_by_category(entry_id, request.args.getlist('saveframe_category'), format_)
-            return jsonify(result)
+            return get_saveframes_by_category(entry_id, request.args.getlist('saveframe_category'), format_)
 
         # See if they are requesting one or more saveframe
         elif request.args.get('saveframe_name', None):
-            result = get_saveframes_by_name(entry_id, request.args.getlist('saveframe_name'), format_)
-            return jsonify(result)
+            return get_saveframes_by_name(entry_id, request.args.getlist('saveframe_name'), format_)
 
         # See if they are requesting one or more loop
         elif request.args.get('loop', None):
-            return jsonify(get_loops_by_category(entry_id, request.args.getlist('loop'), format_))
+            return get_loops_by_category(entry_id, request.args.getlist('loop'), format_)
 
         # See if they want a tag
         elif request.args.get('tag', None):
@@ -600,26 +604,29 @@ def validate_entry(entry_id):
                                        "-star_output", star_file.name])
 
         error_loop = pynmrstar.Entry.from_string(res.decode())
-        error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
-        error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
-                                        "Entity_ID", "Comp_index_ID",
-                                        "Comp_ID",
-                                        "Comp_overall_assignment_score",
-                                        "Comp_typing_score",
-                                        "Comp_SRO_score",
-                                        "Comp_1H_shifts_analysis_status",
-                                        "Comp_13C_shifts_analysis_status",
-                                        "Comp_15N_shifts_analysis_status"])
-        error_loop.category = "AVS_analysis"
+        try:
+            error_loop = error_loop.get_loops_by_category("_AVS_analysis_r")[0]
+            error_loop = error_loop.filter(["Assembly_ID", "Entity_assembly_ID",
+                                            "Entity_ID", "Comp_index_ID",
+                                            "Comp_ID",
+                                            "Comp_overall_assignment_score",
+                                            "Comp_typing_score",
+                                            "Comp_SRO_score",
+                                            "Comp_1H_shifts_analysis_status",
+                                            "Comp_13C_shifts_analysis_status",
+                                            "Comp_15N_shifts_analysis_status"])
+            error_loop.category = "AVS_analysis"
 
-        # Modify the chemical shift loops with the new data
-        shift_lists = entry.get_loops_by_category("atom_chem_shift")
-        for loop in shift_lists:
-            loop.add_tag(["AVS_analysis_status", "PANAV_analysis_status"])
-            for row in loop.data:
-                row.extend(["Consistent", "Consistent"])
+            # Modify the chemical shift loops with the new data
+            shift_lists = entry.get_loops_by_category("atom_chem_shift")
+            for loop in shift_lists:
+                loop.add_tag(["AVS_analysis_status", "PANAV_analysis_status"])
+                for row in loop.data:
+                    row.extend(["Consistent", "Consistent"])
 
-        result[entry_id]["avs"] = error_loop.get_json(serialize=False)
+            result[entry_id]["avs"] = error_loop.get_json(serialize=False)
+        except IndexError:
+            result[entry_id]["avs"] = {'error': "AVS failed to run on this entry."}
 
     # PANAV
     # For each chemical shift loop

@@ -5,7 +5,6 @@ SELECT ent."Entry_ID"                                              AS bmrb_id,
        upper(pdb_id)                                               AS pdb_id,
        CASE
            WHEN dbl."Accession_code" IS NOT NULL THEN 'author'
-           ELSE null
            END                                                     AS link_type,
        dbl."Accession_code"                                        AS uniprot_id,
        "Polymer_seq_one_letter_code"                               AS sequence,
@@ -50,7 +49,8 @@ INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, lin
 VALUES %s'''
 
 insert_clean_ready = '''
-INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence, details)
+INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence,
+                                      details)
     (SELECT dbl."Entry_ID",
             dbl."Entity_ID"::int,
             null,
@@ -109,7 +109,7 @@ SELECT uni.id,
        CASE
            WHEN cit."PubMed_ID" IS NOT NULL THEN 'pubmed:' || cit."PubMed_ID"
            WHEN cit."DOI" IS NOT NULL THEN 'doi:' || cit."DOI"
-           ELSE null END                    AS "experimentReference",
+           END                              AS "experimentReference",
        (SELECT "Date"
         from macromolecules."Release"
         WHERE "Entry_ID" = entity."Entry_ID"
