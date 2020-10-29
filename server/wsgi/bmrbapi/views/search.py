@@ -4,7 +4,7 @@ import textwrap
 import warnings
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
-from typing import List, Dict, Iterable
+from typing import List, Dict, Iterable, Set
 from urllib.parse import quote
 
 import psycopg2
@@ -511,7 +511,7 @@ def reroute_instant_internal():
     warnings.warn('Please use /search/instant.', DeprecationWarning)
     return instant()
 
-
+import shlex
 @search_endpoints.route('/search/instant')
 def instant():
     """ Do the instant search. """
@@ -529,6 +529,23 @@ def instant():
     else:
         instant_query_one = sql_statements.combined_instant_query_one
         instant_query_two = sql_statements.combined_instant_query_two
+
+    # This code strips out the "negation" terms
+    split_term: List[str] = [_.lower() for _ in shlex.split(term)]
+    negated_terms: Set[str] = set()
+    x = 0
+    while x < len(split_term):
+        if split_term[x].lower() == 'not' and x + 1 < len(split_term):
+            negated_terms.add(split_term[x+1])
+            split_term.pop(x)
+            split_term.pop(x)
+            continue
+        if split_term[x].startswith("-"):
+            negated_terms.add(split_term[x][1:])
+            split_term.pop(x)
+            continue
+        x += 1
+    term = " ".join(split_term)
 
     with PostgresConnection() as cur:
         try:
@@ -599,6 +616,30 @@ def instant():
         if configuration['debug']:
             debug['query2'] = cur.query
             result.append({"debug": debug})
+
+    def needs_remove(negated_term_list, check_result):
+        for negated_term in negated_term_list:
+            if negated_term in check_result['label'].lower():
+                return True
+            if 'extra' in check_result and negated_term in check_result['extra']['term'].lower():
+                return True
+            citations = check_result['citations']
+            if citations[0] is None:
+                citations.pop(0)
+            if any([negated_term in _.lower() for _ in [_ for _ in citations]]):
+                return True
+        return False
+
+    # Remove the negation results
+    x = 0
+    while x < len(result):
+        if 'debug' in result[x]:
+            x += 1
+            continue
+        if needs_remove(negated_terms, result[x]):
+            result.pop(x)
+            continue
+        x += 1
 
     return jsonify(result)
 
