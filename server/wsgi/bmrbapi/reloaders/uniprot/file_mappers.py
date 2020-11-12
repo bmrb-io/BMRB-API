@@ -88,7 +88,11 @@ class PDBMapper(MappingFile):
 
         # Load the PDB ID chains into the mapping
         mapping_url = f'http://www.rcsb.org/pdb/rest/describeMol?structureId={pdb_id}'
-        root = ElementTree.fromstring(requests.get(mapping_url).text)
+        try:
+            root = ElementTree.fromstring(requests.get(mapping_url).text)
+        except xml.etree.ElementTree.ParseError:
+            return None
+
         num_polymers = len(list(root.iter('polymer')))
         for polymer in root.iter('polymer'):
             # Get the UniProt for the polymer
