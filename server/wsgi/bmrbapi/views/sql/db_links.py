@@ -5,7 +5,7 @@ FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System' AND "Relationship" != 'BMRB Tracking System'
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
@@ -30,7 +30,8 @@ FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System' AND "Relationship" != 'BMRB 
+      Tracking System'
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
@@ -55,7 +56,7 @@ FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System' AND "Relationship" != 'BMRB Tracking System'
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
@@ -79,7 +80,7 @@ FROM (SELECT pdb_id, bmrb_id, 'exact' AS link_type, null AS comment
       UNION
       SELECT UPPER("Database_accession_code"), "Entry_ID", 'author', "Relationship"
       FROM macromolecules."Related_entries"
-      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System'
+      WHERE "Database_name" = 'PDB' AND "Relationship" != 'BMRB Entry Tracking System' AND "Relationship" != 'BMRB Tracking System'
       UNION
       SELECT UPPER("Accession_code"), "Entry_ID", 'author', "Entry_details"
       FROM macromolecules."Entity_db_link"
