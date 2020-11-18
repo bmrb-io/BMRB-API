@@ -78,7 +78,7 @@ def get_bmrb_ids_from_pdb_id(pdb_id: str) -> List[Dict[str, str]]:
     SELECT "Entry_ID", 'Author Provided', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Database_accession_code" LIKE UPPER(%s) AND "Database_name" = 'PDB'
-        AND "Relationship" != 'BMRB Entry Tracking System'
+        AND "Relationship" != 'BMRB Entry Tracking System' AND "Relationship" != 'BMRB Tracking System'
     UNION
     SELECT "Entry_ID", 'Author Provided', "Entry_details"
       FROM macromolecules."Entity_db_link"
@@ -423,7 +423,7 @@ def get_pdb_ids_from_bmrb_id(bmrb_id):
     SELECT "Database_accession_code", 'Author Provided', "Relationship"
       FROM macromolecules."Related_entries"
       WHERE "Entry_ID" LIKE %s AND "Database_name" = 'PDB'
-        AND "Relationship" != 'BMRB Entry Tracking System'
+        AND "Relationship" != 'BMRB Entry Tracking System' AND "Relationship" != 'BMRB Tracking System'
     UNION
     SELECT "Accession_code", 'Author Provided', "Entry_details"
       FROM macromolecules."Entity_db_link"
