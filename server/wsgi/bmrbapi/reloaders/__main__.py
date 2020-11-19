@@ -12,6 +12,7 @@ from multiprocessing import Pipe, cpu_count
 from os import _exit as child_exit
 
 from bmrbapi.reloaders.database import one_entry
+from bmrbapi.reloaders.inext import inext
 from bmrbapi.reloaders.molprobity import molprobity_full, molprobity_visualizations
 from bmrbapi.reloaders.sql_initialize import sql_initialize
 from bmrbapi.reloaders.timedomain import timedomain
@@ -90,6 +91,7 @@ opt.add_option("--molprobity-full", action="store_true", dest="molprobity_full",
 opt.add_option("--timedomain", action="store_true", dest="timedomain", default=False,
                help="Update the timedomain tables.")
 opt.add_option("--uniprot", action="store_true", dest="uniprot", default=False, help="Update the UniProt tables.")
+opt.add_option("--inext", action="store_true", dest="inext", default=False, help="Update the iNext tables.")
 opt.add_option("--sql", action="store_true", dest="sql", default=False,
                help="Run the SQL commands to prepare the correct indexes on the DB.")
 opt.add_option("--sql-host", action="store", dest='sql_host', default=configuration['postgres']['host'],
@@ -136,7 +138,8 @@ else:
 
 # Make sure they specify a DB
 if not (options.metabolomics or options.macromolecules or options.chemcomps or options.molprobity_visualization
-        or options.molprobity_full or options.uniprot or options.sql or options.timedomain or options.all):
+        or options.molprobity_full or options.uniprot or options.inext or options.sql or options.timedomain or
+        options.all):
     logging.exception("You must specify at least one of the reloaders.")
     sys.exit(1)
 
@@ -150,6 +153,7 @@ if options.all:
     options.uniprot = True
     options.sql = True
     options.timedomain = True
+    #options.inext = True
 
 if options.timedomain:
     logger.info('Doing timedomain data reload...')
@@ -160,6 +164,11 @@ if options.uniprot:
     logger.info('Doing UniProt reload...')
     uniprot()
     logger.info('Finished UniProt reload...')
+
+if options.inext:
+    logger.info('Doing iNext reload...')
+    inext()
+    logger.info('Finished iNext reload...')
 
 if options.sql:
     logger.info('Doing SQL initialization...')
