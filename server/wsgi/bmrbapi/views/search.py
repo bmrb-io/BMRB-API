@@ -53,10 +53,10 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
             if row['type'] == 'time_domain_data':
                 extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
                                    'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
-                                   'urls': ['ftp://ftp.bmrb.wisc.edu/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
+                                   'urls': ['https://bmrb.io/ftp/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
             elif row['type'] != "assigned_chemical_shifts":
                 saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
-                url = 'http://www.bmrb.wisc.edu/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
+                url = 'https://bmrb.io/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
 
                 extra_data.append({'data_type': row['description'], 'data_sets': row['sets'],
                                    'data_sfcategory': row['type'],
@@ -111,7 +111,7 @@ def get_bmrb_data_from_pdb_id(pdb_id):
         data = get_extra_data_available(item['bmrb_id'])
         if data:
             result.append({'bmrb_id': item['bmrb_id'], 'match_types': item['match_types'],
-                           'url': 'http://www.bmrb.wisc.edu/data_library/summary/index.php?bmrbId=%s' % item['bmrb_id'],
+                           'url': 'https://bmrb.io/data_library/summary/index.php?bmrbId=%s' % item['bmrb_id'],
                            'data': data})
 
     return jsonify(result)
@@ -473,8 +473,8 @@ FROM "Entity" as entity
     seq_strings = [">%s\n%s\n" % (x[0], "\n".join(wrapper.wrap(x[3]))) for x in sequences]
 
     # Use temporary files to store the FASTA search string and FASTA DB
-    with NamedTemporaryFile(dir="/dev/shm") as fasta_file, \
-            NamedTemporaryFile(dir="/dev/shm") as sequence_file:
+    with NamedTemporaryFile(dir="/tmp") as fasta_file, \
+            NamedTemporaryFile(dir="/tmp") as sequence_file:
         fasta_file.file.write((">query\n%s" % sequence.upper()).encode())
         fasta_file.flush()
 
