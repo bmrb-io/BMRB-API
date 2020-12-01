@@ -13,7 +13,7 @@ The URL of the API is [api.bmrb.io](http://api.bmrb.io/). If
 you navigate there you will see links to all active versions of the API.
 
 To see an interactive Jupyter notebook that demonstrates using the BMRB and PDB APIs, please
-head to [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/uwbmrb/BMRB-API/master?filepath=documentation%2Fnotebooks) Click the launcher to try PyBMRB on a live Jupyter Notebook.
+click [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/uwbmrb/BMRB-API/master?filepath=documentation%2Fnotebooks).
 
 ### Versioning
 
