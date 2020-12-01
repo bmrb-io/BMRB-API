@@ -11,3 +11,6 @@ pybmrb==1.2.91
 requests==2.24.0
 marshmallow==3.6.1
 marshmallow_enum==1.5.1
+# For iNext loading
+pandas==1.1.4
+xlrd==1.2.0
