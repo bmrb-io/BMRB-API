@@ -127,7 +127,10 @@ SELECT DISTINCT "Entry_ID", 'Author provided ' || "Database_code" || ' Accession
   WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'yes'
 UNION
 SELECT DISTINCT "Entry_ID", 'BLAST-linked ' || "Database_code" || ' Accession code', "Accession_code", to_tsvector("Accession_code") FROM macromolecules."Entity_db_link"
-  WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'no';
+  WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'no'
+UNION
+SELECT DISTINCT "Entry_ID", 'Related ' || "Database_code" || ' Accession code', "Accession_code", to_tsvector("Accession_code") FROM macromolecules."Entity_db_link"
+  WHERE "Database_code" != 'BMRB' AND "Author_supplied" != 'no' AND "Author_supplied" != 'yes';
 
 INSERT INTO web.instant_extra_search_terms_tmp
 -- metabolomics
