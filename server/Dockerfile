@@ -31,6 +31,7 @@ RUN apk update && \
     if [[ ! -e /usr/bin/python ]]; then ln -sf /usr/bin/python3 /usr/bin/python; fi && \
     rm -r /root/.cache
 
+COPY ./wsgi/bmrbapi/reloaders/molprobity_binary /opt/wsgi/bmrbapi/reloaders/molprobity_binary
 RUN cd /opt/wsgi/bmrbapi/reloaders/molprobity_binary && make
 
 COPY ./wsgi/bmrbapi/submodules/fasta36 /opt/wsgi/bmrbapi/submodules/fasta36

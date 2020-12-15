@@ -46,12 +46,12 @@ class GetPdbIdsFromBmrbId(Schema):
 
 
 class FastaSearch(Schema):
-    class ATypes(enum.Enum):
+    class ResidueTypes(enum.Enum):
         polymer = "polymer"
         rna = "rna"
         dna = "dna"
 
-    a_type = CustomErrorEnum(ATypes)
+    type = CustomErrorEnum(ResidueTypes)
     e_val = fields.String()
 
 
