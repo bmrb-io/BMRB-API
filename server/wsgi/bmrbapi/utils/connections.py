@@ -55,6 +55,9 @@ class PostgresConnection:
     def commit(self):
         self._conn.commit()
 
+    def rollback(self):
+        self._conn.rollback()
+
 
 class RedisConnection:
     """ Figures out where the master redis instance is (and other parameters

@@ -98,6 +98,8 @@ SELECT DISTINCT "Entry_ID", 'Citation DOI', "DOI", to_tsvector("DOI") FROM macro
 UNION
 SELECT DISTINCT "ID", 'PDB structure', "Assigned_PDB_ID", to_tsvector("Assigned_PDB_ID") FROM macromolecules."Entry"
 UNION
+SELECT DISTINCT bmrb_id, 'Matching PDB', pdb_id, to_tsvector(pdb_id) FROM web.pdb_link
+UNION
 SELECT DISTINCT "Entry_ID", 'Matching PDB', "Database_accession_code", to_tsvector("Database_accession_code") FROM macromolecules."Related_entries" WHERE "Database_name"='PDB' AND "Relationship"='BMRB Entry Tracking System'
 UNION
 SELECT DISTINCT "Entry_ID", 'Matching PDB', "Database_accession_code", to_tsvector("Database_accession_code") FROM macromolecules."Related_entries" WHERE "Database_name"='PDB' AND "Relationship"='BMRB Tracking System'
@@ -125,7 +127,10 @@ SELECT DISTINCT "Entry_ID", 'Author provided ' || "Database_code" || ' Accession
   WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'yes'
 UNION
 SELECT DISTINCT "Entry_ID", 'BLAST-linked ' || "Database_code" || ' Accession code', "Accession_code", to_tsvector("Accession_code") FROM macromolecules."Entity_db_link"
-  WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'no';
+  WHERE "Database_code" != 'BMRB' AND "Author_supplied" = 'no'
+UNION
+SELECT DISTINCT "Entry_ID", 'Related ' || "Database_code" || ' Accession code', "Accession_code", to_tsvector("Accession_code") FROM macromolecules."Entity_db_link"
+  WHERE "Database_code" != 'BMRB' AND "Author_supplied" != 'no' AND "Author_supplied" != 'yes';
 
 INSERT INTO web.instant_extra_search_terms_tmp
 -- metabolomics
