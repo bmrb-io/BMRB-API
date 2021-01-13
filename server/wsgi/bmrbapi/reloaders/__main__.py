@@ -17,6 +17,7 @@ from bmrbapi.reloaders.molprobity import molprobity_full, molprobity_visualizati
 from bmrbapi.reloaders.sql_initialize import sql_initialize
 from bmrbapi.reloaders.timedomain import timedomain
 from bmrbapi.reloaders.uniprot import uniprot
+from bmrbapi.reloaders.xml_generate import xml
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 
@@ -91,6 +92,7 @@ opt.add_option("--molprobity-full", action="store_true", dest="molprobity_full",
 opt.add_option("--timedomain", action="store_true", dest="timedomain", default=False,
                help="Update the timedomain tables.")
 opt.add_option("--uniprot", action="store_true", dest="uniprot", default=False, help="Update the UniProt tables.")
+opt.add_option("--xml", action="store_true", dest="xml", default=False, help="Update the XML file for BMRB entries.")
 opt.add_option("--inext", action="store_true", dest="inext", default=False, help="Update the iNext tables.")
 opt.add_option("--sql", action="store_true", dest="sql", default=False,
                help="Run the SQL commands to prepare the correct indexes on the DB.")
@@ -138,8 +140,8 @@ else:
 
 # Make sure they specify a DB
 if not (options.metabolomics or options.macromolecules or options.chemcomps or options.molprobity_visualization
-        or options.molprobity_full or options.uniprot or options.inext or options.sql or options.timedomain or
-        options.all):
+        or options.molprobity_full or options.uniprot or options.xml or options.inext or options.sql or
+        options.timedomain or options.all):
     logging.exception("You must specify at least one of the reloaders.")
     sys.exit(1)
 
@@ -153,12 +155,18 @@ if options.all:
     options.uniprot = True
     options.sql = True
     options.timedomain = True
+    options.xml = True
     #options.inext = True
 
 if options.timedomain:
     logger.info('Doing timedomain data reload...')
     timedomain()
     logger.info('Finished timedomain data reload...')
+
+if options.xml:
+    logger.info('Doing XML generation...')
+    xml("/tmp/xml")
+    logger.info('Finished XML reload...')
 
 if options.uniprot:
     logger.info('Doing UniProt reload...')
