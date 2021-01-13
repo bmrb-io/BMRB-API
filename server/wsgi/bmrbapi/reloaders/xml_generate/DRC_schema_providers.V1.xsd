@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSPY v5 rel. 3 U (http://www.xmlspy.com) by Nigel Robinson (BIOSIS UK) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:element name="DigitalContentData">
+		<xs:annotation>
+			<xs:documentation>Digital Research metadata content</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="DataRecord" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="DataRecord">
+		<xs:annotation>
+			<xs:documentation>Individual data record for a Repository, Data study, or Data set. Attribute carries ProviderID as the identifier for the record within the repository or database</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="Header"/>
+				<xs:element ref="BibliographicData"/>
+				<xs:element name="Abstract" type="xs:string">
+					<xs:annotation>
+						<xs:documentation>Description text for the digital resource</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="ParentDataRef" type="xs:positiveInteger" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Unique ID of parent record. </xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="CiteResourceAs" type="xs:string" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Preferred citation style for resource</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element ref="DescriptorsData"/>
+				<xs:element ref="MicrocitationData" minOccurs="0"/>
+				<xs:element ref="CitationList" minOccurs="0"/>
+			</xs:sequence>
+			<xs:attribute name="ProviderID" type="xs:integer" use="required"/>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="Header">
+		<xs:annotation>
+			<xs:documentation>Record Header information</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="DateProvided" type="xs:date">
+					<xs:annotation>
+						<xs:documentation>Date record was produced to XML</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="RepositoryName" type="xs:string">
+					<xs:annotation>
+						<xs:documentation>Repository or database name from which the data resource was supplied</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="Owner">
+					<xs:annotation>
+						<xs:documentation>Individual or organization owning the data repository/database</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string">
+							<xs:enumeration value="The Board of Regents of the University of Wisconsin System"/>
+						</xs:restriction>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="IsUpdatedRecord" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Only present for replacement records. shows reason for record being replaced.</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:simpleContent>
+							<xs:extension base="xs:boolean">
+								<xs:attribute name="UpdatedAuthor" type="xs:boolean" use="required"/>
+								<xs:attribute name="UpdatedAddress" type="xs:boolean" use="required"/>
+								<xs:attribute name="UpdatedCitation" type="xs:boolean" use="required"/>
+							</xs:extension>
+						</xs:simpleContent>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="BibliographicData">
+		<xs:annotation>
+			<xs:documentation>Bibliographic style source data for the record</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="AuthorList">
+					<xs:annotation>
+						<xs:documentation>Author information</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Author" maxOccurs="unbounded">
+								<xs:annotation>
+									<xs:documentation>Individual author information. Each author name has a separate block of Author elemets. Always provide full author string, plus parsed author names where available</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="AuthorName" type="xs:string">
+											<xs:annotation>
+												<xs:documentation>Full author name (personal or Corporate) Where an author is not available 'Anonymous' should be provided as the value. </xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Surname" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Last name of personal author. </xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Forename" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Forename of personal author</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="AuthorSuffix" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Suffix of personal author name</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="AuthorAddress" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Address of the author. Where possible use specific address elements in addition to the full address string</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="AddressString" type="xs:string"/>
+													<xs:element name="Institution" minOccurs="0">
+														<xs:complexType>
+															<xs:simpleContent>
+																<xs:extension base="xs:string">
+																	<xs:attribute name="InstitutionID" type="xs:string" use="optional"/>
+																</xs:extension>
+															</xs:simpleContent>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="Address" type="xs:string" minOccurs="0"/>
+													<xs:element name="City" type="xs:string" minOccurs="0"/>
+													<xs:element name="Country" type="xs:string" minOccurs="0"/>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="AuthorEmail" type="xs:string" minOccurs="0"/>
+									</xs:sequence>
+									<xs:attribute name="ResearcherID" type="xs:string" use="optional"/>
+									<xs:attribute name="AuthorRole" use="optional">
+										<xs:simpleType>
+											<xs:restriction base="xs:string">
+												<xs:enumeration value="Principle investigator"/>
+												<xs:enumeration value="Creator"/>
+												<xs:enumeration value="Acting Director"/>
+											</xs:restriction>
+										</xs:simpleType>
+									</xs:attribute>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="ItemTitle" type="xs:string">
+					<xs:annotation>
+						<xs:documentation>Title of digital resource</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="Source">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="SourceURL" type="xs:anyURI">
+								<xs:annotation>
+									<xs:documentation>Any web based URI. Usually URL or DOI which can be used to access the data reource via the repository website</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="PublisherDistributor">
+								<xs:annotation>
+									<xs:documentation>Repository level identifier of source e.g. Interuniversity Consortium for Political and Social Research. If an abbreviated form exists, please insert in attribute </xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:simpleContent>
+										<xs:extension base="xs:string">
+											<xs:attribute name="AbbreviatedDistributor" type="xs:string" use="optional"/>
+										</xs:extension>
+									</xs:simpleContent>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="CreatedDate" type="xs:gYear">
+								<xs:annotation>
+									<xs:documentation>Date resource was created by author. </xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="DepositedDate" type="xs:date" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Date of deposit in Repository or database</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="MicrocitationData">
+		<xs:annotation>
+			<xs:documentation>Additional data associated with microcitations if included with the data resource. Also know as nanopublications or assertions.</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Assertion">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Subject" type="xs:string"/>
+							<xs:element name="Predicate" type="xs:string"/>
+							<xs:element name="Object" type="xs:string"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="Condition" type="xs:string" minOccurs="0"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="DescriptorsData">
+		<xs:annotation>
+			<xs:documentation>Subject indexing terms added to the record</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="KeywordsList" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Searchable/displayable keywords and/or broader subject terms relating to the data</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Keyword" type="xs:string" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="GeographicalData" minOccurs="0" maxOccurs="unbounded">
+					<xs:annotation>
+						<xs:documentation>Geographical location terms covered by the data resource, including country name(s). One location per element. A location is defined as a geographical locality, not a single term (e.g. San Fransisco, California would be one location)</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="GeographicalLocation" type="xs:string"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="OrganismList" minOccurs="0" maxOccurs="unbounded">
+					<xs:annotation>
+						<xs:documentation>Orgainsm names used in the data resource. Latin names preferred</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="OrganismName" type="xs:string"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="GeneNameList" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Gene names used in the resource. One gene name per element</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="GenName" type="xs:string" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="GeneOntologyTermList" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Gene Ontology terms used to describe the data resource. One term per element</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="GeneOntologyTerm" type="xs:string" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="FundingInfo" minOccurs="0">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="FundingInfoList" maxOccurs="unbounded">
+								<xs:annotation>
+									<xs:documentation>Grant funding information for the data resource</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="GrantNumber" type="xs:string"/>
+										<xs:element name="FundingOrganization" type="xs:string"/>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="CitationList">
+		<xs:annotation>
+			<xs:documentation>Citations relating to the data </xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Citation" maxOccurs="unbounded">
+					<xs:annotation>
+						<xs:documentation>Cited, Citing and Related refs for the data record. Citation string, DOI and/or PubMedID is required. Sequence ID held as attribute to allow correct ordering of refs if needed. CitationType attribute states whether Cited, Citing, or Related: Citing = reference which cites the data resource. Cited = reference cited by the data resource. Related = references included for other reasons (e.g. by the PI)</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="CitationPubMedID" type="xs:integer" minOccurs="0"/>
+							<xs:element name="CitationDOI" type="xs:string" minOccurs="0"/>
+							<xs:element name="CitationText" minOccurs="0">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="FullCitation" type="xs:string">
+											<xs:annotation>
+												<xs:documentation>Full Citation string as a reference</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ParsedCitationData" minOccurs="0">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="CitationArticleTitle" minOccurs="0"/>
+													<xs:element name="CitationJournal" minOccurs="0"/>
+													<xs:element name="CitationSourceVolume" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Journal Volume information</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="CitationSourceIssue" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Journal Issue information</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="CitationFirstPage" minOccurs="0"/>
+													<xs:element name="CitationPagination" minOccurs="0"/>
+													<xs:element name="CitationYear" minOccurs="0"/>
+													<xs:element name="CitationISSN" minOccurs="0"/>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+						<xs:attribute name="CitationType" use="required">
+							<xs:simpleType>
+								<xs:restriction base="xs:string">
+									<xs:enumeration value="Citing Ref"/>
+									<xs:enumeration value="Cited Ref"/>
+									<xs:enumeration value="Related Ref"/>
+								</xs:restriction>
+							</xs:simpleType>
+						</xs:attribute>
+						<xs:attribute name="CitationSeq" type="xs:integer" use="optional"/>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

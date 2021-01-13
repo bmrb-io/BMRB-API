@@ -1,16 +1,18 @@
 flask==1.1.2
-psycopg2-binary==2.8.5
-simplejson==3.17.0
-python-json-logger==0.1.11
-flask-cors==3.0.8
+psycopg2-binary==2.8.6
+simplejson==3.17.2
+python-json-logger==2.0.1
+flask-cors==3.0.10
 redis==3.5.3
-gitpython==3.0.5
+gitpython==3.1.12
 Flask-Mail==0.9.1
-pynmrstar==2.6.5
+pynmrstar==3.0.8
 pybmrb==1.2.91
-requests==2.24.0
-marshmallow==3.6.1
+requests==2.25.1
+marshmallow==3.10.0
 marshmallow_enum==1.5.1
 # For iNext loading
-pandas==1.1.4
-xlrd==1.2.0
+pandas==1.2.0
+xlrd==2.0.1
+# For XML generation
+lxml==4.6.2
