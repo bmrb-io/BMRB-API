@@ -24,7 +24,7 @@ def xml(result_location):
         SELECT bmrbnum,release_date
          FROM entrylog
          WHERE status like 'rel%' AND lit_search_required LIKE 'N'
-         ORDER BY bmrbnum LIMIT 100""")
+         ORDER BY bmrbnum""")
         entry_data = c.fetchall()
 
     # Set up the validation code and import the schema
