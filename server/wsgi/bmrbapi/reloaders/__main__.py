@@ -165,7 +165,7 @@ if options.timedomain:
 
 if options.xml:
     logger.info('Doing XML generation...')
-    xml("/tmp/xml")
+    xml(configuration['internal_data_directory'])
     logger.info('Finished XML reload...')
 
 if options.uniprot:
