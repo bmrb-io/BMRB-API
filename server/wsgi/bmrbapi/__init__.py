@@ -96,7 +96,7 @@ if (querymod.configuration.get('smtp')
     # Don't send error e-mails in debugging mode
     if not configuration['debug']:
         mail_handler = SMTPHandler(mailhost=configuration['smtp']['server'],
-                                   fromaddr='apierror@webapi.bmrb.wisc.edu',
+                                   fromaddr=configuration['smtp']['from_address'],
                                    toaddrs=configuration['smtp']['admins'],
                                    subject='BMRB API Error occurred')
         mail_handler.setLevel(logging.WARNING)
@@ -105,7 +105,7 @@ if (querymod.configuration.get('smtp')
     # Set up the mail interface
     application.config.update(
         MAIL_SERVER=configuration['smtp']['server'],
-        MAIL_DEFAULT_SENDER='noreply@bmrb.wisc.edu'
+        MAIL_DEFAULT_SENDER=configuration['smtp']['from_address']
     )
     mail = Mail(application)
 else:
@@ -148,7 +148,7 @@ def handle_other_errors(error):
         raise error
     else:
         # Note! Returning the result of to_response() rather than raising the exception
-        return ServerException("Server error. Contact bmrbhelp@bmrb.wisc.edu.").to_response()
+        return ServerException(f"Server error. Contact {configuration['smtp']['from_address']}.").to_response()
 
 
 # Set up logging
