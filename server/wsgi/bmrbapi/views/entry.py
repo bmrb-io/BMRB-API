@@ -338,7 +338,7 @@ ORDER BY me."Entry_ID", me."ID";'''
         if row['name'][0]:
             for x, item in enumerate(row['directory_path']):
                 data.append({'type': row['type'][x], 'description': row['details'][x],
-                             'url': "ftp://ftp.bmrb.wisc.edu/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (
+                             'url': "https://bmrb.io/ftp/pub/bmrb/metabolomics/entry_directories/%s/%s/%s" % (
                                  row['Entry_ID'], row['directory_path'][x], row['name'][x])})
 
         tmp_res = {'Name': row['experiment_name'],
