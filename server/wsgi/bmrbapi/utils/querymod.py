@@ -261,6 +261,8 @@ def create_chemcomp_from_db(chemcomp: str) -> pynmrstar.Entry:
     with PostgresConnection() as cur:
         # Create entry
         chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp", cc_id, "ID", cur)
+        # Set the frame name manually, because in the database it is wrong?
+        chemcomp_frame.name = f'chem_comp_{chemcomp}'
         entity_frame = create_saveframe_from_db("chemcomps", "entity", cc_id, "Nonpolymer_comp_ID", cur)
 
     ent = pynmrstar.Entry.from_scratch(chemcomp)
