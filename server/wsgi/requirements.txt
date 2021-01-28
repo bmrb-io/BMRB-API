@@ -7,7 +7,7 @@ redis==3.5.3
 gitpython==3.1.12
 Flask-Mail==0.9.1
 pynmrstar==3.0.9
-pybmrb==1.2.96
+pybmrb==1.2.97
 requests==2.25.1
 marshmallow==3.10.0
 marshmallow_enum==1.5.1

@@ -529,7 +529,9 @@ def simulate_hsqc(entry_id):
         csviz._AUTOOPEN = False
         csviz._OPACITY = 1
         with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
-            if not csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name):
+            try:
+                csviz.Spectra().n15hsqc(entry_id, outfilename=output_file.name)
+            except ValueError:
                 return 'No amide proton nitrogen chemical shifts found.'
             output_file.seek(0)
             if len(output_file.read()) == 0:
