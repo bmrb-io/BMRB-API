@@ -255,14 +255,14 @@ def create_chemcomp_from_db(chemcomp: str) -> pynmrstar.Entry:
         cc_id = chemcomp.upper()
     else:
         cc_id = chemcomp[9:].upper()
-    chemcomp = "chemcomp_" + cc_id
+    chemcomp = "chem_comp_" + cc_id
 
     # Connect to DB
     with PostgresConnection() as cur:
         # Create entry
         chemcomp_frame = create_saveframe_from_db("chemcomps", "chem_comp", cc_id, "ID", cur)
         # Set the frame name manually, because in the database it is wrong?
-        chemcomp_frame.name = f'chem_comp_{chemcomp}'
+        chemcomp_frame.name = chemcomp
         entity_frame = create_saveframe_from_db("chemcomps", "entity", cc_id, "Nonpolymer_comp_ID", cur)
 
     ent = pynmrstar.Entry.from_scratch(chemcomp)
