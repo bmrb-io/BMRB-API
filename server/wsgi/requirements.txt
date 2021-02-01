@@ -1,3 +1,6 @@
+# HEY YOU! Don't forget to update docker_requirements.txt as well if the
+#  package is needed inside of the Docker container!
+
 flask==1.1.2
 psycopg2-binary==2.8.6
 simplejson==3.17.2
@@ -7,7 +10,7 @@ redis==3.5.3
 gitpython==3.1.12
 Flask-Mail==0.9.1
 pynmrstar==3.0.9
-pybmrb==1.2.97
+pybmrb==1.2.99
 requests==2.25.1
 marshmallow==3.10.0
 marshmallow_enum==1.5.1
