@@ -581,7 +581,7 @@ Parameters:
 Examples:
 
 * [All link types BMRB -> UniProt mapping in text](http://api.bmrb.io/v2/mappings/bmrb/uniprot?format=text&match_type=all)
-* [BLAST linked UniProt -> BMRB mapping in json](http://api.bmrb.io/v2/mappings/uniprot/bmrb?format=text&match_type=blast)
+* [BLAST linked UniProt -> BMRB mapping in json](http://api.bmrb.io/v2/mappings/uniprot/bmrb?format=json&match_type=blast)
 
 
 ### Software
