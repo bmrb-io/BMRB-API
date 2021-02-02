@@ -544,11 +544,13 @@ Returns a mapping of `BMRB ID`<->`PDB ID`.
 Parameters:
 * `format` - The format to return results in. Default is `json` but `text` is also supported.
 * `match_type` The type of match to use when generating the list. Allowed values:
-  * `all`* - UniProt links from any of the other sources. This is the default.
-  * `author` - Entries supplied by the author as "related entries" during deposition. Returns matches for both
-  entities and assembles with a database link.
-  * `blast` - The entry was found linked with a routine BLAST search. It is similar to the queried
-   entry in sequence but no other correlation is implied.     
+  * `all` - PDB links from any of the other sources.
+  * `exact`* - The entry is an exact match as tracked by the BMRB entry tracking system.
+    There is a one-to-one correspondence between the entry and the provided BMRB ID.
+    This is the default.
+  * `author` - Entries supplied by the author as "related entries" during deposition.
+  * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
+   entry in sequence but no other correlation is implied.
 
 Examples:
 
@@ -568,15 +570,12 @@ Returns a mapping of `BMRB ID`<->`UniProt ID` or `PDB ID`.
 Parameters:
 * `format` - The format to return results in. Default is `json` but `text` is also supported.
 * `match_type` The type of match to use when generating the list. Allowed values:
-  * `all` - PDB links from any of the other sources.
-  * `exact`* - The entry is an exact match as tracked by the BMRB entry tracking system.
-    There is a one-to-one correspondence between the entry and the provided BMRB ID.
-    This is the default.
-  * `author` - Entries supplied by the author as "related entries" during deposition.
-  * `blast` - The entry was found during a routine BLAST search. It is similar to the queried
+  * `all`* - UniProt links from any of the other sources. This is the default.
+  * `author` - Entries supplied by the author as "related entries" during deposition. Returns matches for both
+  entities and assembles with a database link.
+  * `blast` - The entry was found linked with a routine BLAST search. It is similar to the queried
    entry in sequence but no other correlation is implied.
-  * `pdb` - UniProt IDs derived via the matching PDB record for an entry.
-
+  * `pdb` - UniProt IDs derived via the matching PDB record for an entry. This is the most reliable match type.
 
 Examples:
 
