@@ -9,7 +9,7 @@ import time
 import traceback
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify, url_for, render_template
 from flask_mail import Mail
 from pythonjsonlogger import jsonlogger
 from werkzeug.exceptions import NotFound
@@ -196,7 +196,8 @@ def catch_all():
             links.append("POST: %s" % url)
         elif "PUT" in rule.methods:
             links.append("POST: %s" % url)
-    return "<pre>" + "\n".join(links) + "</pre>"
+
+    return render_template('base.html', content="\n".join(links))
 
 
 @application.route('/status')
