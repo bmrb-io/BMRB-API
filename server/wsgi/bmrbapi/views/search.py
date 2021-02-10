@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 import textwrap
 import warnings
@@ -11,7 +12,6 @@ import psycopg2
 from flask import jsonify, request, Blueprint, url_for
 from psycopg2 import ProgrammingError
 
-# Set up the blueprint
 import bmrbapi.views.sql.search as sql_statements
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
@@ -21,6 +21,7 @@ from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, sele
     get_database_from_entry_id, get_valid_entries_from_redis, \
     get_category_and_tag, wrap_it_up, select as querymod_select
 
+# Set up the blueprint
 search_endpoints = Blueprint('search', __name__)
 
 
@@ -475,10 +476,10 @@ FROM "Entity" as entity
     # Use temporary files to store the FASTA search string and FASTA DB
     with NamedTemporaryFile(dir="/tmp") as fasta_file, \
             NamedTemporaryFile(dir="/tmp") as sequence_file:
-        fasta_file.file.write((">query\n%s" % sequence.upper()).encode())
+        fasta_file.write((">query\n%s" % sequence.upper()).encode())
         fasta_file.flush()
 
-        sequence_file.file.write(("".join(seq_strings)).encode())
+        sequence_file.write(("".join(seq_strings)).encode())
         sequence_file.flush()
 
         # Set up the FASTA arguments
@@ -511,7 +512,7 @@ def reroute_instant_internal():
     warnings.warn('Please use /search/instant.', DeprecationWarning)
     return instant()
 
-import shlex
+
 @search_endpoints.route('/search/instant')
 def instant():
     """ Do the instant search. """

@@ -32,7 +32,7 @@ def check_valid(entry_id) -> None:
             raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
 
 
-def get_tags(entry_id: str, search_tags: List[str]) -> Dict[str, List[str]]:
+def get_tags(entry_id: str, search_tags: List[str]) -> Dict[str, Dict[str, List[str]]]:
     """ Returns results for the queried tags."""
 
     # Check the validity of the tags
@@ -188,20 +188,20 @@ def get_entry(entry_id=None):
 
         if request.content_type == "application/json":
             try:
-                parsed_star = pynmrstar.Entry.from_json(uploaded_data)
+                parsed_star = pynmrstar.Entry.from_json(uploaded_data.decode())
             except (ValueError, TypeError) as e:
                 raise RequestException("Invalid uploaded JSON NMR-STAR data. Exception: %s" % e)
         else:
             try:
-                parsed_star = pynmrstar.Entry.from_string(uploaded_data)
+                parsed_star = pynmrstar.Entry.from_string(uploaded_data.decode())
             except ValueError as e:
                 raise RequestException("Invalid uploaded NMR-STAR file. Exception: %s" % e)
 
-        key = md5(uploaded_data).digest().encode("hex")
+        key = md5(uploaded_data).hexdigest()
 
         with RedisConnection() as r:
             r.setex("uploaded:entry:%s" % key, configuration['redis']['upload_timeout'],
-                    zlib.compress(parsed_star.get_json()))
+                    zlib.compress(parsed_star.get_json(serialize=True).encode()))
 
         return jsonify({"entry_id": key, "expiration": unix_time() + configuration['redis']['upload_timeout']})
 
@@ -597,7 +597,7 @@ def validate_entry(entry_id):
     result = {entry_id: {'avs': {}}}
     # Put the chemical shift loop in a file
     with tempfile.NamedTemporaryFile(dir="/dev/shm") as star_file:
-        star_file.file.write(str(entry).encode())
+        star_file.write(str(entry).encode())
         star_file.flush()
 
         avs_location = os.path.join(querymod.SUBMODULE_DIR, "avs/validate_assignments_31.pl")
@@ -638,7 +638,7 @@ def validate_entry(entry_id):
         result[entry_id]["panav"] = {}
         # Put the chemical shift loop in a file
         with tempfile.NamedTemporaryFile(dir="/dev/shm") as chem_shifts:
-            chem_shifts.file.write(str(cs_loop).encode())
+            chem_shifts.write(str(cs_loop).encode())
             chem_shifts.flush()
 
             panav_location = os.path.join(querymod.SUBMODULE_DIR, "panav/panav.jar")

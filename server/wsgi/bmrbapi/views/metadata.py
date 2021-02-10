@@ -2,12 +2,12 @@ import datetime
 from typing import List, Tuple
 
 from flask import Blueprint, jsonify, Response
-# Set up the blueprint
 from psycopg2.extras import DictCursor
 
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.views.sql.metadata import *
 
+# Set up the blueprint
 meta_endpoints = Blueprint('metadata', __name__)
 
 
