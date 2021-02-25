@@ -222,7 +222,7 @@ def get_status():
         for key in ['metabolomics', 'macromolecules']:
             sql = '''SELECT reltuples FROM pg_class WHERE oid = '%s."Atom_chem_shift"'::regclass;''' % key
             pg.execute(sql)
-            stats[key]['num_chemical_shifts'] = int(pg.fetchone()[0])
+            stats[key]['num_chemical_shifts'] = int(pg.fetchone()['reltuples'])
 
     try:
         stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"]).strip()

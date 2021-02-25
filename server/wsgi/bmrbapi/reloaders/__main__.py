@@ -190,7 +190,7 @@ if options.metabolomics:
     logger.info('Calculating metabolomics entries to process...')
     with PostgresConnection() as cur:
         cur.execute('SELECT DISTINCT "Entry_ID" FROM metabolomics."Release" ORDER BY "Entry_ID"')
-        entries = sorted([x[0] for x in cur.fetchall()])
+        entries = sorted([x['Entry_ID'] for x in cur.fetchall()])
 
     if len(entries) < 1000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
@@ -206,7 +206,7 @@ if options.macromolecules:
     logger.info('Calculating macromolecule entries to process...')
     with PostgresConnection() as cur:
         cur.execute('SELECT DISTINCT "ID" FROM macromolecules."Entry" ORDER BY "ID";')
-        valid_ids = sorted([x[0] for x in cur.fetchall()])
+        valid_ids = sorted([x['ID'] for x in cur.fetchall()])
 
     if len(valid_ids) < 10000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
@@ -224,7 +224,7 @@ if options.chemcomps:
     logger.info('Calculating chemcomp entries to process...')
     with PostgresConnection() as cur:
         cur.execute('SELECT DISTINCT "BMRB_code" FROM chemcomps."Entity" ORDER BY "BMRB_code"')
-        comp_ids = sorted([x[0] for x in cur.fetchall()])
+        comp_ids = sorted([x['BMRB_code'] for x in cur.fetchall()])
     if len(comp_ids) < 1000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
     chemcomps = ["chemcomp_" + x for x in comp_ids]

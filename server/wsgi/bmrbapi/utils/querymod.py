@@ -312,7 +312,7 @@ SELECT tagfield
   WHERE entryidflg='Y' AND lower(tagcategory)=lower(%s);""", [tag_category])
 
         try:
-            return cur.fetchone()[0]
+            return cur.fetchone()['tagfield']
         except TypeError:
             raise RequestException("Invalid tag queried, unable to determine entryidflag.")
 
@@ -369,7 +369,7 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
 
     # Get the list of which tags should be used to order data
     cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
-    tag_order = {x[0]: x[1] for x in cur.fetchall()}
+    tag_order = {x['originaltag']: x['rowindexflg'] for x in cur.fetchall()}
 
     # Set the search path
     cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path': database})
@@ -395,7 +395,7 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
     cur.execute("""SELECT DISTINCT tagcategory FROM dict.adit_item_tbl
                 WHERE originalcategory=%(category)s AND loopflag<>'Y'""",
                 {"category": category})
-    table_name = cur.fetchone()[0]
+    table_name = cur.fetchone()['tagcategory']
 
     logging.debug("Will look in table: %s", table_name)
 
@@ -440,7 +440,7 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
     cur.fetchone()
 
     # Figure out which loops we might need to add
-    loops = [x[0] for x in cur.fetchall()]
+    loops = [x['tagcategory'] for x in cur.fetchall()]
 
     # Add the loops
     for each_loop in loops:
