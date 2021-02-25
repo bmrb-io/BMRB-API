@@ -116,9 +116,11 @@ INSERT INTO web.metabolomics_summary_tmp (id, formula, inchi, smiles, average_ma
   WHERE sm."Type" = 'canonical';
 
 -- Move the new table into place
+BEGIN;
 ALTER TABLE IF EXISTS web.metabolomics_summary RENAME TO metabolomics_summary_old;
 ALTER TABLE web.metabolomics_summary_tmp RENAME TO metabolomics_summary;
 DROP TABLE IF EXISTS web.metabolomics_summary_old;
+END;
 
 
 -- Create terms table
@@ -213,9 +215,11 @@ SELECT DISTINCT "Entry_ID", "Accession_code", 'Author provided ' || "Database_co
 DELETE FROM web.instant_extra_search_terms_tmp WHERE term IS NULL AND identical_term IS NULL;
 
 -- Move the new table into place
+BEGIN;
 ALTER TABLE IF EXISTS web.instant_extra_search_terms RENAME TO instant_extra_search_terms_old;
 ALTER TABLE web.instant_extra_search_terms_tmp RENAME TO instant_extra_search_terms;
 DROP TABLE IF EXISTS web.instant_extra_search_terms_old;
+END;
 
 -- Create tsvector table
 DROP TABLE IF EXISTS web.instant_cache_tmp;
@@ -355,9 +359,11 @@ UPDATE web.instant_cache_tmp SET tsv =
 ')), 'D');
 
 -- Move the new table into place
+BEGIN;
 ALTER TABLE IF EXISTS web.instant_cache RENAME TO instant_cache_old;
 ALTER TABLE web.instant_cache_tmp RENAME TO instant_cache;
 DROP TABLE IF EXISTS web.instant_cache_old;
+END;
 
 -- Clean up
 DROP FUNCTION web.clean_title(varchar);
@@ -369,8 +375,6 @@ GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to web;
 GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.pdb_link to web;
 GRANT ALL PRIVILEGES ON TABLE web.pdb_link to bmrb;
-GRANT ALL PRIVILEGES ON FUNCTION web.convert_to_numeric to web;
-GRANT ALL PRIVILEGES ON FUNCTION web.convert_to_numeric to bmrb;
 
 GRANT USAGE ON schema web TO PUBLIC;
 GRANT SELECT ON ALL TABLES IN schema web TO PUBLIC;
