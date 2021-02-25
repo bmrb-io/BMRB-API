@@ -1,3 +1,5 @@
+from typing import Union
+
 import psycopg2
 import psycopg2.extras
 import redis
@@ -16,10 +18,14 @@ class PostgresConnection:
     Specify ets=True to connect to the ETS database.
     Specify a schema to set it as the default search path."""
 
-    def __init__(self, write_access: bool = False, ets: bool = False, schema: str = None):
+    def __init__(self, write_access: bool = False, ets: bool = False, schema: str = None,
+                 real_dict_cursor: bool = False):
 
         self._ets = ets
         self._reload = write_access
+        self._cursor_type = psycopg2.extras.DictCursor
+        if real_dict_cursor:
+            self._cursor_type = psycopg2.extras.RealDictCursor
 
         # Check the schema
         if schema:
@@ -29,21 +35,21 @@ class PostgresConnection:
                 raise RequestException("Invalid database: %s." % schema)
         self._schema = schema
 
-    def __enter__(self) -> psycopg2.extras.DictCursor:
+    def __enter__(self) -> Union[psycopg2.extras.DictCursor, psycopg2.extras.RealDictCursor]:
 
         if self._ets:
             self._conn = psycopg2.connect(host=configuration['ets']['host'],
                                           user=configuration['ets']['user'],
                                           database=configuration['ets']['database'],
                                           port=configuration['ets']['port'],
-                                          cursor_factory=psycopg2.extras.DictCursor)
+                                          cursor_factory=self._cursor_type)
         else:
             user = configuration['postgres']['user'] if not self._reload else configuration['postgres']['reload_user']
             self._conn = psycopg2.connect(host=configuration['postgres']['host'],
                                           user=user,
                                           database=configuration['postgres']['database'],
                                           port=configuration['postgres']['port'],
-                                          cursor_factory=psycopg2.extras.DictCursor)
+                                          cursor_factory=self._cursor_type)
         cursor = self._conn.cursor()
         if self._schema:
             cursor.execute('SET search_path=public,%s;', [self._schema])

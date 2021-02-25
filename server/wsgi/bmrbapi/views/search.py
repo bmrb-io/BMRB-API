@@ -341,7 +341,7 @@ WHERE
     args.append(database)
 
     # Do the query
-    with PostgresConnection() as cur:
+    with PostgresConnection(real_dict_cursor=True) as cur:
         cur.execute(sql, args)
 
         if not dictionary_result:
@@ -352,7 +352,7 @@ WHERE
                 result['debug'] = cur.query
             return jsonify(result)
         else:
-            return jsonify([dict(_) for _ in cur.fetchall()])
+            return jsonify(cur.fetchall())
 
 
 @search_endpoints.route('/search/get_all_values_for_tag/<tag_name>')

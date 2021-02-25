@@ -31,13 +31,13 @@ def mapping_helper(direction: str):
                   'uniprot_uniprot': {'text': sql_statements.uniprot_uniprot_map}
                   }
 
-    with PostgresConnection() as cur:
+    with PostgresConnection(real_dict_cursor=True) as cur:
         if format_ == "text":
             cur.execute(statements[direction][format_], [match_type])
             return Response("\n".join([x['string'] for x in cur.fetchall()]), mimetype='text/plain')
         elif format_ == 'json':
             cur.execute(statements[direction][format_], [match_type])
-            return jsonify([dict(x) for x in cur.fetchall()])
+            return jsonify(cur.fetchall())
 
 
 @db_endpoints.route('/mappings/uniprot/uniprot')
@@ -87,13 +87,13 @@ def uniprot(accession_id=None):
         If uniprot_id is None, return all objects. Otherwise return just the object for
         the protein with the given UniProt ID."""
 
-    with PostgresConnection() as cur:
+    # Get the format
+    # Note on hupo-psi-id: https://github.com/normandavey/HUPO-PSI-ID/tree/master/ELIXIR_biohackathon
+    response_format = request.args.get('format', 'json')
+    if response_format not in ['json', 'hupo-psi-id']:
+        raise RequestException("Invalid format type. Allowed options: 'json', 'hupo-psi-id'.")
 
-        # Get the format
-        # Note on hupo-psi-id: https://github.com/normandavey/HUPO-PSI-ID/tree/master/ELIXIR_biohackathon
-        response_format = request.args.get('format', 'json')
-        if response_format not in ['json', 'hupo-psi-id']:
-            raise RequestException("Invalid format type. Allowed options: 'json', 'hupo-psi-id'.")
+    with PostgresConnection(real_dict_cursor=(response_format == 'json')) as cur:
 
         # Deal with the optional condition
         where, sql, terms = '', '', []
@@ -140,7 +140,7 @@ GROUP BY uniprot_id;
 
         cur.execute(sql, terms)
         if response_format == 'json':
-            return jsonify([dict(x) for x in cur.fetchall()])
+            return jsonify(cur.fetchall())
         elif response_format == 'hupo-psi-id':
             if accession_id:
                 result = cur.fetchall()
