@@ -242,50 +242,32 @@ def get_chemical_shifts():
     shift_val: Iterable[float] = request.args.getlist('shift')
     threshold: float = float(request.args.get('threshold', .03))
     atom_type: str = request.args.get('atom_type', None)
-    atom_id: str = request.args.getlist('atom_id')
-    comp_id: str = request.args.getlist('comp_id')
-    conditions: bool = request.args.get('conditions', False)
-    database: str = get_db("macromolecules")
+    atom_id: Iterable[str] = request.args.getlist('atom_id')
+    comp_id: Iterable[str] = request.args.getlist('comp_id')
+
+    phs: Iterable[float] = request.args.getlist('ph')
+    ph_threshold: float = float(request.args.get('ph_threshold', 0))
+
+    temperatures: Iterable[str] = request.args.getlist('temperature')
+    temperature_threshold: float = float(request.args.get('temperature_threshold', 0))
+
+    database: str = get_db("macromolecules", valid_list=['macromolecules', 'metabolomics'])
+    dictionary_result: bool = request.args.get('dictionary_result', False)
 
     sql = '''
-SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
-       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
-       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
-       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
-       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
-       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
-       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
-       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
-       "Ambiguity_code"                       AS "Atom_chem_shift.Ambiguity_code",
-       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID"
-FROM "Atom_chem_shift" AS cs
-WHERE
-'''
-
-    if conditions:
-        sql = '''
-SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
-       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
-       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
-       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
-       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
-       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
-       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
-       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
-       "Ambiguity_code"                       AS "Atom_chem_shift.Ambiguity_code",
-       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID",
-       web.convert_to_numeric(ph."Val")       AS "Sample_conditions.pH",
-       web.convert_to_numeric(temp."Val")     AS "Sample_conditions.Temperature_K"
-FROM "Atom_chem_shift" AS cs
-         LEFT JOIN "Assigned_chem_shift_list" AS csf
-                   ON csf."ID" = cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID" = cs."Entry_ID"
-         LEFT JOIN "Sample_condition_variable" AS ph
-                   ON csf."Sample_condition_list_ID" = ph."Sample_condition_list_ID" AND
-                      ph."Entry_ID" = cs."Entry_ID" AND ph."Type" = 'pH'
-         LEFT JOIN "Sample_condition_variable" AS temp
-                   ON csf."Sample_condition_list_ID" = temp."Sample_condition_list_ID" AND
-                      temp."Entry_ID" = cs."Entry_ID" AND
-                      temp."Type" = 'temperature' AND temp."Val_units" = 'K'
+SELECT "Atom_chem_shift.Entry_ID",
+       "Atom_chem_shift.Entity_ID",
+       "Atom_chem_shift.Comp_index_ID",
+       "Atom_chem_shift.Comp_ID",
+       "Atom_chem_shift.Atom_ID",
+       "Atom_chem_shift.Atom_type",
+       "Atom_chem_shift.Val",
+       "Atom_chem_shift.Val_err",
+       "Atom_chem_shift.Ambiguity_code",
+       "Atom_chem_shift.Assigned_chem_shift_list_ID",
+       "Sample_conditions.pH",
+       "Sample_conditions.Temperature_K"
+FROM web.chem_shifts
 WHERE
 '''
 
@@ -293,14 +275,14 @@ WHERE
 
     # See if a specific atom type is needed
     if atom_type:
-        sql += '''"Atom_type" = %s AND '''
+        sql += '''"Atom_chem_shift.Atom_type" = %s AND '''
         args.append(atom_type.upper())
 
     # See if a specific atom is needed
     if atom_id:
         sql += "("
         for atom in atom_id:
-            sql += '''"Atom_ID" LIKE %s OR '''
+            sql += '''"Atom_chem_shift.Atom_ID" LIKE %s OR '''
             args.append(atom.replace("*", "%").upper())
         sql += "1 = 2) AND "
 
@@ -308,15 +290,43 @@ WHERE
     if comp_id:
         sql += "("
         for comp in comp_id:
-            sql += '''"Comp_ID" = %s OR '''
+            sql += '''"Atom_chem_shift.Comp_ID" = %s OR '''
             args.append(comp.upper())
+        sql += "1 = 2) AND "
+
+    # See if specific temperatures are needed
+    if phs:
+        sql += "("
+        for ph in phs:
+            sql += '''("Sample_conditions.Temperature_K" <= %s AND "Sample_conditions.Temperature_K" >= %s) OR '''
+            try:
+                range_low = float(ph) - ph_threshold
+                range_high = float(ph) + ph_threshold
+            except ValueError:
+                raise RequestException('Invalid pH specified: %s' % ph)
+            args.append(range_high)
+            args.append(range_low)
+        sql += "1 = 2) AND "
+
+    # See if specific temperatures are needed
+    if temperatures:
+        sql += "("
+        for temperature in temperatures:
+            sql += '''("Sample_conditions.Temperature_K" <= %s AND "Sample_conditions.Temperature_K" >= %s) OR '''
+            try:
+                range_low = float(temperature) - temperature_threshold
+                range_high = float(temperature) + temperature_threshold
+            except ValueError:
+                raise RequestException('Invalid temperature specified: %s' % temperature)
+            args.append(range_high)
+            args.append(range_low)
         sql += "1 = 2) AND "
 
     # See if a peak is specified
     if shift_val:
         sql += "("
         for val in shift_val:
-            sql += '''(cs."Val"::float  < %s AND cs."Val"::float > %s) OR '''
+            sql += '''("Atom_chem_shift.Val" <= %s AND "Atom_chem_shift.Val" >= %s) OR '''
             try:
                 range_low = float(val) - threshold
                 range_high = float(val) + threshold
@@ -327,21 +337,22 @@ WHERE
         sql += "1 = 2) AND "
 
     # Make sure the SQL query syntax works out
-    sql += '''1=1'''
-
-    result = {}
+    sql += '''database=%s'''
+    args.append(database)
 
     # Do the query
-    with PostgresConnection(schema=database) as cur:
+    with PostgresConnection() as cur:
         cur.execute(sql, args)
 
-        # Send query string if in debug mode
-        if configuration['debug']:
-            result['debug'] = cur.query
-
-        result['columns'] = [desc[0] for desc in cur.description]
-        result['data'] = cur.fetchall()
-    return jsonify(result)
+        if not dictionary_result:
+            result = {'columns': [desc[0] for desc in cur.description],
+                      'data': cur.fetchall()}
+            # Send query string if in debug mode
+            if configuration['debug']:
+                result['debug'] = cur.query
+            return jsonify(result)
+        else:
+            return jsonify([dict(_) for _ in cur.fetchall()])
 
 
 @search_endpoints.route('/search/get_all_values_for_tag/<tag_name>')

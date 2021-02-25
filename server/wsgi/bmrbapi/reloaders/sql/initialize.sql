@@ -4,7 +4,8 @@
 
 CREATE extension IF NOT EXISTS pg_trgm;
 
--- Used when fetching pH and temperature
+-- All of the following (until the next comment) creates a materialized view
+--  to be able to read the chemical shifts much faster
 CREATE OR REPLACE FUNCTION web.convert_to_numeric(text)
   RETURNS numeric AS
 $func$
@@ -15,29 +16,72 @@ EXCEPTION WHEN OTHERS THEN
 END
 $func$  LANGUAGE plpgsql IMMUTABLE;
 
--- Put some indexes on the chemical shifts
-DO $$
-BEGIN
-    BEGIN
-        -- CREATE index error_on_duplicates ON macromolecules."Atom_chem_shift" ("Atom_ID", "Comp_ID", CAST("Val" as float));
-        -- CLUSTER macromolecules."Atom_chem_shift" USING error_on_duplicates;
-        CREATE INDEX error_on_duplicates ON macromolecules."Atom_chem_shift" ("Atom_type");
-        CREATE INDEX ON macromolecules."Atom_chem_shift" ("Atom_ID");
-        CREATE INDEX ON macromolecules."Atom_chem_shift" ("Comp_ID");
-        CREATE INDEX ON macromolecules."Atom_chem_shift" (CAST("Val" as float));
-        ANALYZE macromolecules."Atom_chem_shift";
+DROP MATERIALIZED VIEW IF EXISTS web.chem_shifts_tmp;
+CREATE MATERIALIZED VIEW web.chem_shifts_tmp AS
+SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
+       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
+       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
+       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
+       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
+       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
+       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
+       "Ambiguity_code"::int                  AS "Atom_chem_shift.Ambiguity_code",
+       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID",
+       web.convert_to_numeric(ph."Val")       AS "Sample_conditions.pH",
+       web.convert_to_numeric(temp."Val")     AS "Sample_conditions.Temperature_K",
+       'macromolecules'                       AS database
+FROM macromolecules."Atom_chem_shift" AS cs
+         LEFT JOIN macromolecules."Assigned_chem_shift_list" AS csf
+                   ON csf."ID" = cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID" = cs."Entry_ID"
+         LEFT JOIN macromolecules."Sample_condition_variable" AS ph
+                   ON csf."Sample_condition_list_ID" = ph."Sample_condition_list_ID" AND
+                      ph."Entry_ID" = cs."Entry_ID" AND ph."Type" = 'pH'
+         LEFT JOIN macromolecules."Sample_condition_variable" AS temp
+                   ON csf."Sample_condition_list_ID" = temp."Sample_condition_list_ID" AND
+                      temp."Entry_ID" = cs."Entry_ID" AND temp."Type" = 'temperature' AND temp."Val_units" = 'K'
+UNION
+SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
+       "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
+       "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
+       "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
+       "Atom_type"                            AS "Atom_chem_shift.Atom_type",
+       cs."Val"::numeric                      AS "Atom_chem_shift.Val",
+       cs."Val_err"::numeric                  AS "Atom_chem_shift.Val_err",
+       "Ambiguity_code"                       AS "Atom_chem_shift.Ambiguity_code",
+       "Assigned_chem_shift_list_ID"::integer AS "Atom_chem_shift.Assigned_chem_shift_list_ID",
+       web.convert_to_numeric(ph."Val")       AS "Sample_conditions.pH",
+       web.convert_to_numeric(temp."Val")     AS "Sample_conditions.Temperature_K",
+       'metabolomics'                         AS database
+FROM metabolomics."Atom_chem_shift" AS cs
+         LEFT JOIN metabolomics."Assigned_chem_shift_list" AS csf
+                   ON csf."ID" = cs."Assigned_chem_shift_list_ID" AND csf."Entry_ID" = cs."Entry_ID"
+         LEFT JOIN metabolomics."Sample_condition_variable" AS ph
+                   ON csf."Sample_condition_list_ID" = ph."Sample_condition_list_ID" AND
+                      ph."Entry_ID" = cs."Entry_ID" AND ph."Type" = 'pH'
+         LEFT JOIN metabolomics."Sample_condition_variable" AS temp
+                   ON csf."Sample_condition_list_ID" = temp."Sample_condition_list_ID" AND
+                      temp."Entry_ID" = cs."Entry_ID" AND temp."Type" = 'temperature' AND temp."Val_units" = 'K';
+CREATE INDEX ON web.chem_shifts_tmp USING gin ("Atom_chem_shift.Atom_ID" gin_trgm_ops);
+CREATE INDEX ON web.chem_shifts_tmp (database, "Atom_chem_shift.Atom_type", "Atom_chem_shift.Val");
+CREATE INDEX ON web.chem_shifts_tmp (database, "Atom_chem_shift.Comp_ID", "Atom_chem_shift.Val");
+CREATE INDEX ON web.chem_shifts_tmp (database, "Atom_chem_shift.Val");
+CREATE INDEX ON web.chem_shifts_tmp (database, "Sample_conditions.pH");
+CREATE INDEX ON web.chem_shifts_tmp (database, "Sample_conditions.Temperature_K");
+CREATE INDEX cluster_index_tmp ON web.chem_shifts_tmp (database, "Atom_chem_shift.Atom_type",
+                                                       "Atom_chem_shift.Atom_ID",
+                                                       "Atom_chem_shift.Comp_ID", "Atom_chem_shift.Val",
+                                                       "Sample_conditions.pH",
+                                                       "Sample_conditions.Temperature_K");
+--CLUSTER web.chem_shifts_tmp USING cluster_index_tmp;
+ANALYZE web.chem_shifts_tmp;
 
-        -- CREATE index cluster_metabolomics_shifts ON metabolomics."Atom_chem_shift" ("Atom_ID", "Comp_ID", CAST("Val" as float));
-        -- CLUSTER metabolomics."Atom_chem_shift" USING cluster_metabolomics_shifts;
-        CREATE INDEX ON metabolomics."Atom_chem_shift" ("Atom_type");
-        CREATE INDEX ON metabolomics."Atom_chem_shift" ("Atom_ID");
-        CREATE INDEX ON metabolomics."Atom_chem_shift" ("Comp_ID");
-        CREATE INDEX ON metabolomics."Atom_chem_shift" (CAST("Val" as float));
-        ANALYZE metabolomics."Atom_chem_shift";
-    EXCEPTION
-        WHEN OTHERS THEN RAISE NOTICE 'Skipping chemical_shift index creation because at least one index already exists.';
-    END;
-END $$;
+BEGIN;
+DROP MATERIALIZED VIEW IF EXISTS web.chem_shifts;
+ALTER MATERIALIZED VIEW web.chem_shifts_tmp RENAME TO chem_shifts;
+ALTER INDEX web.cluster_index_tmp RENAME TO cluster_index;
+END;
 
 -- Now start with the instant search...
 

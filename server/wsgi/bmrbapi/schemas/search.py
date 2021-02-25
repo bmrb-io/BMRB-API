@@ -26,7 +26,11 @@ class GetChemicalShifts(DatabaseSchema):
     atom_type = fields.String()
     atom_id = fields.String(multiple=True)
     comp_id = fields.String(multiple=True)
-    conditions = fields.Bool()
+    ph = fields.Float()
+    ph_threshold = fields.Float()
+    temperature = fields.Float()
+    temperature_threshold = fields.Float()
+    dictionary_result = fields.Bool()
 
 
 class GetAllValuesForTag(DatabaseSchema):

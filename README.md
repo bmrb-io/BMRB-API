@@ -389,17 +389,25 @@ search parameters are combined with a logical AND.
 and results that match any of the specified atom ids will be returned. You may use
 `*` as a wildcard to match 0 or more characters. (e.g. HB* to get all HBx hydrogens.
 Don't use H* or C* - instead use atom_type=H or atom_type=C as they will be much faster.)
-* `comp_id` The residue as a 3 letter code. You may specify this parameter multiple times
+* `comp_id` The residue as a 3-letter code. You may specify this parameter multiple times
 and results that match any of the specified residues will be returned.
 * `shift` A specific chemical shift to search for. Uses a default threshold of .03.
 You may specify this parameter multiple times and results that match any of the
 specified chemical shifts will be returned.
 * `threshold` Only has meaning in conjunction with `shift`. Specifies the search
-threshold for a shift.
+threshold for a shift. Inclusive.
+* `ph` Specify one or more times to limit your search to chemical shifts measured at the
+specific ph(s).
+* `ph_threshold` Specify the threshold for the pH search. Default is 0 - an exact match.
+* `temperature` Specify one or more times to limit your search to chemical shifts measured at the
+specific temperature(s).
+* `temperature_threshold` Specify the threshold for the temperature search. Default is 0 - an exact match.
 * `database` The database to search. Macromolecules or metabolomics.
-* `conditions` Set this parameter to any value and two additional columns will be
-returned: the pH and the temperature in kelvin associated with the chemical shift.
-If those values are not available they will be returned as null.
+* `dictionary_result` Set to `true` to get the results as a list of key->value mappings (a list of dictionaries) rather
+  than as a list of keys and an array of values. This representation uses significantly more data, and will
+  as a result be slower to fetch, but may be slightly easier to work with.
+* `conditions` Removed. Both the pH and the temperature are now included with the results and
+this parameter is no longer needed.
 
 Examples:
 
