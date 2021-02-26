@@ -7,10 +7,10 @@ CREATE extension IF NOT EXISTS pg_trgm;
 -- Put an index on the chemical shift values. Even though we will primarily use our custom table,
 --  the indexes are still helpful for certain other queries we will make against this table
 DO $$
-BEGIN
-    BEGIN
-        CREATE INDEX error_on_duplicates ON macromolecules."Atom_chem_shift" (CAST("Val" as float));
-        CREATE INDEX ON metabolomics."Atom_chem_shift" (CAST("Val" as float));
+BEGIN;
+    BEGIN;
+        CREATE INDEX error_on_duplicates ON macromolecules."Atom_chem_shift" (CAST("Val" AS FLOAT), "Atom_type");
+        CREATE INDEX ON metabolomics."Atom_chem_shift" (CAST("Val" AS FLOAT), "Atom_type");
         ANALYZE macromolecules."Atom_chem_shift";
         ANALYZE metabolomics."Atom_chem_shift";
     EXCEPTION
