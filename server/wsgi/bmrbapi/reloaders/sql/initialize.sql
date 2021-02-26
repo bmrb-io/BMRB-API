@@ -4,6 +4,22 @@
 
 CREATE extension IF NOT EXISTS pg_trgm;
 
+-- Put an index on the chemical shift values. Even though we will primarily use our custom table,
+--  the indexes are still helpful for certain other queries we will make against this table
+DO $$
+BEGIN
+    BEGIN
+        CREATE INDEX error_on_duplicates ON macromolecules."Atom_chem_shift" (CAST("Val" as float));
+        CREATE INDEX ON metabolomics."Atom_chem_shift" (CAST("Val" as float));
+        ANALYZE macromolecules."Atom_chem_shift";
+        ANALYZE metabolomics."Atom_chem_shift";
+    EXCEPTION
+        WHEN OTHERS THEN RAISE NOTICE 'Skipping chemical_shift index creation because at least one index already exists.';
+    END;
+END $$;
+
+
+
 -- All of the following (until the next comment) creates a materialized view
 --  to be able to read the chemical shifts much faster
 CREATE OR REPLACE FUNCTION web.convert_to_numeric(text)
