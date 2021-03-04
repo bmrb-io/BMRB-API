@@ -18,6 +18,177 @@ BEGIN;
     END;
 END $$;
 
+-- Create the query grid materialized view
+DROP MATERIALIZED VIEW IF EXISTS web.query_grid_overview_tmp;
+CREATE MATERIALIZED VIEW web.query_grid_overview_tmp AS
+SELECT entity."Polymer_type",
+       COUNT(DISTINCT cs."Entry_ID")                                                               AS total_entries,
+       COUNT(cs.*)                                                                                 AS total_shifts,
+       COUNT(cs.*)
+       FILTER (WHERE cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13')                     AS carbon_shift,
+       COUNT(DISTINCT cs."Entry_ID")
+       FILTER (WHERE cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13')                     AS carbon_entries,
+       COUNT(cs.*)
+       FILTER (WHERE cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1')                      AS hydrogen_shift,
+       COUNT(DISTINCT cs."Entry_ID")
+       FILTER (WHERE cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1')                      AS hydrogen_entries,
+       COUNT(cs.*)
+       FILTER (WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15')                     AS nitrogen_shift,
+       COUNT(DISTINCT cs."Entry_ID")
+       FILTER (WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15')                     AS nitrogen_entries,
+       COUNT(cs.*)
+       FILTER (WHERE cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31')                     AS phosphorus_shift,
+       COUNT(DISTINCT cs."Entry_ID")
+       FILTER (WHERE cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31')                     AS phosphorus_entries,
+       COUNT(cs.*)
+       FILTER (WHERE NOT (cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31') AND
+                     NOT (cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13') AND
+                     NOT (cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AND
+                     NOT (cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1'))                AS other_shift,
+       COUNT(DISTINCT cs."Entry_ID")
+       FILTER (WHERE NOT (cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31') AND
+                     NOT (cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13') AND
+                     NOT (cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AND
+                     NOT (cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1'))                AS other_entries,
+       cc.coupling_constants                                                                       AS coupling_constants,
+       cc.entries                                                                                  AS coupling_constant_entries,
+       rdc.rdcs                                                                                    AS rdcs,
+       rdc.entries                                                                                 AS rdc_entries,
+       CASE WHEN t1s.t1s IS NULL THEN 0 ELSE t1s.t1s END                                           AS t1s,
+       CASE WHEN t1s.entries IS NULL THEN 0 ELSE t1s.entries END                                   AS t1_entries,
+       CASE WHEN t2s.t2s IS NULL THEN 0 ELSE t2s.t2s END                                           AS t2s,
+       CASE WHEN t2s.entries IS NULL THEN 0 ELSE t2s.entries END                                   AS t2_entries,
+       CASE WHEN noes.noes IS NULL THEN 0 ELSE noes.noes END                                       AS noes,
+       CASE WHEN noes.entries IS NULL THEN 0 ELSE noes.entries END                                 AS noe_entries,
+       CASE
+           WHEN order_params.order_parameters IS NULL THEN 0
+           ELSE order_params.order_parameters END                                                  AS order_parameters,
+       CASE
+           WHEN order_params.entries IS NULL THEN 0
+           ELSE order_params.entries END                                                           AS order_parameter_entries,
+       CASE WHEN h_exchanges.h_exchange_rates IS NULL THEN 0 ELSE h_exchanges.h_exchange_rates END AS h_exchange_rates,
+       CASE
+           WHEN h_exchanges.entries IS NULL THEN 0
+           ELSE h_exchanges.entries END                                                            AS h_exchange_rate_entries,
+       CASE
+           WHEN h_exchange_protections.h_exchange_protection_factors IS NULL THEN 0
+           ELSE h_exchange_protections.h_exchange_protection_factors END                           AS h_exchange_protection_factors,
+       CASE
+           WHEN h_exchange_protections.entries IS NULL THEN 0
+           ELSE h_exchange_protections.entries END                                                 AS e_exchange_protections_entries
+
+FROM macromolecules."Entity" AS entity
+         LEFT JOIN macromolecules."Atom_chem_shift" AS cs
+                   ON cs."Entry_ID" = entity."Entry_ID" AND cs."Entity_ID" = entity."ID"
+         LEFT JOIN (SELECT entity."Polymer_type",
+                           COUNT(cc.*)                   AS coupling_constants,
+                           COUNT(DISTINCT cc."Entry_ID") AS entries
+                    FROM macromolecules."Entity" AS entity
+                             LEFT JOIN macromolecules."Coupling_constant" AS cc
+                                       ON cc."Entry_ID" = entity."Entry_ID" AND
+                                          (cc."Entity_ID_1" = entity."ID" OR cc."Entity_ID_2" = entity."ID")
+                    WHERE entity."Polymer_type" IS NOT NULL
+                    GROUP BY entity."Polymer_type") AS cc ON cc."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT entity."Polymer_type", COUNT(rdc.*) AS rdcs, COUNT(DISTINCT rdc."Entry_ID") AS entries
+                    FROM macromolecules."Entity" AS entity
+                             LEFT JOIN macromolecules."RDC" AS rdc
+                                       ON rdc."Entry_ID" = entity."Entry_ID" AND
+                                          (rdc."Entity_ID_1" = entity."ID" OR rdc."Entity_ID_2" = entity."ID")
+                    WHERE entity."Polymer_type" IS NOT NULL
+                    GROUP BY entity."Polymer_type") AS rdc ON rdc."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT "Polymer_type", COUNT("Val") AS t1s, COUNT(DISTINCT "Entry_ID") AS entries
+                    FROM (SELECT entity."Polymer_type" AS "Polymer_type", t1."Entry_ID" AS "Entry_ID", t1."Val" AS "Val"
+                          FROM macromolecules."Entity" AS entity
+                                   LEFT JOIN macromolecules."T1" AS t1
+                                             ON t1."Entry_ID" = entity."Entry_ID" AND t1."Entity_ID" = entity."ID"
+                          WHERE entity."Polymer_type" IS NOT NULL
+                            AND t1."Val" IS NOT NULL
+                          UNION ALL
+                          SELECT entity."Polymer_type"    AS "Polymer_type",
+                                 ar."Entry_ID"            AS "Entry_ID",
+                                 ar."Auto_relaxation_val" AS "Val"
+                          FROM macromolecules."Entity" AS entity
+                                   LEFT JOIN macromolecules."Auto_relaxation" AS ar
+                                             ON ar."Entry_ID" = entity."Entry_ID" AND ar."Entity_ID" = entity."ID"
+                                   LEFT JOIN macromolecules."Auto_relaxation_list" AS arl
+                                             ON arl."ID" = ar."Auto_relaxation_list_ID"
+                          WHERE entity."Polymer_type" IS NOT NULL
+                            AND arl."Relaxation_val_units" IS NOT NULL
+                            AND (UPPER(arl."Common_relaxation_type_name") = 'R1' OR
+                                 (UPPER(arl."Common_relaxation_type_name") = 'T1'))) AS subq
+                    GROUP BY "Polymer_type") AS t1s ON t1s."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT "Polymer_type", COUNT("Val") AS t2s, COUNT(DISTINCT "Entry_ID") AS entries
+                    FROM (SELECT entity."Polymer_type" AS "Polymer_type",
+                                 t2."Entry_ID"         AS "Entry_ID",
+                                 t2."T2_val"           AS "Val"
+                          FROM macromolecules."Entity" AS entity
+                                   LEFT JOIN macromolecules."T2" AS t2
+                                             ON t2."Entry_ID" = entity."Entry_ID" AND t2."Entity_ID" = entity."ID"
+                          WHERE entity."Polymer_type" IS NOT NULL
+                            AND t2."T2_val" IS NOT NULL
+                          UNION ALL
+                          SELECT entity."Polymer_type"    AS "Polymer_type",
+                                 ar."Entry_ID"            AS "Entry_ID",
+                                 ar."Auto_relaxation_val" AS "Val"
+                          FROM macromolecules."Entity" AS entity
+                                   LEFT JOIN macromolecules."Auto_relaxation" AS ar
+                                             ON ar."Entry_ID" = entity."Entry_ID" AND ar."Entity_ID" = entity."ID"
+                                   LEFT JOIN macromolecules."Auto_relaxation_list" AS arl
+                                             ON arl."ID" = ar."Auto_relaxation_list_ID"
+                          WHERE entity."Polymer_type" IS NOT NULL
+                            AND arl."Relaxation_val_units" IS NOT NULL
+                            AND (UPPER(arl."Common_relaxation_type_name") = 'R2' OR
+                                 (UPPER(arl."Common_relaxation_type_name") = 'T2'))) AS subq
+                    GROUP BY "Polymer_type") AS t2s ON t2s."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT entity."Polymer_type", COUNT(noe.*) AS noes, COUNT(DISTINCT noe."Entry_ID") AS entries
+                    FROM macromolecules."Entity" AS entity
+                             LEFT JOIN macromolecules."Heteronucl_NOE" AS noe
+                                       ON noe."Entry_ID" = entity."Entry_ID"
+                                           AND (noe."Entity_ID_1" = entity."ID" OR noe."Entity_ID_2" = entity."ID")
+                    WHERE entity."Polymer_type" IS NOT NULL
+                    GROUP BY entity."Polymer_type") AS noes ON noes."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT entity."Polymer_type",
+                           COUNT(order_param.*)                   AS order_parameters,
+                           COUNT(DISTINCT order_param."Entry_ID") AS entries
+                    FROM macromolecules."Entity" AS entity
+                             LEFT JOIN macromolecules."Order_param" AS order_param
+                                       ON order_param."Entry_ID" = entity."Entry_ID" AND
+                                          order_param."Entity_ID" = entity."ID"
+                    WHERE "Order_param_val" IS NOT NULL
+                      AND entity."Polymer_type" IS NOT NULL
+                    GROUP BY entity."Polymer_type") AS order_params
+                   ON order_params."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT entity."Polymer_type",
+                           COUNT(h_exchange.*)                   AS h_exchange_rates,
+                           COUNT(DISTINCT h_exchange."Entry_ID") AS entries
+                    FROM macromolecules."Entity" AS entity
+                             LEFT JOIN macromolecules."H_exch_rate" AS h_exchange
+                                       ON h_exchange."Entry_ID" = entity."Entry_ID" AND
+                                          h_exchange."Entity_ID" = entity."ID"
+                    WHERE "Val" IS NOT NULL
+                      AND entity."Polymer_type" IS NOT NULL
+                    GROUP BY entity."Polymer_type") AS h_exchanges ON h_exchanges."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT entity."Polymer_type",
+                           COUNT(h_exchange_protection.*)                   AS h_exchange_protection_factors,
+                           COUNT(DISTINCT h_exchange_protection."Entry_ID") AS entries
+                    FROM macromolecules."Entity" AS entity
+                             LEFT JOIN macromolecules."H_exch_protection_factor" AS h_exchange_protection
+                                       ON h_exchange_protection."Entry_ID" = entity."Entry_ID"
+                                           AND h_exchange_protection."Entity_ID" = entity."ID"
+                    WHERE "Val" IS NOT NULL
+                      AND entity."Polymer_type" IS NOT NULL
+                    GROUP BY entity."Polymer_type") AS h_exchange_protections
+                   ON h_exchange_protections."Polymer_type" = entity."Polymer_type"
+WHERE entity."Polymer_type" IS NOT NULL
+GROUP BY entity."Polymer_type", cc.coupling_constants, cc.entries, rdc.rdcs, rdc.entries, t1s.t1s, t1s.entries, t2s.t2s,
+         t2s.entries, noes.noes, noes.entries, order_params.order_parameters, order_params.entries,
+         h_exchanges.h_exchange_rates, h_exchanges.entries,
+         h_exchange_protections.h_exchange_protection_factors, h_exchange_protections.entries;
+-- Go live
+BEGIN;
+DROP MATERIALIZED VIEW web.query_grid_overview;
+ALTER MATERIALIZED VIEW web.query_grid_overview_tmp RENAME TO query_grid_overview;
+END;
 
 
 -- All of the following (until the next comment) creates a materialized view
