@@ -188,21 +188,21 @@ GROUP BY entity."Polymer_type", cc.coupling_constants, cc.entries, rdc.rdcs, rdc
 DROP MATERIALIZED VIEW IF EXISTS web.query_grid_tmp;
 CREATE MATERIALIZED VIEW web.query_grid_tmp AS
 SELECT entity."Entry_ID",
-       entity."ID" AS "Entity_ID",
-       entity."Polymer_type",
-       (SELECT COUNT(cc.*) > 0
+       array_agg(DISTINCT entity."Polymer_type")                                            AS "Polymer_types",
+       COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13') AS carbon_shifts,
+       COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AS nitrogen_shifts,
+       COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1')  AS hydrogen_shifts,
+       COUNT(cs.*)                                                                          AS total_shifts,
+       (SELECT COUNT(cc.*)
         FROM macromolecules."Coupling_constant" AS cc
-        WHERE cc."Entry_ID" = entity."Entry_ID"
-          AND (cc."Entity_ID_1" = entity."ID" OR cc."Entity_ID_2" = entity."ID"))   AS coupling_constants,
-       (SELECT COUNT(rdc.*) > 0
+        WHERE cc."Entry_ID" = entity."Entry_ID")                                            AS coupling_constants,
+       (SELECT COUNT(rdc.*)
         FROM macromolecules."RDC" AS rdc
-        WHERE rdc."Entry_ID" = entity."Entry_ID"
-          AND (rdc."Entity_ID_1" = entity."ID" OR rdc."Entity_ID_2" = entity."ID")) as rdcs,
-       (SELECT COUNT(subq.*) > 0
+        WHERE rdc."Entry_ID" = entity."Entry_ID")                                           as rdcs,
+       (SELECT COUNT(subq.*)
         FROM (SELECT true
               FROM macromolecules."T1" AS t1
               WHERE t1."Entry_ID" = entity."Entry_ID"
-                AND t1."Entity_ID" = entity."ID"
                 AND t1."Val" IS NOT NULL
               UNION ALL
               SELECT true
@@ -210,15 +210,13 @@ SELECT entity."Entry_ID",
                        LEFT JOIN macromolecules."Auto_relaxation_list" AS arl
                                  ON arl."ID" = ar."Auto_relaxation_list_ID"
               WHERE ar."Entry_ID" = entity."Entry_ID"
-                AND ar."Entity_ID" = entity."ID"
                 AND ar."Auto_relaxation_val" IS NOT NULL
                 AND (UPPER(arl."Common_relaxation_type_name") = 'R1' OR
-                     (UPPER(arl."Common_relaxation_type_name") = 'T1'))) AS subq)   AS t1s,
-       (SELECT COUNT(subq.*) > 0
+                     (UPPER(arl."Common_relaxation_type_name") = 'T1'))) AS subq)           AS t1s,
+       (SELECT COUNT(subq.*)
         FROM (SELECT true
               FROM macromolecules."T2" AS T2
               WHERE T2."Entry_ID" = entity."Entry_ID"
-                AND T2."Entity_ID" = entity."ID"
                 AND T2."T2_val" IS NOT NULL
               UNION ALL
               SELECT true
@@ -226,35 +224,30 @@ SELECT entity."Entry_ID",
                        LEFT JOIN macromolecules."Auto_relaxation_list" AS arl
                                  ON arl."ID" = ar."Auto_relaxation_list_ID"
               WHERE ar."Entry_ID" = entity."Entry_ID"
-                AND ar."Entity_ID" = entity."ID"
                 AND ar."Auto_relaxation_val" IS NOT NULL
                 AND (UPPER(arl."Common_relaxation_type_name") = 'R2' OR
-                     (UPPER(arl."Common_relaxation_type_name") = 'T2'))) AS subq)   AS t2s,
-       (SELECT COUNT(noe.*) > 1
+                     (UPPER(arl."Common_relaxation_type_name") = 'T2'))) AS subq)           AS t2s,
+       (SELECT COUNT(noe.*)
         FROM macromolecules."Heteronucl_NOE" AS noe
-        WHERE noe."Entry_ID" = entity."Entry_ID"
-          AND (noe."Entity_ID_1" = entity."ID" OR noe."Entity_ID_2" = entity."ID")) AS noes,
-       (SELECT COUNT(order_param.*) > 1
+        WHERE noe."Entry_ID" = entity."Entry_ID")                                           AS noes,
+       (SELECT COUNT(order_param.*)
         FROM macromolecules."Order_param" AS order_param
         WHERE order_param."Entry_ID" = entity."Entry_ID"
-          AND order_param."Entity_ID" = entity."ID"
-          AND "Order_param_val" IS NOT NULL)                                        AS order_params,
-       (SELECT COUNT(h_exchange.*) > 0
+          AND "Order_param_val" IS NOT NULL)                                                AS order_params,
+       (SELECT COUNT(h_exchange.*)
         FROM macromolecules."H_exch_rate" AS h_exchange
         WHERE h_exchange."Entry_ID" = entity."Entry_ID"
-          AND h_exchange."Entity_ID" = entity."ID"
-          AND "Val" IS NOT NULL)                                                    AS h_exchanges,
-       (SELECT COUNT(h_exchange_protection.*) > 0
+          AND "Val" IS NOT NULL)                                                            AS h_exchanges,
+       (SELECT COUNT(h_exchange_protection.*)
         FROM macromolecules."H_exch_protection_factor" AS h_exchange_protection
         WHERE h_exchange_protection."Entry_ID" = entity."Entry_ID"
-          AND h_exchange_protection."Entity_ID" = entity."ID"
-          AND "Val" IS NOT NULL)                                                    AS h_protection_factors
+          AND "Val" IS NOT NULL)                                                            AS h_protection_factors
 FROM macromolecules."Entity" AS entity
          LEFT JOIN macromolecules."Atom_chem_shift" AS cs
                    ON cs."Entry_ID" = entity."Entry_ID" AND cs."Entity_ID" = entity."ID"
 WHERE "Polymer_type" IS NOT NULL
-GROUP BY entity."Entry_ID", entity."ID", entity."Polymer_type";
-CREATE UNIQUE INDEX ON web.query_grid_tmp ("Entry_ID", "Entity_ID", "Polymer_type");
+GROUP BY entity."Entry_ID";
+CREATE UNIQUE INDEX ON web.query_grid_tmp ("Entry_ID");
 
 -- Go live with the new query grid info
 BEGIN;
