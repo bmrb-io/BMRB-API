@@ -191,6 +191,7 @@ SELECT entity."Entry_ID",
        array_agg(DISTINCT entity."Polymer_type")                                            AS "Polymer_types",
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13') AS carbon_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AS nitrogen_shifts,
+       COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31') AS phosphorus_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1')  AS hydrogen_shifts,
        COUNT(cs.*)                                                                          AS total_shifts,
        (SELECT COUNT(cc.*)
