@@ -184,10 +184,84 @@ GROUP BY entity."Polymer_type", cc.coupling_constants, cc.entries, rdc.rdcs, rdc
          t2s.entries, noes.noes, noes.entries, order_params.order_parameters, order_params.entries,
          h_exchanges.h_exchange_rates, h_exchanges.entries,
          h_exchange_protections.h_exchange_protection_factors, h_exchange_protections.entries;
--- Go live
+
+DROP MATERIALIZED VIEW IF EXISTS web.query_grid_tmp;
+CREATE MATERIALIZED VIEW web.query_grid_tmp AS
+SELECT entity."Entry_ID",
+       entity."ID" AS "Entity_ID",
+       entity."Polymer_type",
+       (SELECT COUNT(cc.*) > 0
+        FROM macromolecules."Coupling_constant" AS cc
+        WHERE cc."Entry_ID" = entity."Entry_ID"
+          AND (cc."Entity_ID_1" = entity."ID" OR cc."Entity_ID_2" = entity."ID"))   AS coupling_constants,
+       (SELECT COUNT(rdc.*) > 0
+        FROM macromolecules."RDC" AS rdc
+        WHERE rdc."Entry_ID" = entity."Entry_ID"
+          AND (rdc."Entity_ID_1" = entity."ID" OR rdc."Entity_ID_2" = entity."ID")) as rdcs,
+       (SELECT COUNT(subq.*) > 0
+        FROM (SELECT true
+              FROM macromolecules."T1" AS t1
+              WHERE t1."Entry_ID" = entity."Entry_ID"
+                AND t1."Entity_ID" = entity."ID"
+                AND t1."Val" IS NOT NULL
+              UNION ALL
+              SELECT true
+              FROM macromolecules."Auto_relaxation" AS ar
+                       LEFT JOIN macromolecules."Auto_relaxation_list" AS arl
+                                 ON arl."ID" = ar."Auto_relaxation_list_ID"
+              WHERE ar."Entry_ID" = entity."Entry_ID"
+                AND ar."Entity_ID" = entity."ID"
+                AND ar."Auto_relaxation_val" IS NOT NULL
+                AND (UPPER(arl."Common_relaxation_type_name") = 'R1' OR
+                     (UPPER(arl."Common_relaxation_type_name") = 'T1'))) AS subq)   AS t1s,
+       (SELECT COUNT(subq.*) > 0
+        FROM (SELECT true
+              FROM macromolecules."T2" AS T2
+              WHERE T2."Entry_ID" = entity."Entry_ID"
+                AND T2."Entity_ID" = entity."ID"
+                AND T2."T2_val" IS NOT NULL
+              UNION ALL
+              SELECT true
+              FROM macromolecules."Auto_relaxation" AS ar
+                       LEFT JOIN macromolecules."Auto_relaxation_list" AS arl
+                                 ON arl."ID" = ar."Auto_relaxation_list_ID"
+              WHERE ar."Entry_ID" = entity."Entry_ID"
+                AND ar."Entity_ID" = entity."ID"
+                AND ar."Auto_relaxation_val" IS NOT NULL
+                AND (UPPER(arl."Common_relaxation_type_name") = 'R2' OR
+                     (UPPER(arl."Common_relaxation_type_name") = 'T2'))) AS subq)   AS t2s,
+       (SELECT COUNT(noe.*) > 1
+        FROM macromolecules."Heteronucl_NOE" AS noe
+        WHERE noe."Entry_ID" = entity."Entry_ID"
+          AND (noe."Entity_ID_1" = entity."ID" OR noe."Entity_ID_2" = entity."ID")) AS noes,
+       (SELECT COUNT(order_param.*) > 1
+        FROM macromolecules."Order_param" AS order_param
+        WHERE order_param."Entry_ID" = entity."Entry_ID"
+          AND order_param."Entity_ID" = entity."ID"
+          AND "Order_param_val" IS NOT NULL)                                        AS order_params,
+       (SELECT COUNT(h_exchange.*) > 0
+        FROM macromolecules."H_exch_rate" AS h_exchange
+        WHERE h_exchange."Entry_ID" = entity."Entry_ID"
+          AND h_exchange."Entity_ID" = entity."ID"
+          AND "Val" IS NOT NULL)                                                    AS h_exchanges,
+       (SELECT COUNT(h_exchange_protection.*) > 0
+        FROM macromolecules."H_exch_protection_factor" AS h_exchange_protection
+        WHERE h_exchange_protection."Entry_ID" = entity."Entry_ID"
+          AND h_exchange_protection."Entity_ID" = entity."ID"
+          AND "Val" IS NOT NULL)                                                    AS h_protection_factors
+FROM macromolecules."Entity" AS entity
+         LEFT JOIN macromolecules."Atom_chem_shift" AS cs
+                   ON cs."Entry_ID" = entity."Entry_ID" AND cs."Entity_ID" = entity."ID"
+WHERE "Polymer_type" IS NOT NULL
+GROUP BY entity."Entry_ID", entity."ID", entity."Polymer_type";
+CREATE UNIQUE INDEX ON web.query_grid_tmp ("Entry_ID", "Entity_ID", "Polymer_type");
+
+-- Go live with the new query grid info
 BEGIN;
 DROP MATERIALIZED VIEW web.query_grid_overview;
 ALTER MATERIALIZED VIEW web.query_grid_overview_tmp RENAME TO query_grid_overview;
+DROP MATERIALIZED VIEW web.query_grid;
+ALTER MATERIALIZED VIEW web.query_grid_tmp RENAME TO query_grid;
 END;
 
 

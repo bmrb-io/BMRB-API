@@ -99,9 +99,3 @@ WHERE status LIKE 'rel%%'
 GROUP BY date_part('year', release_date)
 ORDER BY date_part('year', release_date);
 """
-
-# Below are the query grid queries
-
-bmrb_query_grid_initial: str = """
-SELECT * FROM web.query_grid_overview;
-"""
