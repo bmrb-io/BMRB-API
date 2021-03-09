@@ -189,6 +189,9 @@ DROP MATERIALIZED VIEW IF EXISTS web.query_grid_tmp;
 CREATE MATERIALIZED VIEW web.query_grid_tmp AS
 SELECT entity."Entry_ID",
        array_agg(DISTINCT entity."Polymer_type")                                            AS "Polymer_types",
+       (SELECT "Name"
+        FROM macromolecules."Assembly" AS assem
+        WHERE assem."Entry_ID" = entity."Entry_ID")                                         AS system_name,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13') AS carbon_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AS nitrogen_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31') AS phosphorus_shifts,
@@ -242,7 +245,14 @@ SELECT entity."Entry_ID",
        (SELECT COUNT(h_exchange_protection.*)
         FROM macromolecules."H_exch_protection_factor" AS h_exchange_protection
         WHERE h_exchange_protection."Entry_ID" = entity."Entry_ID"
-          AND "Val" IS NOT NULL)                                                            AS h_protection_factors
+          AND "Val" IS NOT NULL)                                                            AS h_protection_factors,
+       (SELECT CASE
+                   WHEN (SELECT sets
+                         FROM web.timedomain_data
+                         WHERE bmrbid = entity."Entry_ID") IS NULL THEN 0
+                   ELSE (SELECT sets
+                         FROM web.timedomain_data
+                         WHERE bmrbid = entity."Entry_ID") END)                             AS timedomain_data_sets
 FROM macromolecules."Entity" AS entity
          LEFT JOIN macromolecules."Atom_chem_shift" AS cs
                    ON cs."Entry_ID" = entity."Entry_ID" AND cs."Entity_ID" = entity."ID"
