@@ -75,7 +75,13 @@ SELECT entity."Polymer_type",
            ELSE h_exchange_protections.h_exchange_protection_factors END                           AS h_exchange_protection_factors,
        CASE
            WHEN h_exchange_protections.entries IS NULL THEN 0
-           ELSE h_exchange_protections.entries END                                                 AS e_exchange_protections_entries
+           ELSE h_exchange_protections.entries END                                                 AS e_exchange_protections_entries,
+       CASE
+           WHEN timedomain_data.timedomain_data_sets IS NULL THEN 0
+           ELSE timedomain_data.timedomain_data_sets END                                           AS timedomain_data_sets,
+       CASE
+           WHEN timedomain_data.entries IS NULL THEN 0
+           ELSE timedomain_data.entries END                                                        AS timedomain_data_entries
 
 FROM macromolecules."Entity" AS entity
          LEFT JOIN macromolecules."Atom_chem_shift" AS cs
@@ -179,11 +185,18 @@ FROM macromolecules."Entity" AS entity
                       AND entity."Polymer_type" IS NOT NULL
                     GROUP BY entity."Polymer_type") AS h_exchange_protections
                    ON h_exchange_protections."Polymer_type" = entity."Polymer_type"
+         LEFT JOIN (SELECT entity."Polymer_type", SUM(sets) AS timedomain_data_sets, COUNT(timedomain_data.*) AS entries
+                    FROM macromolecules."Entity" AS entity
+                             LEFT JOIN web.timedomain_data
+                                       ON bmrbid = entity."Entry_ID"
+                    GROUP BY entity."Polymer_type") AS timedomain_data
+                   ON timedomain_data."Polymer_type" = entity."Polymer_type"
 WHERE entity."Polymer_type" IS NOT NULL
 GROUP BY entity."Polymer_type", cc.coupling_constants, cc.entries, rdc.rdcs, rdc.entries, t1s.t1s, t1s.entries, t2s.t2s,
          t2s.entries, noes.noes, noes.entries, order_params.order_parameters, order_params.entries,
          h_exchanges.h_exchange_rates, h_exchanges.entries,
-         h_exchange_protections.h_exchange_protection_factors, h_exchange_protections.entries;
+         h_exchange_protections.h_exchange_protection_factors, h_exchange_protections.entries,
+         timedomain_data.timedomain_data_sets, timedomain_data.entries;
 
 DROP MATERIALIZED VIEW IF EXISTS web.query_grid_tmp;
 CREATE MATERIALIZED VIEW web.query_grid_tmp AS
