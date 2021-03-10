@@ -31,7 +31,7 @@ def timedomain() -> None:
         return sets
 
     def td_data_getter():
-        substitution_count = configuration['macromolecules_entry_directory'].count("%s")
+        substitution_count = configuration['macromolecule_entry_directory'].count("%s")
         with RedisConnection() as r:
             all_entries = r.get('metabolomics:entry_list')
         for entry_id in all_entries:
