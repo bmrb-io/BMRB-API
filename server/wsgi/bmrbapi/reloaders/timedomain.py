@@ -1,3 +1,4 @@
+import logging
 import os
 
 from psycopg2.extras import execute_values
@@ -39,7 +40,11 @@ def timedomain() -> None:
             td_dir = os.path.join(
                 configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count),
                 'timedomain_data')
-            yield entry_id, get_dir_size(td_dir), get_data_sets(td_dir)
+            if os.path.exists(td_dir):
+                logging.debug(f'Processing TD directory: {td_dir}')
+                yield entry_id, get_dir_size(td_dir), get_data_sets(td_dir)
+            else:
+                logging.warning(f"Entry directory that was supposed to exist did not: {td_dir}")
 
     psql = PostgresConnection(write_access=True)
     with psql as cur:
