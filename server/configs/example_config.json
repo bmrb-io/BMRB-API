@@ -28,10 +28,9 @@
         "server": "smtp-server"
     },
     "debug": false,
-    "timedomain_directory": "/timedomain/directory/",
     "molprobity_directory": "/websites/extras/files/pdb/molprobity/",
-    "macromolecule_entry_directory": "/share/subedit/entries/bmr%s/clean/bmr%s_3.str",
-    "metabolomics_entry_directory": "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s/%s.str",
+    "macromolecule_entry_directory": "/share/subedit/entries/bmr%s/clean",
+    "metabolomics_entry_directory": "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s",
     "local-ips": ["127.0.0.1", "your.sub.net"],
     "secret_key": "CHANGE_ME!",
     "log": {

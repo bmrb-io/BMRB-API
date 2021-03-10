@@ -3,7 +3,7 @@ import os
 from psycopg2.extras import execute_values
 
 from bmrbapi.utils.configuration import configuration
-from bmrbapi.utils.connections import PostgresConnection
+from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 
 
 def timedomain() -> None:
@@ -31,10 +31,14 @@ def timedomain() -> None:
         return sets
 
     def td_data_getter():
-        td_dir = configuration['timedomain_directory']
-        for x in os.listdir(td_dir):
-            entry_id = int("".join([_ for _ in x if _.isdigit()]))
-            yield entry_id, get_dir_size(os.path.join(td_dir, x)), get_data_sets(os.path.join(td_dir, x))
+        substitution_count = configuration['macromolecules_entry_directory'].count("%s")
+        with RedisConnection() as r:
+            all_entries = r.get('metabolomics:entry_list')
+        for entry_id in all_entries:
+            td_dir = os.path.join(
+                configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count),
+                'timedomain_data')
+            yield entry_id, get_dir_size(td_dir), get_data_sets(td_dir)
 
     psql = PostgresConnection(write_access=True)
     with psql as cur:

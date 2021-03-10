@@ -197,7 +197,8 @@ if options.metabolomics:
 
     substitution_count = configuration['metabolomics_entry_directory'].count("%s")
     for entry in entries:
-        entry_dir = configuration['metabolomics_entry_directory'] % ((entry,) * substitution_count)
+        entry_dir = os.path.join(configuration['metabolomics_entry_directory'] % ((entry,) * substitution_count),
+                                 f"{entry}.str")
         to_process['metabolomics'].append((entry, entry_dir))
     logger.info('Finished calculating metabolomics entries to process.')
 
@@ -215,7 +216,8 @@ if options.macromolecules:
 
     # Load the normal data
     for entry_id in valid_ids:
-        entry_dir = configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count)
+        entry_dir = os.path.join(configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count),
+                                 f"bmr{entry_id}_3.str")
         to_process['macromolecules'].append([str(entry_id), entry_dir])
     logger.info('Finished calculating macromolecule entries to process.')
 
