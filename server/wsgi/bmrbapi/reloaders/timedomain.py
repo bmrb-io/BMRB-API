@@ -1,4 +1,3 @@
-import logging
 import os
 
 from psycopg2.extras import execute_values
@@ -32,11 +31,14 @@ def timedomain() -> None:
         return sets
 
     def td_data_getter():
+        substitution_count = configuration['macromolecule_entry_directory'].count("%s")
+
         with RedisConnection() as r:
-            all_entries = r.lrange('macromolecules:entry_list', 0, -1)
+            all_entries = [_[0] for _ in r.lrange('macromolecules:entry_list', 0, -1)]
         for entry_id in all_entries:
-            td_dir = os.path.join(configuration['macromolecule_entry_directory'] % entry_id, 'timedomain_data')
-            logging.debug(f'Processing TD directory: {td_dir}')
+            td_dir = os.path.join(
+                configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count),
+                'timedomain_data')
             yield entry_id, get_dir_size(td_dir), get_data_sets(td_dir)
 
     psql = PostgresConnection(write_access=True)
