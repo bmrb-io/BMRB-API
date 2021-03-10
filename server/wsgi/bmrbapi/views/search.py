@@ -341,7 +341,7 @@ WHERE
     args.append(database)
 
     # Do the query
-    with PostgresConnection(real_dict_cursor=True) as cur:
+    with PostgresConnection(real_dict_cursor=dictionary_result) as cur:
         cur.execute(sql, args)
 
         if not dictionary_result:
