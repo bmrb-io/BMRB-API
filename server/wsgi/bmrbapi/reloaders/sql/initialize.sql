@@ -199,7 +199,6 @@ GROUP BY entity."Polymer_type", cc.coupling_constants, cc.entries, rdc.rdcs, rdc
          timedomain_data.timedomain_data_sets, timedomain_data.entries;
 
 DROP MATERIALIZED VIEW IF EXISTS web.query_grid_tmp;
-CREATE MATERIALIZED VIEW web.query_grid_tmp AS
 SELECT entity."Entry_ID",
        array_agg(DISTINCT entity."Polymer_type")                                            AS "Polymer_types",
        (SELECT "Name"
@@ -260,7 +259,23 @@ SELECT entity."Entry_ID",
         FROM macromolecules."H_exch_protection_factor" AS h_exchange_protection
         WHERE h_exchange_protection."Entry_ID" = entity."Entry_ID"
           AND "Val" IS NOT NULL)                                                            AS h_protection_factors,
-       COALESCE((SELECT sets FROM web.timedomain_data WHERE bmrbid = entity."Entry_ID"), 0) AS timedomain_data_sets
+       (SELECT COUNT(csa."Val")
+        FROM macromolecules."CS_anisotropy" AS csa
+        WHERE csa."Entry_ID" = entity."Entry_ID"
+          AND "Val" IS NOT NULL)                                                            AS cs_anisotropys,
+       COALESCE((SELECT sets FROM web.timedomain_data WHERE bmrbid = entity."Entry_ID"), 0) AS timedomain_data_sets,
+       (SELECT pdb_id FROM web.pdb_link WHERE bmrb_id = entity."Entry_ID")                  AS pdb_ids,
+       (SELECT COUNT(*) > 0
+        FROM macromolecules."Chem_shift_ref"
+        WHERE "Entry_ID" = entity."Entry_ID"
+          AND "Mol_common_name" = 'DSS'
+          AND "Chem_shift_val"::numeric = 0
+          AND (("Indirect_shift_ratio"::numeric = 1 AND "Atom_type" = 'H' AND "Atom_isotope_number" = '1') OR
+               ("Indirect_shift_ratio"::numeric = .153506088 AND "Atom_type" = 'H' AND "Atom_isotope_number" = '2') OR
+               ("Indirect_shift_ratio"::numeric = .251449530 AND "Atom_type" = 'C' AND "Atom_isotope_number" = '13') OR
+               ("Indirect_shift_ratio"::numeric = .101329118 AND "Atom_type" = 'N' AND "Atom_isotope_number" = '15') OR
+               ("Indirect_shift_ratio"::numeric = .101329118 AND "Atom_type" = 'P' AND
+                "Atom_isotope_number" = '31')))                                             AS iupac_referencing
 FROM macromolecules."Entity" AS entity
          LEFT JOIN macromolecules."Atom_chem_shift" AS cs
                    ON cs."Entry_ID" = entity."Entry_ID" AND cs."Entity_ID" = entity."ID"
