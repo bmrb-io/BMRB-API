@@ -35,7 +35,7 @@ def timedomain() -> None:
         substitution_count = configuration['macromolecule_entry_directory'].count("%s")
 
         with RedisConnection() as r:
-            all_entries = [_[0] for _ in r.lrange('macromolecules:entry_list', 0, -1)]
+            all_entries = [_.decode() for _ in r.lrange('macromolecules:entry_list', 0, -1)]
         for entry_id in all_entries:
             td_dir = os.path.join(
                 configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count),
