@@ -266,14 +266,14 @@ SELECT entity."Entry_ID",
           AND "Val" IS NOT NULL)                                                            AS cs_anisotropys,
        COALESCE((SELECT sets FROM web.timedomain_data WHERE bmrbid = entity."Entry_ID"), 0) AS timedomain_data_sets,
        (SELECT array_agg(pdb_id) FROM web.pdb_link WHERE bmrb_id = entity."Entry_ID")       AS pdb_ids,
-              (SELECT COUNT(*) = COUNT(*) FILTER ( WHERE "Mol_common_name" = 'DSS'
+       (SELECT (COUNT(*) = COUNT(*) FILTER ( WHERE "Mol_common_name" = 'DSS'
            AND "Chem_shift_val"::numeric = 0
            AND (("Indirect_shift_ratio"::numeric = 1 AND "Atom_type" = 'H' AND "Atom_isotope_number" = '1') OR
                 ("Indirect_shift_ratio"::numeric = .153506088 AND "Atom_type" = 'H' AND "Atom_isotope_number" = '2') OR
                 ("Indirect_shift_ratio"::numeric = .251449530 AND "Atom_type" = 'C' AND "Atom_isotope_number" = '13') OR
                 ("Indirect_shift_ratio"::numeric = .101329118 AND "Atom_type" = 'N' AND "Atom_isotope_number" = '15') OR
                 ("Indirect_shift_ratio"::numeric = .101329118 AND "Atom_type" = 'P' AND
-                 "Atom_isotope_number" = '31')))
+                 "Atom_isotope_number" = '31'))))::int
         FROM macromolecules."Chem_shift_ref"
         WHERE "Entry_ID" = entity."Entry_ID")                                               AS iupac_referencing
 FROM macromolecules."Entity" AS entity
