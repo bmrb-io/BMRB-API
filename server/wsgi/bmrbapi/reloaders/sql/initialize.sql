@@ -199,6 +199,7 @@ GROUP BY entity."Polymer_type", cc.coupling_constants, cc.entries, rdc.rdcs, rdc
          timedomain_data.timedomain_data_sets, timedomain_data.entries;
 
 DROP MATERIALIZED VIEW IF EXISTS web.query_grid_tmp;
+CREATE MATERIALIZED VIEW web.query_grid_tmp AS
 SELECT entity."Entry_ID",
        array_agg(DISTINCT entity."Polymer_type")                                            AS "Polymer_types",
        (SELECT "Name"
