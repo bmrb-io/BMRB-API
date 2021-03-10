@@ -264,7 +264,7 @@ SELECT entity."Entry_ID",
         WHERE csa."Entry_ID" = entity."Entry_ID"
           AND "Val" IS NOT NULL)                                                            AS cs_anisotropys,
        COALESCE((SELECT sets FROM web.timedomain_data WHERE bmrbid = entity."Entry_ID"), 0) AS timedomain_data_sets,
-       (SELECT pdb_id FROM web.pdb_link WHERE bmrb_id = entity."Entry_ID")                  AS pdb_ids,
+       (SELECT array_agg(pdb_id) FROM web.pdb_link WHERE bmrb_id = entity."Entry_ID")       AS pdb_ids,
        (SELECT COUNT(*) > 0
         FROM macromolecules."Chem_shift_ref"
         WHERE "Entry_ID" = entity."Entry_ID"
