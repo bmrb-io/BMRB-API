@@ -44,7 +44,7 @@ def timedomain() -> None:
                 logging.debug(f'Processing TD directory: {td_dir}')
                 yield entry_id, get_dir_size(td_dir), get_data_sets(td_dir)
             else:
-                logging.warning(f"Entry directory that was supposed to exist did not: {td_dir}")
+                pass
 
     psql = PostgresConnection(write_access=True)
     with psql as cur:
