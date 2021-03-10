@@ -46,20 +46,18 @@ def timedomain() -> None:
             else:
                 pass
 
+    precalculated_values = list(td_data_getter())
+
     psql = PostgresConnection(write_access=True)
     with psql as cur:
         cur.execute('''
-CREATE TABLE IF NOT EXISTS web.timedomain_data_tmp (
+CREATE TABLE IF NOT EXISTS web.timedomain_data (
  bmrbid text PRIMARY KEY,
  size numeric,
- sets numeric);''')
-
-        execute_values(cur, '''INSERT INTO web.timedomain_data_tmp(bmrbid, size, sets) VALUES %s;''', td_data_getter())
-
+ sets numeric);
+ DELETE FROM web.timedomain_data WHERE TRUE;''')
+        execute_values(cur, '''INSERT INTO web.timedomain_data_tmp(bmrbid, size, sets) VALUES %s;''', precalculated_values)
         cur.execute('''
-ALTER TABLE IF EXISTS web.timedomain_data RENAME TO timedomain_data_old;
-ALTER TABLE web.timedomain_data_tmp RENAME TO timedomain_data;
-DROP TABLE IF EXISTS web.timedomain_data_old;
 GRANT USAGE ON schema web TO PUBLIC;
 GRANT SELECT ON ALL TABLES IN schema web TO PUBLIC;
 ALTER DEFAULT PRIVILEGES IN schema web GRANT SELECT ON TABLES TO PUBLIC;
