@@ -195,10 +195,8 @@ if options.metabolomics:
     if len(entries) < 1000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
 
-    substitution_count = configuration['metabolomics_entry_directory'].count("%s")
     for entry in entries:
-        entry_dir = os.path.join(configuration['metabolomics_entry_directory'] % ((entry,) * substitution_count),
-                                 f"{entry}.str")
+        entry_dir = os.path.join(configuration['metabolomics_entry_directory'] % entry, f"{entry}.str")
         to_process['metabolomics'].append((entry, entry_dir))
     logger.info('Finished calculating metabolomics entries to process.')
 
@@ -212,12 +210,9 @@ if options.macromolecules:
     if len(valid_ids) < 10000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
 
-    substitution_count = configuration['macromolecule_entry_directory'].count("%s")
-
     # Load the normal data
     for entry_id in valid_ids:
-        entry_dir = os.path.join(configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count),
-                                 f"bmr{entry_id}_3.str")
+        entry_dir = os.path.join(configuration['macromolecule_entry_directory'] % entry_id, f"bmr{entry_id}_3.str")
         to_process['macromolecules'].append([str(entry_id), entry_dir])
     logger.info('Finished calculating macromolecule entries to process.')
 
