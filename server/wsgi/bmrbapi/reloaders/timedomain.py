@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS web.timedomain_data (
  size numeric,
  sets numeric);
  DELETE FROM web.timedomain_data WHERE TRUE;''')
-        execute_values(cur, '''INSERT INTO web.timedomain_data_tmp(bmrbid, size, sets) VALUES %s;''', precalculated_values)
+        execute_values(cur, '''INSERT INTO web.timedomain_data(bmrbid, size, sets) VALUES %s;''', precalculated_values)
         cur.execute('''
 GRANT USAGE ON schema web TO PUBLIC;
 GRANT SELECT ON ALL TABLES IN schema web TO PUBLIC;
