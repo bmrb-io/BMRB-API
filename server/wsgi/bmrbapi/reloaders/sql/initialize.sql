@@ -245,9 +245,12 @@ SELECT entity."Entry_ID",
                 AND ar."Auto_relaxation_val" IS NOT NULL
                 AND (UPPER(arl."Common_relaxation_type_name") = 'R2' OR
                      (UPPER(arl."Common_relaxation_type_name") = 'T2'))) AS subq)           AS t2s,
-       (SELECT COUNT(noe.*)
-        FROM macromolecules."Heteronucl_NOE" AS noe
-        WHERE noe."Entry_ID" = entity."Entry_ID")                                           AS noes,
+       (SELECT COUNT(heteronuclear_noes.*)
+        FROM macromolecules."Heteronucl_NOE" AS heteronuclear_noes
+        WHERE heteronuclear_noes."Entry_ID" = entity."Entry_ID")                            AS heteronuclear_noes,
+       (SELECT COUNT(homonuclear_noes.*)
+        FROM macromolecules."Homonucl_NOE" AS homonuclear_noes
+        WHERE homonuclear_noes."Entry_ID" = entity."Entry_ID")                              AS homonuclear_noes,
        (SELECT COUNT(order_param.*)
         FROM macromolecules."Order_param" AS order_param
         WHERE order_param."Entry_ID" = entity."Entry_ID"
