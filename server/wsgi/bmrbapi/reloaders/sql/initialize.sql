@@ -30,6 +30,11 @@ SELECT entity."Entry_ID",
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AS nitrogen_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31') AS phosphorus_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1')  AS hydrogen_shifts,
+       COUNT(cs.*) FILTER ( WHERE
+               NOT (cs."Atom_type" = 'H' AND cs."Atom_isotope_number" = '1')
+               AND NOT (cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31')
+               AND NOT (cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15')
+               AND NOT (cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13'))          AS other_shifts,
        COUNT(cs.*)                                                                          AS total_shifts,
        (SELECT COUNT(cc.*)
         FROM macromolecules."Coupling_constant" AS cc
