@@ -1,6 +1,7 @@
 # HEY YOU! Don't forget to update docker_requirements.txt as well if the
 #  package is needed inside of the Docker container!
 
+wheel==0.36.2
 flask==1.1.2
 psycopg2-binary==2.8.6
 simplejson==3.17.2
@@ -9,13 +10,13 @@ flask-cors==3.0.10
 redis==3.5.3
 gitpython==3.1.14
 Flask-Mail==0.9.1
-pynmrstar==3.1.0
+pynmrstar==3.1.1
 pybmrb==1.2.99
 requests==2.25.1
-marshmallow==3.11.1
+marshmallow==3.12.0
 marshmallow_enum==1.5.1
 # For iNext loading
-pandas==1.2.3
+pandas==1.2.4
 xlrd==2.0.1
 # For XML generation
 lxml==4.6.3
