@@ -134,6 +134,7 @@ DROP MATERIALIZED VIEW IF EXISTS web.chem_shifts_tmp;
 CREATE MATERIALIZED VIEW web.chem_shifts_tmp AS
 SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
        "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Entity_assembly_ID":: integer         AS "Atom_chem_shift.Entity_assembly_ID",
        "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
        "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
        "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
@@ -157,6 +158,7 @@ FROM macromolecules."Atom_chem_shift" AS cs
 UNION
 SELECT cs."Entry_ID"                          AS "Atom_chem_shift.Entry_ID",
        "Entity_ID"::integer                   AS "Atom_chem_shift.Entity_ID",
+       "Entity_assembly_ID":: integer         AS "Atom_chem_shift.Entity_assembly_ID",
        "Comp_index_ID"::integer               AS "Atom_chem_shift.Comp_index_ID",
        "Comp_ID"                              AS "Atom_chem_shift.Comp_ID",
        "Atom_ID"                              AS "Atom_chem_shift.Atom_ID",
