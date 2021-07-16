@@ -50,8 +50,7 @@ def get_tags(entry_id: str, search_tags: List[str]) -> Dict[str, Dict[str, List[
         raise RequestException(str(error))
 
 
-def get_loops_by_category(entry_id: str, loop_categories: List[str], format_: str) -> \
-        Dict[str, Dict[str, List[pynmrstar.Loop]]]:
+def get_loops_by_category(entry_id: str, loop_categories: List[str], format_: str) -> Response:
     """ Returns the matching loops."""
 
     result = {}
@@ -73,8 +72,7 @@ def get_loops_by_category(entry_id: str, loop_categories: List[str], format_: st
     return jsonify(result)
 
 
-def get_saveframes_by_category(entry_id: str, saveframe_categories: List[str], format_: str) -> \
-        Dict[str, Dict[str, List[pynmrstar.Saveframe]]]:
+def get_saveframes_by_category(entry_id: str, saveframe_categories: List[str], format_: str) -> Response:
     """ Returns the matching saveframes."""
 
     result = {}
@@ -94,8 +92,7 @@ def get_saveframes_by_category(entry_id: str, saveframe_categories: List[str], f
     return jsonify(result)
 
 
-def get_saveframes_by_name(entry_id: str, saveframe_names: List[str], format_: str) -> \
-        Dict[str, Dict[str, List[pynmrstar.Saveframe]]]:
+def get_saveframes_by_name(entry_id: str, saveframe_names: List[str], format_: str) -> Response:
     """ Returns the matching saveframes."""
 
     result = {}
