@@ -20,7 +20,7 @@ RUN apk update && \
         python3-dev \
         make \
         zlib-dev \
-        g++ \
+        g++ && \
     update-ca-certificates && \
     apk --update add tzdata && \
     cp /usr/share/zoneinfo/America/Chicago /etc/localtime && \
