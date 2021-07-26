@@ -108,7 +108,6 @@ WHERE status LIKE 'rel%%'
   AND el.pdb_code IS NOT NULL
   AND el.pdb_code NOT IN ('?', '.', '')
   AND el.pdb_code !~ '^[0-9]+$'
-  AND (nmr_dep_code = restart_id OR LENGTH(nmr_dep_code) = 12 OR LENGTH(nmr_dep_code) = 7)
 GROUP BY date_part('year', logdate)
 ORDER BY date_part('year', logdate);
 """
