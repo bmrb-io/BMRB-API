@@ -19,7 +19,8 @@ RUN apk update && \
         postgresql-dev \
         python3-dev \
         make \
-        zlib-dev && \
+        zlib-dev \
+        g++ \
     update-ca-certificates && \
     apk --update add tzdata && \
     cp /usr/share/zoneinfo/America/Chicago /etc/localtime && \
@@ -38,8 +39,8 @@ COPY ./wsgi/bmrbapi/submodules/fasta36 /opt/wsgi/bmrbapi/submodules/fasta36
 RUN cd /opt/wsgi/bmrbapi/submodules/fasta36/src && make -f ../make/Makefile.linux64_sse2 all
 
 COPY wsgi/docker_requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache wheel
-RUN pip install --no-cache -r /tmp/requirements.txt
+RUN pip install --upgrade pip wheel
+RUN pip install  -r /tmp/requirements.txt
 
 COPY ./wsgi /opt/wsgi/
 
