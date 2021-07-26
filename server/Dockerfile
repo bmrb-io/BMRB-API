@@ -38,6 +38,7 @@ COPY ./wsgi/bmrbapi/submodules/fasta36 /opt/wsgi/bmrbapi/submodules/fasta36
 RUN cd /opt/wsgi/bmrbapi/submodules/fasta36/src && make -f ../make/Makefile.linux64_sse2 all
 
 COPY wsgi/docker_requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache wheel
 RUN pip install --no-cache -r /tmp/requirements.txt
 
 COPY ./wsgi /opt/wsgi/
