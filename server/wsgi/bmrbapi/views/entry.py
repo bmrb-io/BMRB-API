@@ -537,7 +537,7 @@ def simulate_hsqc(entry_id):
             return send_file(output_file.name)
     elif format_ in ['csv', 'sparky']:
 
-        with tempfile.NamedTemporaryFile() as output_file:
+        with tempfile.NamedTemporaryFile(suffix='.html') as output_file:
             peak_list = Spectra.n15hsqc(entry_objects=entry_object, legend='residue', show_visualization=False,
                                         output_format='html', output_file=output_file.name)
             Spectra.export_peak_list(peak_list=peak_list, output_format=format_, output_file_name=output_file.name,
