@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
 """ This code is used to provide the REST API interface. """
-import json
 import logging
 import os
 import subprocess
 import time
 import traceback
-from decimal import Decimal
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
+import simplejson
 from flask import Flask, request, jsonify, url_for, render_template
 from flask_mail import Mail
 from pythonjsonlogger import jsonlogger
@@ -113,15 +112,7 @@ else:
     logging.warning("Could not set up SMTP logger because the configuration was not specified.")
 
 
-# Set up JSON encoding
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            return str(obj)
-        return json.JSONEncoder.default(self, obj)
-
-
-application.json_encoder = DecimalEncoder
+application.json_encoder = simplejson.JSONEncoder
 
 
 # Set up error handling
