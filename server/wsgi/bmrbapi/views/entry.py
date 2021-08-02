@@ -8,7 +8,6 @@ from typing import List, Dict
 
 import pynmrstar
 from flask import Blueprint, Response, request, jsonify, send_file, make_response
-from pybmrb import Spectra
 
 from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.utils import querymod
@@ -520,6 +519,7 @@ def simulate_hsqc(entry_id):
     check_valid(entry_id)
     entry_object: pynmrstar.Entry = next(get_valid_entries_from_redis(entry_id))[1]
 
+    from pybmrb import Spectra
     # 18857
 
     if format_ == 'html':
