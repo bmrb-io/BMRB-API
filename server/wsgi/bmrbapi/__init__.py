@@ -111,7 +111,9 @@ if (querymod.configuration.get('smtp')
 else:
     logging.warning("Could not set up SMTP logger because the configuration was not specified.")
 
-
+# After flask 2.0.2 it's probably fine to remove this and the simplejson import and go back to the default
+# behavior, but I didn't have time to test that when upgrading Flask. The things to check would be that
+# decimal objects are properly converted to floats before removing this.
 application.json_encoder = simplejson.JSONEncoder
 
 
