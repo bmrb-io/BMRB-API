@@ -4,7 +4,7 @@ simplejson==3.17.6
 python-json-logger==2.0.2
 flask-cors==3.0.10
 redis==3.5.3
-gitpython==3.1.24
+gitpython==3.1.18
 Flask-Mail==0.9.1
 pynmrstar==3.3.0
 pybmrb==3.0.8
