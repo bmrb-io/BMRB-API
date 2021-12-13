@@ -18,4 +18,4 @@ marshmallow_enum==1.5.1
 pandas==1.2.3
 xlrd==2.0.1
 # For XML generation
-lxml==4.6.3
+lxml==4.6.5
