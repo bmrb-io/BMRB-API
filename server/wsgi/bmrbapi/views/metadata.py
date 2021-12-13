@@ -28,6 +28,8 @@ def get_release_statistics() -> Response:
         # Do the queries
         total_released_in_year = get_query_results(cur, released_in_year)
         original_released_in_year = get_query_results(cur, original_release_in_year)
+        removed_in_year = get_query_results(cur, withdrawn_entries_in_year)
+        removed_from_year = get_query_results(cur, entries_released_this_year_since_withdrawn)
 
         structure_total_released_in_year = get_query_results(cur, structure_total_in_year)
         structure_adit_nmr_released_in_year = get_query_results(cur, structure_aditnmr_in_year)
@@ -65,6 +67,8 @@ def get_release_statistics() -> Response:
                 'structure_released_by_year': structure_released_by_year,
                 'nonstructure_released_by_year': nonstructure_released_by_year,
                 'released_in_year': lookup_year(total_released_in_year, year),
+                'withdrawn_or_obsoleted_during_year': lookup_year(removed_in_year, year),
+                'withdrawn_or_obsoleted_from_year': lookup_year(removed_from_year, year),
                 'original_release_in_year': lookup_year(original_released_in_year, year),
                 'structure_release_in_year': {
                     'total': lookup_year(structure_total_released_in_year, year),

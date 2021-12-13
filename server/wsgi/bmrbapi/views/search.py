@@ -257,6 +257,7 @@ def get_chemical_shifts():
     sql = '''
 SELECT "Atom_chem_shift.Entry_ID",
        "Atom_chem_shift.Entity_ID",
+       "Atom_chem_shift.Entity_assembly_ID",
        "Atom_chem_shift.Comp_index_ID",
        "Atom_chem_shift.Comp_ID",
        "Atom_chem_shift.Atom_ID",

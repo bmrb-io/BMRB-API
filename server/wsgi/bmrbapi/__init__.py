@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """ This code is used to provide the REST API interface. """
-
 import logging
 import os
 import subprocess
@@ -9,6 +8,7 @@ import time
 import traceback
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
+import simplejson
 from flask import Flask, request, jsonify, url_for, render_template
 from flask_mail import Mail
 from pythonjsonlogger import jsonlogger
@@ -110,6 +110,11 @@ if (querymod.configuration.get('smtp')
     mail = Mail(application)
 else:
     logging.warning("Could not set up SMTP logger because the configuration was not specified.")
+
+# After flask 2.0.2 it's probably fine to remove this and the simplejson import and go back to the default
+# behavior, but I didn't have time to test that when upgrading Flask. The things to check would be that
+# decimal objects are properly converted to floats before removing this.
+application.json_encoder = simplejson.JSONEncoder
 
 
 # Set up error handling
