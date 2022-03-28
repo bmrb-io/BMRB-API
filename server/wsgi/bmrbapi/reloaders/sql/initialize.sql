@@ -113,7 +113,7 @@ CREATE UNIQUE INDEX ON web.query_grid_tmp ("Entry_ID");
 
 -- Go live with the new query grid info
 BEGIN;
-DROP MATERIALIZED VIEW web.query_grid;
+DROP MATERIALIZED VIEW IF EXISTS web.query_grid;
 ALTER MATERIALIZED VIEW web.query_grid_tmp RENAME TO query_grid;
 END;
 
