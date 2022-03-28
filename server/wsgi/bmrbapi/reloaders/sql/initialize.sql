@@ -256,7 +256,7 @@ SELECT DISTINCT "Entry_ID", 'PubMed ID', "PubMed_ID", to_tsvector("PubMed_ID") F
 UNION
 SELECT DISTINCT "Entry_ID", 'Additional data', "Type", to_tsvector("Type") FROM macromolecules."Datum"
 UNION
-SELECT bmrbid as "Entry_ID", 'Time domain data sets', "sets" FROM web.timedomain_data
+SELECT bmrbid as "Entry_ID", 'Time domain data sets', "sets", to_tsvector('Time domain data') FROM web.timedomain_data
 UNION
 SELECT DISTINCT "Entry_ID", 'Citation DOI', "DOI", to_tsvector("DOI") FROM macromolecules."Citation" where "DOI" IS NOT NULL
 UNION
