@@ -121,7 +121,7 @@ FROM entrylog AS el
       WHERE newstatus = 'rel'
       GROUP BY depnum) AS lt ON el.depnum = lt.depnum
 WHERE status LIKE 'rel%%'
-  AND (pdb_code IS NULL OR pdb_code IN ('?', '.', ''))
+  AND (pdb_code IS NULL OR pdb_code IN ('?', '.', '') OR pdb_code ~ '^[0-9]+$')
 GROUP BY date_part('year', logdate)
 ORDER BY date_part('year', logdate);
 """
