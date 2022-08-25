@@ -26,6 +26,8 @@ SELECT entity."Entry_ID",
         FROM macromolecules."Assembly" AS assem
         WHERE assem."Entry_ID" = entity."Entry_ID"
           AND assem."ID" = '1')                                                             AS system_name,
+       (SELECT "Title" FROM macromolecules."Entry" AS ent
+        WHERE entity."Entry_ID" = ent."ID")                                                 AS entry_title,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13') AS carbon_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AS nitrogen_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31') AS phosphorus_shifts,
