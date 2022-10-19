@@ -132,17 +132,28 @@ def multiple_shift_search():
                   'C': float(request.args.get('cthresh', .2)),
                   'H': float(request.args.get('hthresh', .01))}
 
+    solvent = request.args.get('solvent', 'any').lower()
+
     if not shift_strings:
         raise RequestException("You must specify at least one shift to search for.")
 
-    sql = '''
-SELECT atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID"::text,
-  array_agg(DISTINCT  atom_shift."Val" || ',' ||  atom_shift."Atom_type") as shift_pair,ent.title,ent.link
-FROM "Atom_chem_shift" as atom_shift
-LEFT JOIN web.instant_cache as ent
-  ON ent.id = atom_shift."Entry_ID"
-WHERE '''
     terms = []
+    sql = '''
+SELECT * FROM (
+SELECT atom_shift."Entry_ID",
+       atom_shift."Assigned_chem_shift_list_ID"::text,
+       array_agg(DISTINCT atom_shift."Val" || ',' || atom_shift."Atom_type") AS shift_pair,
+       ent.title,
+       ent.link,
+       (SELECT array_agg(DISTINCT (s."Mol_common_name"))
+        FROM "Chem_shift_experiment" cse
+        LEFT JOIN "Sample_component" s ON s."Sample_ID" = cse."Sample_ID" AND s."Entry_ID" = cse."Entry_ID"
+        WHERE cse."Assigned_chem_shift_list_ID" = atom_shift."Assigned_chem_shift_list_ID"
+        AND s."Type" ilike 'solvent' AND cse."Entry_ID" = atom_shift."Entry_ID") AS solvent
+FROM "Atom_chem_shift" AS atom_shift
+         LEFT JOIN web.instant_cache AS ent
+                   ON ent.id = atom_shift."Entry_ID"
+WHERE '''
 
     shift_floats: List[float] = []
     shift_decimals: List[Decimal] = []
@@ -175,8 +186,12 @@ WHERE '''
     sql += '''
 1=2
 GROUP BY atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID",ent.title,ent.link
-ORDER BY count(DISTINCT atom_shift."Val") DESC;
+ORDER BY count(DISTINCT atom_shift."Val") DESC) sq
     '''
+
+    if solvent != 'any' and get_db("metabolomics") == 'metabolomics':
+        sql += " WHERE %s ilike ANY(solvent)"
+        terms.append(solvent)
 
     # Do the query
     with PostgresConnection(schema=get_db("metabolomics")) as cur:
@@ -193,7 +208,7 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC;
             shifts = [{'Shift': Decimal(y[0]), 'Atom_type': y[1]} for y in [x.split(',') for x in entry[2]]]
 
             result['data'].append({'Entry_ID': entry[0], 'Assigned_chem_shift_list_ID': entry[1], 'Title': title,
-                                   'Link': entry[4], 'Val': shifts})
+                                   'Link': entry[4], 'Val': shifts, 'Solvent': entry[5]})
 
     def get_closest(collection, number):
         """ Returns the closest number from a list of numbers. """

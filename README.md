@@ -437,8 +437,8 @@ value.
 
 Returns all entries that contain at least one of the queried shifts, as well as
 the list of shifts that matched. Results returned as a list of matching entries along
-with the matching shifts, number of shifts matched, and total offset of shifts,
-sorted by number of shifts matched and total offset.
+with the matching shifts, solvent(s) in which the shifts were observed, number of shifts
+matched, and total offset of shifts, sorted by number of shifts matched and total offset.
 
 The titles and links to the matched entries are also returned. Note that for a large
 number of peaks, you should use 's' rather than 'shift' in order to save free up extra
@@ -451,6 +451,7 @@ Parameters:
 * `cthresh` The threshold to use when matching carbon atoms. Default: .2 (ppm)
 * `nthresh` The threshold to use when matching nitrogen atoms. Default: .2 (ppm)
 * `hthresh` The threshold to use when matching protons. Default: .01 (ppm)
+* `solvent` Filter results to only include ones observed in the specified solvent. 
 
 Example: [Search for peaks 2.075, 3.11, and 39.31](http://api.bmrb.io/v2/search/multiple_shift_search?shift=2.075&shift=3.11&shift=39.31)
 

@@ -17,6 +17,7 @@ class MultipleShiftSearch(DatabaseSchema):
     cthresh = fields.Float()
     hthresh = fields.Float()
     s = fields.Float(multiple=True)
+    solvent = fields.String()
     shift = fields.Float(multiple=True)
 
 
