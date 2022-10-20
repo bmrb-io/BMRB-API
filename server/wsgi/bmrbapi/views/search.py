@@ -151,7 +151,10 @@ FROM (SELECT atom_shift."Entry_ID",
                   AND s."Entry_ID" = cse."Entry_ID"
                   AND cse."Assigned_chem_shift_list_ID" = atom_shift."Assigned_chem_shift_list_ID"
                   AND cse."Entry_ID" = atom_shift."Entry_ID"
-              WHERE s."Type" ilike 'solvent')                                      AS solvent
+              WHERE (s."Type" ilike 'solvent' OR (s."Type" IS NULL
+                  AND s."Concentration_val_units" = '%'
+                  AND web.convert_to_numeric(s."Concentration_val") >= 20
+                  AND s."Entity_ID" IS NULL)))                                     AS solvent
       FROM "Atom_chem_shift" AS atom_shift
                LEFT JOIN web.instant_cache AS ent
                          ON ent.id = atom_shift."Entry_ID"
