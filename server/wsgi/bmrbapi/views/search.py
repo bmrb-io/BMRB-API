@@ -139,21 +139,23 @@ def multiple_shift_search():
 
     terms = []
     sql = '''
-SELECT * FROM (
-SELECT atom_shift."Entry_ID",
-       atom_shift."Assigned_chem_shift_list_ID"::text,
-       array_agg(DISTINCT atom_shift."Val" || ',' || atom_shift."Atom_type") AS shift_pair,
-       ent.title,
-       ent.link,
-       (SELECT array_agg(DISTINCT (s."Mol_common_name"))
-        FROM "Chem_shift_experiment" cse
-        LEFT JOIN "Sample_component" s ON s."Sample_ID" = cse."Sample_ID" AND s."Entry_ID" = cse."Entry_ID"
-        WHERE cse."Assigned_chem_shift_list_ID" = atom_shift."Assigned_chem_shift_list_ID"
-        AND s."Type" ilike 'solvent' AND cse."Entry_ID" = atom_shift."Entry_ID") AS solvent
-FROM "Atom_chem_shift" AS atom_shift
-         LEFT JOIN web.instant_cache AS ent
-                   ON ent.id = atom_shift."Entry_ID"
-WHERE '''
+SELECT *
+FROM (SELECT atom_shift."Entry_ID",
+             atom_shift."Assigned_chem_shift_list_ID"::text,
+             array_agg(DISTINCT atom_shift."Val" || ',' || atom_shift."Atom_type") AS shift_pair,
+             ent.title,
+             ent.link,
+             (SELECT array_agg(DISTINCT (s."Mol_common_name"))
+              FROM "Chem_shift_experiment" cse
+                       LEFT JOIN "Sample_component" s ON s."Sample_ID" = cse."Sample_ID"
+                  AND s."Entry_ID" = cse."Entry_ID"
+                  AND cse."Assigned_chem_shift_list_ID" = atom_shift."Assigned_chem_shift_list_ID"
+                  AND cse."Entry_ID" = atom_shift."Entry_ID"
+              WHERE s."Type" ilike 'solvent')                                      AS solvent
+      FROM "Atom_chem_shift" AS atom_shift
+               LEFT JOIN web.instant_cache AS ent
+                         ON ent.id = atom_shift."Entry_ID"
+      WHERE  '''
 
     shift_floats: List[float] = []
     shift_decimals: List[Decimal] = []
