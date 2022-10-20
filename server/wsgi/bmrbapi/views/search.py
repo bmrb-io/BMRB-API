@@ -194,7 +194,7 @@ GROUP BY atom_shift."Entry_ID",atom_shift."Assigned_chem_shift_list_ID",ent.titl
 ORDER BY count(DISTINCT atom_shift."Val") DESC) sq
     '''
 
-    if solvent != 'any' and get_db("metabolomics") == 'metabolomics':
+    if solvent != 'any':
         sql += " WHERE %s ilike ANY(solvent)"
         terms.append(solvent)
 
