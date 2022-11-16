@@ -7,6 +7,7 @@ from time import time as unix_time
 from typing import List, Dict, Union, overload, Literal
 
 import pynmrstar
+import werkzeug.utils
 from flask import Blueprint, Response, request, jsonify, send_file, make_response
 from pybtex.database import Entry, Person
 
@@ -508,6 +509,15 @@ def get_citation(entry_id):
     """ Return the citation information for an entry in the requested format. """
 
     format_ = request.args.get('format', "bibtex")
+    file_name = request.args.get('file_name', None)
+
+    if not file_name:
+        if len(entry_id.split(',')) > 7:
+            file_name = 'multiple'
+        else:
+            file_name = entry_id
+    else:
+        file_name = 'BMRB-Search-' + werkzeug.utils.secure_filename(file_name)
 
     if format_ == 'text':
         return Response('\n'.join(get_citation_for_entry(_, 'text') for _ in entry_id.split(',')),
@@ -515,7 +525,7 @@ def get_citation(entry_id):
     elif format_ == 'bibtex':
         return Response('\n'.join(get_citation_for_entry(_, 'bibtex') for _ in entry_id.split(',')),
                         mimetype="application/x-bibtex",
-                        headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
+                        headers={"Content-disposition": "attachment; filename=%s.bib" % file_name})
     elif format_ == 'json-ld':
         return jsonify({_: get_citation_for_entry(_, 'json-ld') for _ in entry_id.split(',')})
 
