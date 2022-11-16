@@ -360,15 +360,10 @@ ORDER BY me."Entry_ID", me."ID";'''
         check_valid(entry_id)
     return jsonify(results)
 
+def get_citation_for_entry(entry: pynmrstar.Entry, citation_format: str) -> Union[str, dict]:
 
-def get_citation_for_entry(entry_id: str, citation_format: str) -> Union[str, dict]:
-    try:
-        ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
-    except StopIteration:
-        raise RequestException("Entry '%s' does not exist in the public database." % entry_id)
 
     # First lets get all the values we need, later we will format them
-
     def get_tag(saveframe, tag):
         tag = saveframe.get_tag(tag)
         if not tag:
@@ -433,9 +428,9 @@ def get_citation_for_entry(entry_id: str, citation_format: str) -> Union[str, di
     title = entry.get_tag("Entry.Title")[0].rstrip()
 
     # DOI string
-    doi = "10.13018/BMR%s" % ent_ret_id
-    if ent_ret_id.startswith("bmse") or ent_ret_id.startswith("bmst"):
-        doi = "10.13018/%s" % ent_ret_id.upper()
+    doi = "10.13018/BMR%s" % entry.entry_id
+    if entry.entry_id.startswith("bmse") or entry.entry_id.startswith("bmst"):
+        doi = "10.13018/%s" % entry.entry_id.upper()
 
     if citation_format == "json-ld":
         res = {"@context": "http://schema.org",
@@ -457,7 +452,7 @@ def get_citation_for_entry(entry_id: str, citation_format: str) -> Union[str, di
                   'doi': doi,
                   'url': f'https://doi.org/{doi}',
                   'title': title,
-                  'entry_id': ent_ret_id}
+                  'entry_id': entry.entry_id}
         if orig_release:
             fields['year'] = orig_release[0:4]
             fields['month'] = orig_release[5:7]
@@ -467,7 +462,7 @@ def get_citation_for_entry(entry_id: str, citation_format: str) -> Union[str, di
             bib_authors.append(Person(first=author['givenName'], last=author['familyName'],
                                       middle=author.get('additionalName', '')))
         bibtex = Entry('misc', fields=fields, persons={'author': bib_authors})
-        bibtex.key = f'bmrb:{ent_ret_id}'
+        bibtex.key = f'bmrb:{entry.entry_id}'
 
         return bibtex.to_string(bib_format='bibtex')
 
@@ -480,7 +475,8 @@ def get_citation_for_entry(entry_id: str, citation_format: str) -> Union[str, di
                 name += x["additionalName"]
             names.append(name)
 
-        text_dict = {"entry_id": entry_id, "title": title,
+        text_dict = {"entry_id": entry.entry_id,
+                     "title": title,
                      "citation_title": citation_title,
                      "citation_journal": citation_journal,
                      "citation_volume_issue": citation_volume_issue,
@@ -515,15 +511,17 @@ def get_citation(entry_id):
     else:
         file_name = 'BMRB-Search-' + werkzeug.utils.secure_filename(file_name)
 
+    entry_data = get_valid_entries_from_redis(entry_id.split(','), max_results=2500)
+    citation_data = {_[0]: get_citation_for_entry(_[1], format_) for _ in entry_data}
+
     if format_ == 'text':
-        return Response('\n'.join(get_citation_for_entry(_, 'text') for _ in entry_id.split(',')),
-                        mimetype="text/plain")
+        return Response('\n'.join(citation_data.values()), mimetype="text/plain")
     elif format_ == 'bibtex':
-        return Response('\n'.join(get_citation_for_entry(_, 'bibtex') for _ in entry_id.split(',')),
+        return Response('\n'.join(citation_data.values()),
                         mimetype="application/x-bibtex",
                         headers={"Content-disposition": "attachment; filename=%s.bib" % file_name})
     elif format_ == 'json-ld':
-        return jsonify({_: get_citation_for_entry(_, 'json-ld') for _ in entry_id.split(',')})
+        return jsonify(citation_data)
 
 
 @entry_endpoints.route('/entry/<entry_id>/simulate_hsqc')
