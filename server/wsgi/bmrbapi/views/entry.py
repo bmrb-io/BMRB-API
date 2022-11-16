@@ -8,6 +8,7 @@ from typing import List, Dict
 
 import pynmrstar
 from flask import Blueprint, Response, request, jsonify, send_file, make_response
+from pybtex.database import Entry, Person
 
 from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.utils import querymod
@@ -410,10 +411,10 @@ def get_citation(entry_id):
             citation_title = get_tag(citation_frame, "Title").strip()
 
             # Authors
-            for row in cl.get_tag(["Given_name", "Family_name", "Middle_initials"]):
-                auth = {"@type": "Person", "givenName": row[0], "familyName": row[1]}
-                if row[2] != ".":
-                    auth["additionalName"] = row[2]
+            for row in cl.get_tag(["Given_name", "Family_name", "Middle_initials"], dict_result=True):
+                auth = {"@type": "Person", "givenName": row['Given_name'], "familyName": row['Family_name']}
+                if row['Middle_initials'] != ".":
+                    auth["additionalName"] = row['Middle_initials']
                 authors.append(auth)
 
             # Citations
@@ -426,12 +427,12 @@ def get_citation(entry_id):
 
     # Figure out last update day, version, and original release
     orig_release, last_update, version = None, None, 1
-    for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number", "Date"]):
-        if row[0] == "1":
-            orig_release = row[1]
-        if int(row[0]) >= version:
-            last_update = row[1]
-            version = int(row[0])
+    for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number", "Date"], dict_result=True):
+        if row['Release_number'] == "1":
+            orig_release = row['Date']
+        if int(row['Release_number']) >= version:
+            last_update = row['Date']
+            version = int(row['Release_number'])
 
     # Title
     title = entry.get_tag("Entry.Title")[0].rstrip()
@@ -458,23 +459,23 @@ def get_citation(entry_id):
         return jsonify(res)
 
     elif format_ == "bibtex":
-        ret_string = """@misc{%(entry_id)s,
- author = {%(author)s},
- publisher = {Biological Magnetic Resonance Bank},
- title = {%(title)s},
- year = {%(year)s},
- month = {%(month)s},
- doi = {%(doi)s},
- howpublished = {https://doi.org/%(doi)s}
- url = {https://doi.org/%(doi)s}
-}"""
+        fields = {'year': orig_release[0:4],
+                  'publisher': 'Biological Magnetic Resonance Bank',
+                  'month': orig_release[5:7],
+                  'doi': doi,
+                  'url': f'https://doi.org/{doi}',
+                  'title': title,
+                  'entry_id': ent_ret_id}
 
-        ret_keys = {"entry_id": ent_ret_id, "title": title,
-                    "year": orig_release[0:4], "month": orig_release[5:7],
-                    "doi": doi,
-                    "author": " and ".join([x["familyName"] + ", " + x["givenName"] for x in authors])}
+        bib_authors = []
+        for author in authors:
+            bib_authors.append(Person(first=author['givenName'], last=author['familyName'],
+                                      middle=author.get('additionalName', '')))
+        bibtex = Entry('misc', fields=fields, persons={'author': bib_authors})
+        bibtex.key = f'bmrb:{ent_ret_id}'
 
-        return Response(ret_string % ret_keys, mimetype="application/x-bibtex",
+        return Response(bibtex.to_string(bib_format='bibtex'),
+                        mimetype="application/x-bibtex",
                         headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
 
     elif format_ == "text":

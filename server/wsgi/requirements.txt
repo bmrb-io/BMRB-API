@@ -14,6 +14,7 @@ pynmrstar==3.3.0
 requests==2.26.0
 marshmallow==3.14.1
 marshmallow_enum==1.5.1
+pybtex==0.24.0
 # For iNext loading - this is the highest version of pandas supported by 3.6
 pandas==1.1.5
 xlrd==2.0.1
