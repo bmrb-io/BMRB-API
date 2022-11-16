@@ -192,7 +192,7 @@ if options.metabolomics:
     logger.info('Calculating metabolomics entries to process...')
     with PostgresConnection() as cur:
         cur.execute('SELECT DISTINCT "ID" FROM metabolomics."Entry" ORDER BY "ID"')
-        entries = sorted([x['Entry_ID'] for x in cur.fetchall()])
+        entries = sorted([x['ID'] for x in cur.fetchall()])
 
     if len(entries) < 1000:
         raise ValueError("Refusing to continue, the DB appears corrupted.")
