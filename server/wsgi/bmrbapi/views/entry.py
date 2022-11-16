@@ -4,7 +4,7 @@ import tempfile
 import zlib
 from hashlib import md5
 from time import time as unix_time
-from typing import List, Dict
+from typing import List, Dict, Union, overload, Literal
 
 import pynmrstar
 from flask import Blueprint, Response, request, jsonify, send_file, make_response
@@ -360,17 +360,11 @@ ORDER BY me."Entry_ID", me."ID";'''
     return jsonify(results)
 
 
-@entry_endpoints.route('/entry/<entry_id>/citation')
-def get_citation(entry_id):
-    """ Return the citation information for an entry in the requested format. """
-
-    format_ = request.args.get('format', "json-ld")
-
-    # Error if invalid
-    if format_ not in ["json-ld", "text", "bibtex"]:
-        raise RequestException("Invalid format specified. Please choose from the following formats: %s" %
-                               str(["json-ld", "text", "bibtex"]))
-
+@overload
+def get_citation_for_entry(entry_id: str, citation_format: Literal['json-ld']) -> dict: ...
+@overload
+def get_citation_for_entry(entry_id: str, citation_format: Union[Literal['bibtex', 'text']]) -> str: ...
+def get_citation_for_entry(entry_id: str, citation_format: str):
     try:
         ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
     except StopIteration:
@@ -442,7 +436,7 @@ def get_citation(entry_id):
     if ent_ret_id.startswith("bmse") or ent_ret_id.startswith("bmst"):
         doi = "10.13018/%s" % ent_ret_id.upper()
 
-    if format_ == "json-ld":
+    if citation_format == "json-ld":
         res = {"@context": "http://schema.org",
                "@type": "Dataset",
                "@id": "https://doi.org/10.13018/%s" % doi,
@@ -455,10 +449,9 @@ def get_citation(entry_id):
 
         if len(citations) > 0:
             res["citation"] = citations
+        return res
 
-        return jsonify(res)
-
-    elif format_ == "bibtex":
+    elif citation_format == "bibtex":
         fields = {'year': orig_release[0:4],
                   'publisher': 'Biological Magnetic Resonance Bank',
                   'month': orig_release[5:7],
@@ -474,11 +467,9 @@ def get_citation(entry_id):
         bibtex = Entry('misc', fields=fields, persons={'author': bib_authors})
         bibtex.key = f'bmrb:{ent_ret_id}'
 
-        return Response(bibtex.to_string(bib_format='bibtex'),
-                        mimetype="application/x-bibtex",
-                        headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
+        return bibtex.to_string(bib_format='bibtex')
 
-    elif format_ == "text":
+    elif citation_format == "text":
 
         names = []
         for x in authors:
@@ -504,8 +495,24 @@ def get_citation(entry_id):
                        text_dict
         else:
             citation = "BMRB ID: %(entry_id)s %(author)s %(title)s doi: %(doi)s" % text_dict
+        return citation
 
-        return Response(citation, mimetype="text/plain")
+
+@entry_endpoints.route('/entry/<entry_id>/citation')
+def get_citation(entry_id):
+    """ Return the citation information for an entry in the requested format. """
+
+    format_ = request.args.get('format', "bibtex")
+
+    if format_ == 'text':
+        return Response('\n'.join(get_citation_for_entry(_, 'text') for _ in entry_id.split(',')),
+                        mimetype="text/plain")
+    elif format_ == 'bibtex':
+        return Response('\n'.join(get_citation_for_entry(_, 'bibtex') for _ in entry_id.split(',')),
+                        mimetype="application/x-bibtex",
+                        headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
+    elif format_ == 'json-ld':
+        return jsonify({_: get_citation_for_entry(_, 'json-ld') for _ in entry_id.split(',')})
 
 
 @entry_endpoints.route('/entry/<entry_id>/simulate_hsqc')

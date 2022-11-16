@@ -258,7 +258,7 @@ Example: [Fetching the entry title and citation title](http://api.bmrb.io/v2/ent
 **/entry/$entry_id/citation**
 
 Returns the citation information for the entry. Citation information
-is available in three formats. The default format is JSON-LD. To use one
+is available in three formats. The default format is bibtex. To use one
 of the other formats, specify one of the following values for the `format`
 tag:
 
