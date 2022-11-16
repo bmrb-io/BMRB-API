@@ -191,7 +191,7 @@ if options.sql:
 if options.metabolomics:
     logger.info('Calculating metabolomics entries to process...')
     with PostgresConnection() as cur:
-        cur.execute('SELECT DISTINCT "Entry_ID" FROM metabolomics."Release" ORDER BY "Entry_ID"')
+        cur.execute('SELECT DISTINCT "ID" FROM metabolomics."Entry" ORDER BY "Entry_ID"')
         entries = sorted([x['Entry_ID'] for x in cur.fetchall()])
 
     if len(entries) < 1000:
