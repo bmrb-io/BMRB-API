@@ -4,7 +4,7 @@ import tempfile
 import zlib
 from hashlib import md5
 from time import time as unix_time
-from typing import List, Dict, Union, overload, Literal
+from typing import List, Dict, Union
 
 import pynmrstar
 import werkzeug.utils
@@ -361,11 +361,7 @@ ORDER BY me."Entry_ID", me."ID";'''
     return jsonify(results)
 
 
-@overload
-def get_citation_for_entry(entry_id: str, citation_format: Literal['json-ld']) -> dict: ...
-@overload
-def get_citation_for_entry(entry_id: str, citation_format: Union[Literal['bibtex', 'text']]) -> str: ...
-def get_citation_for_entry(entry_id: str, citation_format: str):
+def get_citation_for_entry(entry_id: str, citation_format: str) -> Union[str, dict]:
     try:
         ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
     except StopIteration:
