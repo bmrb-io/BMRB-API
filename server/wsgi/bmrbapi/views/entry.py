@@ -456,13 +456,15 @@ def get_citation_for_entry(entry_id: str, citation_format: str):
         return res
 
     elif citation_format == "bibtex":
-        fields = {'year': orig_release[0:4],
-                  'publisher': 'Biological Magnetic Resonance Bank',
+        fields = {'publisher': 'Biological Magnetic Resonance Bank',
                   'month': orig_release[5:7],
                   'doi': doi,
                   'url': f'https://doi.org/{doi}',
                   'title': title,
                   'entry_id': ent_ret_id}
+        if orig_release:
+            fields['year'] = orig_release[0:4]
+            fields['month'] = orig_release[5:7]
 
         bib_authors = []
         for author in authors:
