@@ -457,7 +457,6 @@ def get_citation_for_entry(entry_id: str, citation_format: str):
 
     elif citation_format == "bibtex":
         fields = {'publisher': 'Biological Magnetic Resonance Bank',
-                  'month': orig_release[5:7],
                   'doi': doi,
                   'url': f'https://doi.org/{doi}',
                   'title': title,
