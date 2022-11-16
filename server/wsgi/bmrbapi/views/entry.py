@@ -424,9 +424,13 @@ def get_citation_for_entry(entry_id: str, citation_format: str):
     for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number", "Date"], dict_result=True):
         if row['Release_number'] == "1":
             orig_release = row['Date']
-        if int(row['Release_number']) >= version:
-            last_update = row['Date']
-            version = int(row['Release_number'])
+        # This triggers when the release number is not set
+        try:
+            if int(row['Release_number']) >= version:
+                last_update = row['Date']
+                version = int(row['Release_number'])
+        except ValueError:
+            pass
 
     # Title
     title = entry.get_tag("Entry.Title")[0].rstrip()
