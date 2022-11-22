@@ -120,6 +120,8 @@ class SimpleJSONProvider(JSONProvider):
 
     def loads(self, s, **kwargs):
         return simplejson.loads(s)
+
+
 application.json = SimpleJSONProvider(application)
 
 
