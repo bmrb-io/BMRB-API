@@ -4,15 +4,19 @@
 
 CREATE extension IF NOT EXISTS pg_trgm;
 
--- Put an index on the chemical shift values. Even though we will primarily use our custom table,
+-- Put an index on tables that we will be querying often. Even though we will primarily use our custom table,
 --  the indexes are still helpful for certain other queries we will make against this table
 DO $$
 BEGIN
     BEGIN
         CREATE INDEX error_on_duplicates ON macromolecules."Atom_chem_shift" (CAST("Val" AS FLOAT), "Atom_type");
         CREATE INDEX ON metabolomics."Atom_chem_shift" (CAST("Val" AS FLOAT), "Atom_type");
-        ANALYZE macromolecules."Atom_chem_shift";
-        ANALYZE metabolomics."Atom_chem_shift";
+
+        -- These four are four the multiple peak search supporting solvents
+        CREATE INDEX ON metabolomics."Chem_shift_experiment" ("Entry_ID", "Sample_ID");
+        CREATE INDEX ON macromolecules."Chem_shift_experiment" ("Entry_ID", "Sample_ID");
+        CREATE INDEX ON metabolomics."Sample_component" ("Entry_ID", "Sample_ID");
+        CREATE INDEX ON macromolecules."Sample_component" ("Entry_ID", "Sample_ID");
     EXCEPTION
         WHEN OTHERS THEN RAISE NOTICE 'Skipping chemical_shift index creation because at least one index already exists.';
     END;
@@ -26,6 +30,8 @@ SELECT entity."Entry_ID",
         FROM macromolecules."Assembly" AS assem
         WHERE assem."Entry_ID" = entity."Entry_ID"
           AND assem."ID" = '1')                                                             AS system_name,
+       (SELECT "Title" FROM macromolecules."Entry" AS ent
+        WHERE entity."Entry_ID" = ent."ID")                                                 AS entry_title,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'C' AND cs."Atom_isotope_number" = '13') AS carbon_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'N' AND cs."Atom_isotope_number" = '15') AS nitrogen_shifts,
        COUNT(cs.*) FILTER ( WHERE cs."Atom_type" = 'P' AND cs."Atom_isotope_number" = '31') AS phosphorus_shifts,
@@ -113,7 +119,7 @@ CREATE UNIQUE INDEX ON web.query_grid_tmp ("Entry_ID");
 
 -- Go live with the new query grid info
 BEGIN;
-DROP MATERIALIZED VIEW web.query_grid;
+DROP MATERIALIZED VIEW IF EXISTS web.query_grid;
 ALTER MATERIALIZED VIEW web.query_grid_tmp RENAME TO query_grid;
 END;
 
@@ -255,6 +261,8 @@ UNION
 SELECT DISTINCT "Entry_ID", 'PubMed ID', "PubMed_ID", to_tsvector("PubMed_ID") FROM macromolecules."Citation"
 UNION
 SELECT DISTINCT "Entry_ID", 'Additional data', "Type", to_tsvector("Type") FROM macromolecules."Datum"
+UNION
+SELECT bmrbid::text as "Entry_ID", 'Time domain data sets', "sets"::text, to_tsvector('Time domain data') FROM web.timedomain_data
 UNION
 SELECT DISTINCT "Entry_ID", 'Citation DOI', "DOI", to_tsvector("DOI") FROM macromolecules."Citation" where "DOI" IS NOT NULL
 UNION
@@ -491,6 +499,8 @@ GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to web;
 GRANT ALL PRIVILEGES ON TABLE web.metabolomics_summary to bmrb;
 GRANT ALL PRIVILEGES ON TABLE web.pdb_link to web;
 GRANT ALL PRIVILEGES ON TABLE web.pdb_link to bmrb;
+
+ANALYSE;
 
 GRANT USAGE ON schema web TO PUBLIC;
 GRANT SELECT ON ALL TABLES IN schema web TO PUBLIC;

@@ -40,6 +40,7 @@ class GetCitation(Schema):
         json_ld = "json-ld"
         bibtex = "bibtex"
     format = CustomErrorEnum(Format)
+    file_name = fields.String()
 
 
 class SimulateHsqc(Schema):

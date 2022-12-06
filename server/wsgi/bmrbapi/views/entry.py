@@ -4,10 +4,12 @@ import tempfile
 import zlib
 from hashlib import md5
 from time import time as unix_time
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import pynmrstar
+import werkzeug.utils
 from flask import Blueprint, Response, request, jsonify, send_file, make_response
+from pybtex.database import Entry, Person
 
 from bmrbapi.exceptions import ServerException, RequestException
 from bmrbapi.utils import querymod
@@ -358,25 +360,10 @@ ORDER BY me."Entry_ID", me."ID";'''
         check_valid(entry_id)
     return jsonify(results)
 
+def get_citation_for_entry(entry: pynmrstar.Entry, citation_format: str) -> Union[str, dict]:
 
-@entry_endpoints.route('/entry/<entry_id>/citation')
-def get_citation(entry_id):
-    """ Return the citation information for an entry in the requested format. """
-
-    format_ = request.args.get('format', "json-ld")
-
-    # Error if invalid
-    if format_ not in ["json-ld", "text", "bibtex"]:
-        raise RequestException("Invalid format specified. Please choose from the following formats: %s" %
-                               str(["json-ld", "text", "bibtex"]))
-
-    try:
-        ent_ret_id, entry = next(get_valid_entries_from_redis(entry_id))
-    except StopIteration:
-        raise RequestException("Entry '%s' does not exist in the public database." % entry_id)
 
     # First lets get all the values we need, later we will format them
-
     def get_tag(saveframe, tag):
         tag = saveframe.get_tag(tag)
         if not tag:
@@ -410,10 +397,10 @@ def get_citation(entry_id):
             citation_title = get_tag(citation_frame, "Title").strip()
 
             # Authors
-            for row in cl.get_tag(["Given_name", "Family_name", "Middle_initials"]):
-                auth = {"@type": "Person", "givenName": row[0], "familyName": row[1]}
-                if row[2] != ".":
-                    auth["additionalName"] = row[2]
+            for row in cl.get_tag(["Given_name", "Family_name", "Middle_initials"], dict_result=True):
+                auth = {"@type": "Person", "givenName": row['Given_name'], "familyName": row['Family_name']}
+                if row['Middle_initials'] != ".":
+                    auth["additionalName"] = row['Middle_initials']
                 authors.append(auth)
 
             # Citations
@@ -426,22 +413,26 @@ def get_citation(entry_id):
 
     # Figure out last update day, version, and original release
     orig_release, last_update, version = None, None, 1
-    for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number", "Date"]):
-        if row[0] == "1":
-            orig_release = row[1]
-        if int(row[0]) >= version:
-            last_update = row[1]
-            version = int(row[0])
+    for row in entry.get_loops_by_category("Release")[0].get_tag(["Release_number", "Date"], dict_result=True):
+        if row['Release_number'] == "1":
+            orig_release = row['Date']
+        # This triggers when the release number is not set
+        try:
+            if int(row['Release_number']) >= version:
+                last_update = row['Date']
+                version = int(row['Release_number'])
+        except ValueError:
+            pass
 
     # Title
     title = entry.get_tag("Entry.Title")[0].rstrip()
 
     # DOI string
-    doi = "10.13018/BMR%s" % ent_ret_id
-    if ent_ret_id.startswith("bmse") or ent_ret_id.startswith("bmst"):
-        doi = "10.13018/%s" % ent_ret_id.upper()
+    doi = "10.13018/BMR%s" % entry.entry_id
+    if entry.entry_id.startswith("bmse") or entry.entry_id.startswith("bmst"):
+        doi = "10.13018/%s" % entry.entry_id.upper()
 
-    if format_ == "json-ld":
+    if citation_format == "json-ld":
         res = {"@context": "http://schema.org",
                "@type": "Dataset",
                "@id": "https://doi.org/10.13018/%s" % doi,
@@ -454,30 +445,28 @@ def get_citation(entry_id):
 
         if len(citations) > 0:
             res["citation"] = citations
+        return res
 
-        return jsonify(res)
+    elif citation_format == "bibtex":
+        fields = {'publisher': 'Biological Magnetic Resonance Bank',
+                  'doi': doi,
+                  'url': f'https://doi.org/{doi}',
+                  'title': title,
+                  'entry_id': entry.entry_id}
+        if orig_release:
+            fields['year'] = orig_release[0:4]
+            fields['month'] = orig_release[5:7]
 
-    elif format_ == "bibtex":
-        ret_string = """@misc{%(entry_id)s,
- author = {%(author)s},
- publisher = {Biological Magnetic Resonance Bank},
- title = {%(title)s},
- year = {%(year)s},
- month = {%(month)s},
- doi = {%(doi)s},
- howpublished = {https://doi.org/%(doi)s}
- url = {https://doi.org/%(doi)s}
-}"""
+        bib_authors = []
+        for author in authors:
+            bib_authors.append(Person(first=author['givenName'], last=author['familyName'],
+                                      middle=author.get('additionalName', '')))
+        bibtex = Entry('misc', fields=fields, persons={'author': bib_authors})
+        bibtex.key = f'bmrb:{entry.entry_id}'
 
-        ret_keys = {"entry_id": ent_ret_id, "title": title,
-                    "year": orig_release[0:4], "month": orig_release[5:7],
-                    "doi": doi,
-                    "author": " and ".join([x["familyName"] + ", " + x["givenName"] for x in authors])}
+        return bibtex.to_string(bib_format='bibtex')
 
-        return Response(ret_string % ret_keys, mimetype="application/x-bibtex",
-                        headers={"Content-disposition": "attachment; filename=%s.bib" % entry_id})
-
-    elif format_ == "text":
+    elif citation_format == "text":
 
         names = []
         for x in authors:
@@ -486,7 +475,8 @@ def get_citation(entry_id):
                 name += x["additionalName"]
             names.append(name)
 
-        text_dict = {"entry_id": entry_id, "title": title,
+        text_dict = {"entry_id": entry.entry_id,
+                     "title": title,
                      "citation_title": citation_title,
                      "citation_journal": citation_journal,
                      "citation_volume_issue": citation_volume_issue,
@@ -503,8 +493,35 @@ def get_citation(entry_id):
                        text_dict
         else:
             citation = "BMRB ID: %(entry_id)s %(author)s %(title)s doi: %(doi)s" % text_dict
+        return citation
 
-        return Response(citation, mimetype="text/plain")
+
+@entry_endpoints.route('/entry/<entry_id>/citation')
+def get_citation(entry_id):
+    """ Return the citation information for an entry in the requested format. """
+
+    format_ = request.args.get('format', "bibtex")
+    file_name = request.args.get('file_name', None)
+
+    if not file_name:
+        if len(entry_id.split(',')) > 7:
+            file_name = 'multiple'
+        else:
+            file_name = entry_id
+    else:
+        file_name = 'BMRB-Search-' + werkzeug.utils.secure_filename(file_name)
+
+    entry_data = get_valid_entries_from_redis(entry_id.split(','), max_results=2500)
+    citation_data = {_[0]: get_citation_for_entry(_[1], format_) for _ in entry_data}
+
+    if format_ == 'text':
+        return Response('\n'.join(citation_data.values()), mimetype="text/plain")
+    elif format_ == 'bibtex':
+        return Response('\n'.join(citation_data.values()),
+                        mimetype="application/x-bibtex",
+                        headers={"Content-disposition": "attachment; filename=%s.bib" % file_name})
+    elif format_ == 'json-ld':
+        return jsonify(citation_data)
 
 
 @entry_endpoints.route('/entry/<entry_id>/simulate_hsqc')
