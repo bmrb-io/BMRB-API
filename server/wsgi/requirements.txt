@@ -1,6 +1,3 @@
-# HEY YOU! Don't forget to update docker_requirements.txt as well if the
-#  package is needed inside of the Docker container!
-
 wheel==0.40.0
 flask==2.3.2
 psycopg2-binary==2.9.6
@@ -15,8 +12,8 @@ requests==2.31.0
 marshmallow==3.19.0
 marshmallow_enum==1.5.1
 pybtex==0.24.0
-# For iNext loading - this is the highest version of pandas supported by 3.6
-pandas==1.1.5
+# For iNext loading
+pandas==2.0.2
 xlrd==2.0.1
 # For XML generation
-lxml==4.9.1
+lxml==4.9.2

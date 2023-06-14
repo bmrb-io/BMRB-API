@@ -38,7 +38,7 @@ RUN cd /opt/wsgi/bmrbapi/reloaders/molprobity_binary && make
 COPY ./wsgi/bmrbapi/submodules/fasta36 /opt/wsgi/bmrbapi/submodules/fasta36
 RUN cd /opt/wsgi/bmrbapi/submodules/fasta36/src && make -f ../make/Makefile.linux64_sse2 all
 
-COPY wsgi/docker_requirements.txt /tmp/requirements.txt
+COPY wsgi/requirements.txt /tmp/requirements.txt
 RUN pip install --upgrade pip wheel
 RUN pip install  -r /tmp/requirements.txt
 
