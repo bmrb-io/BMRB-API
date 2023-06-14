@@ -315,11 +315,11 @@ WHERE
             args.append(comp.upper())
         sql += "1 = 2) AND "
 
-    # See if specific temperatures are needed
+    # See if specific phs are needed
     if phs:
         sql += "("
         for ph in phs:
-            sql += '''("Sample_conditions.Temperature_K" <= %s AND "Sample_conditions.Temperature_K" >= %s) OR '''
+            sql += '''("Sample_conditions.pH" <= %s AND "Sample_conditions.pH" >= %s) OR '''
             try:
                 range_low = float(ph) - ph_threshold
                 range_high = float(ph) + ph_threshold

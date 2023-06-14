@@ -378,7 +378,7 @@ FROM macromolecules."Entry" AS entry
 LEFT JOIN macromolecules."Citation" AS citation
   ON entry."ID"=citation."Entry_ID" AND citation."Class" = 'entry citation'
 LEFT JOIN macromolecules."Citation_author" AS citation_author
-  ON entry."ID"=citation_author."Entry_ID" AND citation_author."Citation_ID" = '1'
+  ON entry."ID"=citation_author."Entry_ID" AND citation_author."Citation_ID" = citation."ID"
 LEFT JOIN macromolecules."Data_set" AS data_set
   ON data_set."Entry_ID"=entry."ID"
 GROUP BY entry."ID",entry."Title", entry."Submission_date";

@@ -81,9 +81,9 @@ struct mngmsg 		/* Message from host to manager */
   int nmoff;		/* length of fastf segment */
   unsigned char *aa0a;	/* annotation array */
   struct annot_str *annot_p;	/* annot_str for query */
-  unsigned char ann_arr[MAX_FN]; /* annotation characters */
+  unsigned char ann_arr[MAX_STR]; /* annotation characters */
   int ann_arr_n;	/* number of annotation characters */
-  char *ann_arr_def[MAX_FN];	/* definitions of ann_arr characters */
+  char *ann_arr_def[MAX_STR];	/* definitions of ann_arr characters */
   int ann_flg;		/* have annotation array, characters */
   int have_ann;		/* have annotation on this query */
   char tname[MAX_FN];	/* Query sequence name */
@@ -146,6 +146,7 @@ struct mngmsg 		/* Message from host to manager */
   int arelv;		/* number of scores to show at alignment */
   int z_bits;		/* z_bits==1: show bit score, ==0 show z-score */
   int tot_ident;	/* tot_ident=1 -> no mismatches for 100% identity */
+  int gi_save;		/* do not remove gi|12345 in displays */
   char alab[3][24];	/* labels for alignment scores */
   int nohist;		/* no histogram option */
   int do_showbest;	/* do not showbest() */

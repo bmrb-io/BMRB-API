@@ -413,7 +413,7 @@ void fsigint();
 int
 main (int argc, char *argv[]) 
 {
-  unsigned char *aa0[6], *aa0s;
+  unsigned char *aa0[6], *aa0s=NULL;
   unsigned char *aa1save;	/* aa1shuff and aa1save must be distinct */
   unsigned char *aa1shuff, *aa1shuff_b=NULL;	/* for new unthreaded version */
   char *lib_db_file;
@@ -429,7 +429,7 @@ main (int argc, char *argv[])
   struct a_res_str *next_ares_p, *cur_ares_p; /* used to free-up old a_res */
 
   /* status/parameter information */
-  char info_lib_range[MAX_FN];
+  char info_lib_range[MAX_SSTR];
   char *info_lib_range_p;
   char info_pgm_abbr[MAX_SSTR];
   char info_qlabel[MAX_STR];
@@ -456,7 +456,9 @@ main (int argc, char *argv[])
   int utmp;		/* user input tmp */
 
   struct pstruct pst;
-  void *f_str[6], *qf_str;	/* different f_str[]'s for forward,reverse */
+  void *f_str[6];	/* different f_str[]'s for forward,reverse */
+
+  void *qf_str;
   int have_f_str=0;
 
   /* these variables track buffers of library sequences */
@@ -615,10 +617,10 @@ main (int argc, char *argv[])
   if (m_msg.tname[0] == '\0') {
       if (m_msg.quiet >= 1)
 	s_abort("Query sequence undefined","");
-    l1:	fputs (iprompt1, stdout);
-      fflush  (stdout);
-      if (fgets (m_msg.tname, MAX_FN, stdin) == NULL)
-	s_abort ("Unable to read query library name","");
+    l1:	fputs(iprompt1, stdout);
+      fflush(stdout);
+      if (fgets(m_msg.tname, MAX_FN, stdin) == NULL)
+	s_abort("Unable to read query library name","");
       m_msg.tname[MAX_FN-1]='\0';
       if ((bp=strchr(m_msg.tname,'\n'))!=NULL) *bp='\0';
       if (m_msg.tname[0] == '\0') goto l1;
@@ -758,7 +760,7 @@ main (int argc, char *argv[])
 #endif
 
    /* get library file names from argv[2] or by prompting */
-  if (strlen (m_msg.lname) == 0) {
+  if (strlen(m_msg.lname) == 0) {
     if (m_msg.quiet >= 1) s_abort("Library name undefined","");
     lib_choice(m_msg.lname,sizeof(m_msg.lname),m_msg.flstr, m_msg.ldb_info.ldnaseq);
   }
@@ -1673,7 +1675,8 @@ main (int argc, char *argv[])
     if (fdata) {
       fprintf(fdata,"#Algorithm : %s\n",info_gstring2p[0]);
       fprintf(fdata,"#Parameters : %s\n",info_gstring2p[1]);
-      fprintf(fdata,"#Query: %3ld>>>%-50s\n",qtt.entries-1,m_msg.qtitle);
+      fprintf(fdata,"#Query: %ld>>> q_len: %d; %-50s\n",qtt.entries-1,m_msg.n0,m_msg.qtitle);
+      fprintf(fdata,"#Library: n_seq: %ld; %-50s\n",m_msg.db.entries,m_msg.ltitle);
       pstat_info(fdata_pstat_info, sizeof(fdata_pstat_info), "#Stat:",m_msg.pstat_void);
       fputs(fdata_pstat_info,fdata);
       fflush(fdata);
@@ -2328,7 +2331,6 @@ next_seqr_chain(const struct mng_thr *m_bufi_p, struct getlib_str *getlib_info,
 
   int maxt;	/* continued sequence */
   int sstart, sstop, is, id, i;
-  int igncnt=0;			/* count for ignoring sequences warning */
   struct lmf_str *m_file_p;
   unsigned char *aa1ptr, *aa1;
   char *bp;
