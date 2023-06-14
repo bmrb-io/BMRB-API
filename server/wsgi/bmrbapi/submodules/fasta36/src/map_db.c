@@ -1,3 +1,4 @@
+#include <stdint.h>
 /* map_db.c - read a FASTA or GCG format database and generate a list
    of indices for rapid memory mapping */
 
@@ -367,7 +368,7 @@ main(int argc, char **argv) {
   }
 
 #ifdef BIG_LIB64
-  fprintf(stderr," wrote %d sequences (tot=%lld, max=%ld) to %s\n",
+  fprintf(stderr," wrote %d sequences (tot=%ld, max=%ld) to %s\n",
 	  nlib,tot_len,max_len,iname);
 #else
   fprintf(stderr," wrote %d sequences (tot=%ld, max=%ld) to %s\n",
