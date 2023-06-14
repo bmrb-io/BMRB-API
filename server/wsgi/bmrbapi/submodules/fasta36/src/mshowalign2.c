@@ -141,7 +141,10 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
   unsigned char *aa1, *aa1a;
   char tmp_str[20];
   char info_str[200];
-  char bline[2048], *qline_p, *bline_p, *bl_ptr, *bp, *bp1, fmt[40];
+  char bline[2048], *qline_p, *bline_p, *bl_ptr, *bp, fmt[40];
+#ifdef LALIGN
+  char *bp1;
+#endif
   struct dyn_string_str *annot_var_dyn, *align_code_dyn;
   char *annot_var_s10;
   int tmp_len, ttmp_len, l_llen, desc_llen, ranlib_done;
@@ -182,7 +185,7 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
   annot_var_dyn = init_dyn_string(4096, 4096);
 
   qline_p = m_msp->qtitle;
-  if (!strncmp(m_msp->qtitle,"gi|",3)) {
+  if (!m_msp->gi_save && !strncmp(m_msp->qtitle,"gi|",3)) {
     qline_p = strchr(qline_p+4,'|');
     /* check for additional '|'s associated with NCBI gi|12346|db|acc entry */
     if (!qline_p || strchr(qline_p+1,'|')==NULL) {
@@ -350,7 +353,7 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
 
     bline_p = bline;
     /* always remove "gi|" for alignments */
-    if (!strncmp(bline,"gi|",3)) {
+    if (!m_msp->gi_save && !strncmp(bline,"gi|",3)) {
       bline_p = strchr(bline+4,'|');
       if (!bline_p || !strchr(bline_p+1,'|')) {bline_p = bline;}
       else bline_p += 1;
@@ -745,9 +748,9 @@ void showalign (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
 	if (info_str[0]) fprintf(fp,"; %s_info: %s\n",m_msp->f_id0,info_str);
 	if (ppst->zsflag>=0) 
 	  fprintf (fp,"; %s_z-score: %4.1f\n; %s_bits: %3.1f\n; %s_expect: %6.2g\n",
-		   m_msp->f_id0,bbp->zscore,
-		   m_msp->f_id0,zs_to_bit(bbp->zscore, m_msp->n0, bbp->seq->n1),
-		   m_msp->f_id0,bbp->rst.escore);
+		   m_msp->f_id0,lzscore,
+		   m_msp->f_id0,zs_to_bit(lzscore, m_msp->n0, bbp->seq->n1),
+		   m_msp->f_id0,zs_to_E(lzscore, bbp->seq->n1, ppst->dnaseq, ppst->zdb_size, m_msp->db));
 #else
 	if ((m_msp->markx & MX_M11OUT) == 0) {
 	  fprintf (fp,"; %s_%s: %d\n", m_msp->f_id0, m_msp->alab[0], lsw_score);
@@ -989,7 +992,7 @@ void freeseq_ann(char **seqc0a, char **seqc1a)
    identical*/
 float calc_fpercent_id(float scale, int n_ident, int n_alen, int tot_ident, float fail) {
   float f_id, f_decimal;
-  int n_sig;
+  /* int n_sig; */
 
   if (n_alen <= 0) { return fail;}
 

@@ -250,18 +250,39 @@ void showbest (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
     /* line below copied from BLAST+ output */
     if (m_msp->markx & MX_M8_BTAB_LEN) {  /* yes qslen */
       if (m_msp->markx & MX_M8_BTAB_SIM) {  /* yes similarity */
-	fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, %% similar, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+
+	if (m_msp->markx & MX_M8_BTAB_RAW) {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, %% similar, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, raw score");
+	}
+	else {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, %% similar, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+	}
       }
       else { /* no similarity */
-	fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+	if (m_msp->markx & MX_M8_BTAB_RAW) {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, raw score");
+	}
+	else {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+	}
       }
     }
     else {  /* no qslen */
       if (m_msp->markx & MX_M8_BTAB_SIM) {  /* yes similarity */
-	fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, %% simlar, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+	if (m_msp->markx & MX_M8_BTAB_RAW) {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, %% simlar, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, raw score");
+	}
+	else {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, %% simlar, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+	}
       }
       else { /* no similarity */
-	fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+	if (m_msp->markx & MX_M8_BTAB_RAW) {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, raw score");
+	}
+	else {
+	  fprintf(fp,"# Fields: query id, query length, subject id, subject length, %% identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score");
+	}
       }
     }
 
@@ -279,7 +300,7 @@ void showbest (FILE *fp, unsigned char **aa0, unsigned char *aa1save, int maxn,
   /* **************************************************************** */
 
   if (m_msp->markx & MX_MBLAST2) {
-    fprintf(fp, "%81s\n"," Score     E");
+    fprintf(fp, "%81s\n"," Score     E");  /* space over for two line column label */
     fprintf(fp, "Sequences producing significant alignments:                          (Bits)  Value\n\n");
   }
   else if (!(m_msp->markx & MX_M8OUT)) {
@@ -442,7 +463,7 @@ l1:
     n1tot = (bbp->mseq->n1tot_p) ? *bbp->mseq->n1tot_p : bbp->seq->n1;
 
     bline_p = bline;
-    if (!(m_msp->markx & (MX_M8OUT)) && !strncmp(bline,"gi|",3)) {
+    if (!(m_msp->markx & (MX_M8OUT)) && (!m_msp->gi_save && !strncmp(bline,"gi|",3))) {
       bline_p = strchr(bline+4,'|')+1;
       *(bline_p-1) = 0;
       gi_num = atoi(bline+3);
@@ -635,6 +656,10 @@ l1:
 		    zs_to_E(lzscore,n1,ppst->dnaseq,ppst->zdb_size,m_msp->db),
 		    lbits);
 
+	    if (m_msp->markx & MX_M8_BTAB_RAW) {
+	      fprintf(fp,"\t%d",cur_ares_p->sw_score);
+	    }
+
 	    if (ppst->zsflag > 20) {
 	      fprintf(fp,"\t%.2g",zs_to_E(lzscore2, n1, ppst->dnaseq, ppst->zdb_size, m_msp->db));
 	    }
@@ -733,7 +758,6 @@ dominfo_to_str(struct dyn_string_str *dominfo_dstr, struct annot_str *annots) {
   int i;
   char tmp_string[MAX_STR];
   struct annot_entry *annot;
-  struct dyn_string_str *dyn_dom_str;
 
   for (i=0; i < annots->n_annot; i++) {
 

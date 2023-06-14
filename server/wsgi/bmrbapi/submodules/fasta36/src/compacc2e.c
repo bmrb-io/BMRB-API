@@ -52,6 +52,14 @@
 extern char ext_qtitle[];
 #endif
 
+#ifdef __GNUC__
+extern FILE *fdopen(int fd, const char *mode);
+extern FILE *popen(const char *script, const char *mode);
+extern int pclose(FILE *);
+extern int mkstemp(char *template);
+/* extern char *mktemp(char *template); */
+#endif
+
 extern void abort ();
 
 #include "drop_func.h"	/* get init_work() */
@@ -443,7 +451,6 @@ extern time_t tdstart, tddone;
 void
 print_header1(FILE *fd, const char *argv_line,
 	      const struct mngmsg *m_msp, const struct pstruct *ppst) {
-  int i;
 
 #ifdef PGM_DOC
   if (!(m_msp->markx & (MX_M8OUT+MX_MBLAST2)) || (m_msp->markx & MX_M8COMMENT)) fprintf(fd, "#%s\n",argv_line);
@@ -926,8 +933,6 @@ extern char prog_name[], *verstr;
 
 void s_abort (char *p,  char *p1)
 {
-  int i;
-
   fprintf (stderr, "\n***[%s] %s%s***\n", prog_name, p, p1);
 #ifdef PCOMPLIB
   MPI_Abort(MPI_COMM_WORLD,1);
@@ -1439,12 +1444,18 @@ build_link_data(char **link_lib_file_p,
 
   SAFE_STRNCAT(link_acc_file,"link_acc_XXXXXX",sizeof(link_acc_file));
   link_acc_fd = mkstemp(link_acc_file);
+  if (link_acc_fd < 0) {
+    fprintf(stderr,"*** ERROR [%s:%d] - Cannot open link_acc_file: %s\n",
+	    __FILE__, __LINE__, link_acc_file);
+    goto no_links;
+  }
+
   strncpy(link_lib_file,link_acc_file,MAX_STR);
   link_acc_file[sizeof(link_acc_file)-1] = '\0';
   SAFE_STRNCAT(link_lib_file,".lib",MAX_STR);
 
   /* write out accessions to link_acc_file */
-  if ((link_fd =fdopen(link_acc_fd,"w"))==NULL) {
+  if ((link_fd = fdopen(link_acc_fd,"w"))==NULL) {
     fprintf(stderr,"*** ERROR [%s:%d] - Cannot open link_acc_file: %s\n",
 	    __FILE__, __LINE__, link_acc_file);
     goto no_links;
@@ -1557,14 +1568,18 @@ build_link_data(char **link_lib_file_p,
 /* **************************************************************** */
 char *
 build_lib_db(char *script_file) {
-  int i, status;
+  int  status;
   char tmp_line[MAX_SSTR];
   char *lib_db_file, *lib_db_str;
   char lib_db_script[MAX_LSTR];
-  int lib_db_indirect;
+  int lib_db_file_fd;
   int lib_db_type;
   int lib_db_str_len;
   char *bp, *lib_bp;
+
+#ifndef UNIX
+  return 0;
+#else
 
   if ((lib_db_file=(char *)calloc(MAX_STR,sizeof(char)))==NULL) {
     fprintf(stderr,"*** ERROR [%s:%d] - [build_lib_db] Cannot allocate lib_db_file",
@@ -1579,7 +1594,15 @@ build_lib_db(char *script_file) {
   }
 
   SAFE_STRNCAT(lib_db_file,"lib_db_XXXXXX",MAX_STR);
-  mktemp(lib_db_file);
+  lib_db_file_fd = mkstemp(lib_db_file);
+  if (lib_db_file_fd < 0) {
+    fprintf(stderr,"*** ERROR [%s:%d] - [build_lib_db] generate temporary file",
+	    __FILE__, __LINE__);
+    goto no_lib;
+  }    
+
+  close(lib_db_file_fd);
+
   lib_db_str_len = strlen(lib_db_file)+1;
 
   /* check for indirect */
@@ -1643,6 +1666,7 @@ build_lib_db(char *script_file) {
 
  no_lib:
   return NULL;
+#endif
 }
 
 /* used to temporarily allocate annotation array in next_annot_entry()*/
@@ -1654,7 +1678,6 @@ struct annot_mstr {
 /* init_tmp_annot_mstr(size) intializes the structure used to track annots  */
 int
 init_tmp_annot(struct annot_mstr *this, int size) {
-  struct annot_entry *tmp_ann_astr;
 
   /* only reset if array is NULL */
   if (this->tmp_arr_p == NULL || this->max_annot <= 0) {
@@ -1702,7 +1725,8 @@ next_annot_entry(FILE *annot_fd, char *tmp_line, int n_tmp_line,
 int
 get_annot_list(char *sname, struct mngmsg *m_msp, struct beststr **bestp_arr, int nbest,
 	       int target, int debug) {
-  int i, status;
+  int i;
+  int  status;
   long l_offset;
   char tmp_line[MAX_STR];
   char annot_bline_file[MAX_STR];
@@ -1744,12 +1768,17 @@ get_annot_list(char *sname, struct mngmsg *m_msp, struct beststr **bestp_arr, in
 
     SAFE_STRNCAT(annot_bline_file,"annot_bline_XXXXXX",sizeof(annot_bline_file));
     annot_bline_fd = mkstemp(annot_bline_file);
+    if (annot_bline_fd < 0) {
+      fprintf(stderr,"*** ERROR [%s:%d] - Cannot open annot_bline_file: %s\n",__FILE__, __LINE__, annot_bline_file);
+      goto no_annots;
+    }
+
     strncpy(annot_descr_file,annot_bline_file,MAX_STR);
     annot_bline_file[sizeof(annot_bline_file)-1] = '\0';
     SAFE_STRNCAT(annot_descr_file,".annot",MAX_STR);
 
     /* write out accessions to annot_bline_file */
-    if ((annot_fd =fdopen(annot_bline_fd,"w"))==NULL) {
+    if ((annot_fd = fdopen(annot_bline_fd,"w"))==NULL) {
       fprintf(stderr,"*** ERROR [%s:%d] - Cannot open annot_bline_file: %s\n",__FILE__, __LINE__, annot_bline_file);
       goto no_annots;
     }
@@ -1948,8 +1977,8 @@ struct annot_str *
 next_annot_entry(FILE *annot_fd, char *tmp_line, int n_tmp_line, struct annot_str *annot_p,
 		 struct annot_mstr *mtmp_annot_p, struct mngmsg *m_msp, int target) {
 
-  char ctmp_label, ctmp_value, tmp_comment[MAX_STR], annot_acc[MAX_STR];
-  struct domfeat_link *domfeats_head, *domfeats_current;
+  unsigned char ctmp_label, ctmp_value;
+  char tmp_comment[MAX_STR], annot_acc[MAX_STR];
   char *bp;
   int f_pos, f_end;
   int i_ann, l_doms;
@@ -2179,7 +2208,6 @@ get_annot(char *sname, struct mngmsg *m_msp, char *bline, long offset, int n1, s
 	  int target, int debug) {
 
   char tmp_line[MAX_STR];
-  FILE *annot_data_fd;
   char bline_descr[MAX_STR];
   char annot_data_file[MAX_LSTR];
   char annot_script[MAX_LSTR];
@@ -2289,9 +2317,8 @@ get_annot(char *sname, struct mngmsg *m_msp, char *bline, long offset, int n1, s
 void
 s_annot_to_aa1a(long offset, int n1, struct annot_str *annot_p, unsigned char *ann_arr, char *tmp_line) {
   unsigned char *aa1a_tmp;
-  int i, ic, n_annot;
+  int i;
   struct annot_entry *this_annot;
-  char *bp;
 
   if ((aa1a_tmp = (unsigned char *)calloc(n1+2,sizeof(char)))==NULL) {
     fprintf(stderr,"*** ERROR [%s:%d] -- s_annot_to_aa1a() - cannot allocate aa1a_ann[%d] array\n",
@@ -2688,7 +2715,7 @@ save_best2(struct buf_head *lib_bhead_p,
   struct buf2_data_s *rbuf_dp, *lib_buf2_dp;
   struct buf2_res_s *rbuf_rp, *lib_buf2_rp;
   int i, sc_ix;
-  int t_valid_stat, use_shuff, zsflag_save;
+  int use_shuff, zsflag_save;
   double e_score;
   int buf2_cnt;
 
@@ -3027,7 +3054,7 @@ buf_do_work(unsigned char **aa0,  int n0,
   unsigned long atmp;
   struct buf2_data_s *lib_buf2_dp;
   struct buf2_res_s *lib_buf2_rp, *t_best_rp;
-  int t_best, sc_ix, i;
+  int t_best, sc_ix;
   double t_escore;
 
   sc_ix = ppst->score_ix;
@@ -3124,7 +3151,7 @@ buf_do_align(unsigned char **aa0,  int n0,
 	     struct pstruct *ppst, const struct mngmsg *m_msp,
 	     void **f_str) {
 
-  int buf2_cnt, i, nsq;
+  int buf2_cnt;
   struct buf2_data_s *lib_buf2_dp;
   struct buf2_res_s *lib_buf2_rp;
   struct buf2_ares_s *lib_buf2_ap;
@@ -3881,7 +3908,7 @@ void free_dyn_string(struct dyn_string_str *dyn_string) {
 struct domfeat_data *
 init_domfeat_data(const struct annot_str *annot_p) {
   int i_ann;
-  struct domfeat_data *domfeats_head, *domfeats_current;
+  struct domfeat_data *domfeats_head;
 
   if ((domfeats_head = (struct domfeat_data *)calloc(annot_p->n_annot+1, sizeof(struct domfeat_data)))==NULL) {
     fprintf(stderr,"*** ERROR [%s:%d] - calc_cons_u(): cannot allocate left_domain_list [%d]\n", __FILE__, __LINE__, annot_p->n_annot+1);
@@ -4201,7 +4228,7 @@ void comment_var (long i0_pos, char sp0, long i1_pos, char sp1, char o_sp1,
 		  char sim_char, const char *ann_comment,
 		  struct dyn_string_str *annot_var_dyn, int target, int d_type)
 {
-  char tmp_str[MAX_LSTR], tc, ann_ch0, ann_ch1;
+  char tmp_str[MAX_LSTR], ann_ch0, ann_ch1;
   char *d1_fmt;
 
   if (d_type == 1) {
@@ -4266,11 +4293,11 @@ display_push_features(void *annot_stack, struct dyn_string_str *annot_var_dyn,
   struct domfeat_data *this_dom_p;
   double lbits, total_bits, zscore, lprob, lpercid;
   char *ann_comment, *bp;
-  char tmp_lstr[MAX_LSTR], ctarget, tmp_str[MAX_STR];
-  int q_min, q_max, l_min, l_max;
+  char tmp_lstr[MAX_LSTR], tmp_str[MAX_STR];
+  int q_min, l_min;
   char *dt1_fmt, *dt2_fmt;
   double tot_sw_norm;
-  int n_stack;
+  /* int n_stack; */
 
   tot_sw_norm = (double)tot_score/(double)sw_score;
 

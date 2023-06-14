@@ -403,8 +403,7 @@ extern void set_opt_disp_defs(char opt_char, struct opt_def_str *options, int ty
 
 static char z_opt_descr[] = "Statistics estimation method:\n      1 - regression; -1 - no stats.; 0 - no scaling; 2 - Maximum Likelihood Est.;\n      3 - Altschul/Gish; 4 - iter. regress.; 5 - regress w/variance;\n      6 - MLE with comp. adj.;\n     11 - 16 - estimates from shuffled library sequences;\n     21 - 26 - E2()-stats from shuffled high-scoring sequences;";
 
-static char s_opt_descr[] = "Scoring matrix: (protein)\n      BL50, BP62 (sets -f -11 -g -1); P250, OPT5, VT200,\n      VT160, P120, VT120, BL80, VT80, MD40, VT40, MD20, VT20, MD10, VT10;\n      scoring matrix file name; -s ?BL50 adjusts matrix for short queries;";
-
+static char s_opt_descr[] = "Scoring matrix: (protein)\n      BL50, BL62 (sets -f -8 -g -1), BP62 (sets -f -11 -g -1); P250, OPT5, VT200,\n      VT160, P120, VT120, BL80, VT80, MD40, VT40, MD20, VT20, MD10, VT10;\n      scoring matrix file name; -s ?BL50 adjusts matrix for short queries;";
 
 struct opt_def_str f_options[] = {
   {'3', 0, "norevcomp", "compare forward strand only", NULL, 0, 0, 0, 0, 0.0, 0.0, NULL},
@@ -413,7 +412,7 @@ struct opt_def_str f_options[] = {
   {'W', 1, "context", "alignment context length (surrounding unaligned sequence)", NULL, 0, 0, 0, 0, 0.0, 0.0, NULL},
 #endif
 #if defined(FASTA)
-  {'A', 0, "sw_align", "Smith-Waterman for final DNA alignment, band alignment for protein\n      default is band-alignment for DNA, Smith-Waterman for protein", NULL, 0, 0, 0, 0, 0.0, 0.0, NULL},
+  {'A', 0, "sw_align", "force Smith-Waterman alignment (default is band-alignment for DNA),\n      no effect on protein alignment, -XA for banded protein alignment", NULL, 0, 0, 0, 0, 0.0, 0.0, NULL},
 #endif
   {'b', 1, "num_descriptions", "high scores reported (limited by -E by default)", 
    "high scores reported (limited by -E by default);\n      =<int> forces <int> results;", 0, 0, 0, 0, 0.0, 0.0, NULL},
@@ -498,9 +497,9 @@ char *iprompt1=" test sequence file name: ";
 char *iprompt2=" database file name: ";
 
 #ifdef PCOMPLIB
-char *verstr="36.3.8h May, 2020 MPI";
+char *verstr="36.3.8i May, 2023 MPI";
 #else
-char *verstr="36.3.8h May, 2020";
+char *verstr="36.3.8i May, 2023";
 #endif
 
 static int mktup=3;
@@ -680,7 +679,7 @@ alloc_pam (int d1, int d2, struct pstruct *ppst)
 void
 init_pam2 (struct pstruct *ppst) {
   int     i, j, k, nsq, sa_t;
-  int ix_j, ix_l, ix_i, p_i, p_j;
+  int p_i, p_j;
 
   nsq = ppst->nsq;
 
@@ -727,7 +726,7 @@ init_pam2 (struct pstruct *ppst) {
 
 void
 init_altpam(struct pstruct *ppst) {
-  int ix_i, ix_l, ix_j, p_i, p_j, i;
+  int ix_i, ix_l, ix_j, p_i, i;
 
   /* add values for 'J' (I/L) value, which are not present in 1-D matrices */
     ix_i = pascii['I'];
@@ -796,7 +795,7 @@ init_altpam(struct pstruct *ppst) {
 */
 void
 init_pamx (struct pstruct *ppst) {
-  int     i, j, k, nsq;
+  int     i, j, nsq;
   int sa_x, sa_t, tmp;
 
   nsq = ppst->nsq;
@@ -1018,28 +1017,27 @@ f_getopt (char copt, char *optarg,
     break;
   case 'a': m_msg->aln.showall = 1; break;
   case 'A':
-    if (ppst->sw_flag) ppst->sw_flag=0;
-    else ppst->sw_flag= 1;
+    ppst->sw_flag= 1;
     sw_flag_set = 1;
     break;
   case 'b':
-    if (optarg[0] == '$') {
+    if (optarg[0] == '$') {       /* show all output, reset -E */
       m_msg->mshow = -1;
       m_msg->e_cut = 10000000.0;
       break;
     }
-    else if (optarg[0] == '=') {
+    else if (optarg[0] == '=') {  /* -b =10 resets -E, and gurantees that much output */
       m_msg->e_cut = 10000000.0;
       m_msg->e_cut_set = 1;
       m_msg->mshow_min = 1;
       sscanf (optarg+1, "%d", &m_msg->mshow);
     }
-    else if (optarg[0] == '>') {
+    else if (optarg[0] == '>') {  /* -b >10 and guarantees that much output */
       m_msg->mshow_min = 2;
       sscanf (optarg+1, "%d", &m_msg->mshow);
     }
     else {
-      sscanf (optarg, "%d", &m_msg->mshow);
+      sscanf (optarg, "%d", &m_msg->mshow);  /* this much output, limited by -E */
       m_msg->mshow_min = 0;
     }
     m_msg->mshow_set = 1;
@@ -1294,6 +1292,7 @@ f_getopt (char copt, char *optarg,
 /* Extended options:
    -X1 - use the init1 score, rather than initn, for statistics and ordering results
    -Xa  - only report annotation information in -m 8CB output (for later merge)
+   -XA  - force banded alignments
    -Xb - report z-score, not bit-score
    -XB - use blast identities
    -XI - ensure that identities are not rounded to 100%
@@ -1302,9 +1301,10 @@ f_getopt (char copt, char *optarg,
    -Xo - use initn score, not opt score, for statistics and ordering results
    -Xx: - penalties for X:X, X:not-X match
    -Xy: - width of band for optimized scores
+   -Xg  - do not remove gi| numbers
  */
 
-static char my_opts[] = "1aBbIM:ox:y:N:";
+static char my_opts[] = "1aABbgIM:ox:y:N:";
 
 void
 parse_ext_opts(char *opt_arg, int pgm_id, struct mngmsg *m_msp, struct pstruct *ppst) {
@@ -1327,9 +1327,14 @@ parse_ext_opts(char *opt_arg, int pgm_id, struct mngmsg *m_msp, struct pstruct *
 
   case 'a': m_msp->m8_show_annot = 1; break;
 
+  case 'A':  /* -XA forces banded alignments */
+    ppst->sw_flag = 0;
+    sw_flag_set=1; break;
+
   case 'B': m_msp->blast_ident = 1; break;
 
   case 'b': m_msp->z_bits = 0; break;
+  case 'g': m_msp->gi_save = 1; break;
   case 'I': 
     m_msp->tot_ident = 1;
     /*
@@ -1456,7 +1461,7 @@ re_ascii(int *qascii, int *pascii, int max_ann_arr) {
    are valid */
 int
 recode(unsigned char *seq, int n, int *qascii, int nsqx) {
-  int i,j;
+  int i;
   char save_c;
 
 #if defined(FASTS) || defined(FASTM)
@@ -1492,7 +1497,6 @@ recode(unsigned char *seq, int n, int *qascii, int nsqx) {
 void
 resetp (struct mngmsg *m_msg, struct pstruct *ppst) {
   int i, pgm_id;
-  int n0_eff;
 
   pgm_id = ppst->pgm_id;
 
@@ -2276,14 +2280,12 @@ void
 read_pssm(unsigned char *aa0, int n0, int nsq,
 	  double pamscale, 
 	  FILE *fp, int pgpf_type, struct pstruct *ppst) {
-  int i, j, len, k;
+  int i, j, len=0, k;
   int qi, rj;	/* qi - index query; rj - index residues (1-20) */
   int **pam2p;
-  int first, too_high;
   unsigned char *query, ctmp;
   char dline[512];
-  double freq, **freq2d, lambda, new_lambda;
-  double scale, scale_high, scale_low;
+  double freq, **freq2d;
 
   pam2p = ppst->pam2p[0];
 
@@ -2703,7 +2705,8 @@ last_params(unsigned char *aa0, int n0,
 	    struct mngmsg *m_msp,
 	    struct pstruct *ppst
 	    ) {
-  int i, nsq;
+  int i;
+  int nsq;
   FILE *fp;
   int is_fastxy=0;
   int n0_eff;
@@ -2931,7 +2934,7 @@ validate_params(const unsigned char *aa0, int n0,
 
     /*  currently, pascii[] is not reset for upper-case only
     if (pascii[i] < NA && pascii[i] > ppst->nsq_e) {
-      fprintf(stderr," *** WARNING *** pascii[%c|%d] = %d > %d out of range\n",
+      fprintf(stderr,"*** Warning [%s:%d] - pascii[%c|%d] = %d > %d out of range\n",__FILE__,__LINE__,
 	      i, i, pascii[i], ppst->nsq_e);
     }
     */
@@ -3089,7 +3092,6 @@ void sort_opt_list(char *v, int n) {
   int gap, i, j, k;
   int incs[7] = { 336, 112, 48, 21, 7, 3, 1 };
   char tmp_c, tmp_u;
-  int v_start;
 
   /* first shell sort the list using toupper() */
   for ( k = 0; k < 7; k++) {
@@ -3118,7 +3120,7 @@ char *
 sort_options (struct opt_def_str *g_options, struct opt_def_str *f_options) {
   struct opt_def_str *this_option;
   char *sorted_list, *sort_ptr;
-  int i, opt_count;
+  int opt_count;
 
   opt_count=0;
   this_option = g_options;

@@ -48,10 +48,9 @@ use vars qw($host $db $port $user $pass);
 
 my $hostname = `/bin/hostname`;
 
-($host, $db, $port, $user, $pass)  = ("wrpxdb.its.virginia.edu", "pfam32", 0, "web_user", "fasta_www");
+($host, $db, $port, $user, $pass)  = ("wrpxdb.its.virginia.edu", "pfam34", 0, "web_user", "fasta_www");
 #$host = 'xdb';
 #$host = 'localhost';
-#$db = 'RPD2_pfam28u';
 
 my ($auto_reg,$rpd2_fams, $neg_doms, $vdoms, $lav, $no_doms, $no_clans, $pf_acc, $acc_comment, $bound_comment, $shelp, $help) = 
   (0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0,);
@@ -209,9 +208,9 @@ my ($tmp, $gi, $sdb, $acc, $id, $use_acc);
 
 ################
 ## check for db=*_qfo -- do not use get_upfam_acc in that case
-if ($db =~ m/_qfo/) {
-    $get_upfam_acc= '';
-}
+## if ($db =~ m/_qfo/) {
+##     $get_upfam_acc= '';
+## }
 
 # get the query
 my ($query, $seq_len) = @ARGV;
@@ -233,10 +232,11 @@ if ($rpd2_fams) {
 }
 
 #if it's a file I can open, read and parse it
-unless ($query && ($query =~ m/[\|:]/ || 
-		   $query =~ m/^[NX]P_/ ||
-		   $query =~ m/^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}\s/)) {
-
+# unless ($query && ($query =~ m/[\|:]/ || 
+# 		   $query =~ m/^[NX]P_/ ||
+# 		   $query =~ m/^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}\s/)) {
+#
+if (! $query || -r $query) {
   while (my $a_line = <>) {
     $a_line =~ s/^>//;
     chomp $a_line;
@@ -352,7 +352,7 @@ sub show_annots {
       unless ($get_annots_sql->rows()) {
 	if ($get_annots_sql_u) {
 	  $get_annots_sql = $get_annots_sql_u;
-	  $get_annots_sql->execute($id);
+	  $get_annots_sql->execute($acc);
 	}
       }
     }
