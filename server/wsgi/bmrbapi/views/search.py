@@ -319,7 +319,7 @@ WHERE
     if phs:
         sql += "("
         for ph in phs:
-            sql += '''("Sample_conditions.Sample_conditions.pH" <= %s AND "Sample_conditions.Sample_conditions.pH" >= %s) OR '''
+            sql += '''("Sample_conditions.pH" <= %s AND "Sample_conditions.pH" >= %s) OR '''
             try:
                 range_low = float(ph) - ph_threshold
                 range_high = float(ph) + ph_threshold
