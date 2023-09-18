@@ -12,7 +12,8 @@ RUN apk update && \
         python3 \
         wget \
         uwsgi-http \
-        uwsgi-python3 && \
+        uwsgi-python3 \
+        postgresql-client && \
     apk --no-cache add --virtual .build-deps \
         gcc \
         musl-dev \
