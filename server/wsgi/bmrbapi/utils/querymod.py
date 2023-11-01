@@ -269,7 +269,7 @@ def create_chemcomp_from_db(chemcomp: str) -> pynmrstar.Entry:
     # This is specifically omitted... long story
     try:
         del entity_frame['_Entity_atom_list']
-    except KeyError:
+    except ValueError:
         pass
 
     ent.add_saveframe(entity_frame)
