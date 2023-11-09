@@ -55,7 +55,7 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
                 extra_data.append({'data_type': row['description'], 'data_sets': row['sets'], 'size': row['size'],
                                    'thumbnail_url': url_for('static', filename='fid.svg', _external=True),
                                    'urls': ['https://bmrb.io/ftp/pub/bmrb/timedomain/bmr%s/' % bmrb_id]})
-            elif row['type'] != "assigned_chemical_shifts":
+            else:
                 saveframe_names = [x.name for x in entry.get_saveframes_by_category(row['type'])]
                 url = 'https://bmrb.io/data_library/summary/showGeneralSF.php?accNum=%s&Sf_framecode=%s'
 
