@@ -47,7 +47,7 @@ SELECT bmrbid, 'time_domain_data', 'Time domain data', sets, size FROM web.timed
         # This happens when an entry is valid but isn't available in Redis - for example, when we only have
         #  2.0 records for an entry.
         except StopIteration:
-            return []
+            return None
 
         extra_data = []
         for row in cur.fetchall():
@@ -110,7 +110,7 @@ def get_bmrb_data_from_pdb_id(pdb_id):
     result = []
     for item in get_bmrb_ids_from_pdb_id(pdb_id):
         data = get_extra_data_available(item['bmrb_id'])
-        if data:
+        if data is not None:
             result.append({'bmrb_id': item['bmrb_id'], 'match_types': item['match_types'],
                            'url': 'https://bmrb.io/data_library/summary/index.php?bmrbId=%s' % item['bmrb_id'],
                            'data': data})
