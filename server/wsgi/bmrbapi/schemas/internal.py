@@ -1,11 +1,11 @@
 from marshmallow import Schema
 
-__all__ = ['FaviconInternal', 'RefreshUniprotInternal']
+__all__ = ['FaviconInternal', 'TimedomainInternal']
 
 
 class FaviconInternal(Schema):
     pass
 
 
-class RefreshUniprotInternal(Schema):
+class TimedomainInternal(Schema):
     pass
