@@ -14,7 +14,7 @@ marshmallow==3.19.0
 marshmallow_enum==1.5.1
 pybtex==0.24.0
 # For iNext loading
-pandas==2.0.2
+pandas==2.2.3
 xlrd==2.0.1
 # For XML generation
 lxml==4.9.2

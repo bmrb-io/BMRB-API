@@ -1,0 +1,38 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    volumes:
+      - /var/lib/redis:/data
+    networks:
+      - internal_network
+
+  webapi:
+    build:
+      context: .
+    image: webapi
+    container_name: webapi
+    ports:
+      - "9005:9001"
+      - "9006:9000"
+    restart: always
+    depends_on:
+      - redis
+    links:
+      - redis:redis
+    user: "17473:10144"
+    sysctls:
+      net.core.somaxconn: 1024
+    volumes:
+      - /tmp/logs:/opt/wsgi/logs
+      - /var/run/postgresql/.s.PGSQL.5432:/tmp/.s.PGSQL.5432
+      - /projects/BMRB/public/api/configuration.json:/opt/wsgi/bmrbapi/configuration.json
+      - /projects/BMRB/depositions/timedomain_upload:/projects/BMRB/depositions/timedomain_upload
+    networks:
+      - internal_network
+
+networks:
+  internal_network:
+    name: webapi_network
+    driver: bridge
