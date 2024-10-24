@@ -1,20 +1,20 @@
-wheel==0.40.0
+wheel
 flask==2.3.2
-psycopg2-binary==2.9.6
-simplejson==3.19.1
+psycopg2-binary==2.9.10
+simplejson==3.19.3
 python-json-logger==2.0.4
 flask-cors==5.0.0
-redis==4.5.5
+redis==5.2.0
 gitpython==3.1.43
-Flask-Mail==0.9.1
-pynmrstar==3.3.2
+Flask-Mail==0.10.0
+pynmrstar==3.3.4
 pybmrb==3.0.8
 requests==2.32.3
-marshmallow==3.19.0
+marshmallow==3.23.0
 marshmallow_enum==1.5.1
 pybtex==0.24.0
 # For iNext loading
 pandas==2.2.3
 xlrd==2.0.1
 # For XML generation
-lxml==4.9.2
+lxml==5.3.0
