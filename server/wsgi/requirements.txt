@@ -1,4 +1,5 @@
 wheel
+setuptools
 flask==2.3.2
 psycopg2-binary==2.9.10
 simplejson==3.19.3
