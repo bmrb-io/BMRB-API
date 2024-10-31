@@ -115,6 +115,8 @@ opt.add_option("--redis-host", action="store", dest="redis_host", default=None,
                help="The Redis host to use, if not using sentinels.")
 opt.add_option("--redis-port", action="store", dest="redis_port", default=None,
                help="The port to try to connect to Redis on.")
+opt.add_option("--redis-password", action="store", dest="redis_password", default=None,
+               help="The password for the Redis connection.")
 opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will interrupt service until the DB is rebuilt! "
                     "(So only use it on the staging DB.)")
@@ -128,6 +130,8 @@ configuration['postgres']['host'] = options.sql_host
 configuration['postgres']['database'] = options.sql_database
 configuration['postgres']['port'] = options.sql_port
 configuration['redis']['db'] = options.redis_db
+if options.redis_password:
+    configuration['redis']['password'] = options.redis_password
 if options.redis_host:
     configuration['redis']['sentinels'][0][0] = options.redis_host
 if options.redis_port:
