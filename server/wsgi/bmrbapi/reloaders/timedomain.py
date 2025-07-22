@@ -21,10 +21,19 @@ def timedomain() -> None:
     def get_data_sets(path):
         sets = 0
         last_set = ""
+
+        # See if there is a folder
         for f in os.listdir(path):
             if os.path.isdir(os.path.join(path, f)):
                 sets += 1
                 last_set = os.path.join(path, f)
+            # See if they have an archive without a folder
+            elif f.endswith(".zip") or f.endswith(".gz") or f.endswith(".tar") or f.endswith(".bz2"):
+                matching_dir = f.replace(".zip", "").replace(".gz", "").replace(".bz2", "").replace('.tar', '')
+                if os.path.isdir(os.path.join(path, matching_dir)):
+                    sets += 1
+
+        # Handle when the data sets are in a single folder
         if sets == 1:
             child_sets = get_data_sets(last_set)
             if child_sets > 1:
