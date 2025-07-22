@@ -24,11 +24,12 @@ def timedomain() -> None:
 
         # See if there is a folder
         for f in os.listdir(path):
-            if os.path.isdir(os.path.join(path, f)):
+            f_path = os.path.join(path, f)
+            if os.path.isdir(f_path):
                 sets += 1
-                last_set = os.path.join(path, f)
+                last_set = f_path
             # See if they have an archive without a folder
-            elif f.endswith(".zip") or f.endswith(".gz") or f.endswith(".tar") or f.endswith(".bz2"):
+            elif os.path.isfile(f_path):
                 matching_dir = f.replace(".zip", "").replace(".gz", "").replace(".bz2", "").replace('.tar', '')
                 # Don't count the same directory twice
                 if not os.path.isdir(os.path.join(path, matching_dir)):
