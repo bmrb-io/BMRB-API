@@ -36,9 +36,10 @@ def timedomain() -> None:
 
         # Handle when the data sets are in a single folder
         if sets == 1:
-            child_sets = get_data_sets(last_set)
-            if child_sets > 1:
-                return child_sets
+            if last_set:
+                child_sets = get_data_sets(last_set)
+                if child_sets > 1:
+                    return child_sets
         return sets
 
     def td_data_getter():
