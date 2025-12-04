@@ -189,6 +189,16 @@ def log_request():
     validate_parameters()
 
 
+@application.route('/robots.txt')
+def robots_txt():
+    """ Serves the robots.txt file. """
+    return """
+User-agent: *
+Disallow: /current/entry/*/simulate_hsqc
+Disallow: /search/chemical_shifts
+""", 200, {'Content-Type': 'text/plain'}
+
+
 # Show what routes are available, determined programmatically
 @application.route('/')
 def catch_all():
