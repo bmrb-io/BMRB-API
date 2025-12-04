@@ -121,6 +121,8 @@ opt.add_option("--flush", action="store_true", dest="flush", default=False,
                help="Flush all keys in the DB prior to reloading. This will interrupt service until the DB is rebuilt! "
                     "(So only use it on the staging DB.)")
 opt.add_option("--verbose", action="store_true", dest="verbose", default=False, help="Be verbose")
+opt.add_option("--processors", action="store", dest="processors", type="int", default=None,
+               help="Number of processors to use for multiprocessing. Defaults to all available processors.")
 # Parse the command line input
 (options, cmd_input) = opt.parse_args()
 
@@ -252,7 +254,7 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
 
     logger.info('Updating entries in Redis...')
 
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(processes=options.processors) as pool:
         for res in pool.map(one_entry, to_process['combined']):
             add_to_loaded(res)
 
