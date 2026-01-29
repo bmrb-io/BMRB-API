@@ -31,6 +31,8 @@ services:
     sysctls:
       net.core.somaxconn: 1024
     volumes:
+      - ./wsgi:/opt/wsgi
+      - ./wsgi.conf:/opt/wsgi/wsgi.conf
       - /tmp/logs:/opt/wsgi/logs
       - /projects/BMRB/public/api/configuration.json:/opt/wsgi/bmrbapi/configuration.json
       - /projects/BMRB/depositions/timedomain_upload:/projects/BMRB/depositions/timedomain_upload
