@@ -564,7 +564,11 @@ def instant():
         instant_query_two = sql_statements.combined_instant_query_two
 
     # This code strips out the "negation" terms
-    split_term: List[str] = [_.lower() for _ in shlex.split(term, posix=False)]
+    try:
+        split_term: List[str] = [_.lower() for _ in shlex.split(term, posix=False)]
+    except ValueError:
+        # Fallback to simple split if shlex fails due to unmatched quotes
+        split_term: List[str] = [_.lower() for _ in term.split()]
     negated_terms: Set[str] = set()
     x = 0
     while x < len(split_term):
