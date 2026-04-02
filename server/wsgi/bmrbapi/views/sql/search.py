@@ -21,7 +21,6 @@ WHERE tsv @@ plainto_tsquery(%s)
 ORDER BY instant_cache.id = %s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(%s)) DESC;'''
 
 metabolomics_instant_query_two = """
-SELECT set_limit(.5);
 SELECT DISTINCT ON (tt.id) term,
                         termname,
                         '1'::int AS sml,
@@ -84,7 +83,6 @@ ORDER BY id = %s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(
 '''
 
 macromolecules_instant_query_two = '''
-SELECT set_limit(.5);
 SELECT DISTINCT ON (tt.id) term,
                                       termname,
                                       '1'::int AS sml,
@@ -134,7 +132,6 @@ ORDER BY id = %s DESC, is_metab, sub_date DESC, ts_rank_cd(tsv, plainto_tsquery(
 '''
 
 combined_instant_query_two = '''
-SELECT set_limit(.5);
 SELECT DISTINCT ON (tt.id) term,
                                       termname,
                                       '1'::int AS sml,

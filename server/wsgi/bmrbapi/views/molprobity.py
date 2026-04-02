@@ -45,6 +45,6 @@ def get_molprobity_data(pdb_id, residues=None):
         res = {"columns": [desc[0] for desc in cur.description], "data": cur.fetchall()}
 
         if configuration['debug']:
-            res['debug'] = cur.query
+            res['debug'] = {'query': sql, 'params': terms}
 
     return res

@@ -1,7 +1,5 @@
 import sqlite3
 
-from psycopg2.extras import execute_values
-
 from bmrbapi.utils.connections import PostgresConnection
 
 
@@ -15,18 +13,18 @@ SELECT key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest
 
         psql = PostgresConnection()
         with psql as cur:
+            cur.execute('DROP TABLE IF EXISTS web.bmrb_csrosetta_entries')
             cur.execute('''
-DROP TABLE IF EXISTS web.bmrb_csrosetta_entries;
 CREATE TABLE web.bmrb_csrosetta_entries (
  key varchar(13) PRIMARY KEY,
  bmrbid integer,
  rosetta_version
  varchar(5),
  csrosetta_version varchar(5),
- rmsd_lowest float);''')
+ rmsd_lowest float)''')
 
-            execute_values(cur, '''
+            cur.executemany('''
 INSERT INTO web.bmrb_csrosetta_entries(key, bmrbid, rosetta_version, csrosetta_version, rmsd_lowest)
-VALUES %s;''', entries)
+VALUES (%s, %s, %s, %s, %s)''', entries)
 
             psql.commit()

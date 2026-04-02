@@ -2,7 +2,6 @@ import datetime
 from typing import List, Tuple
 
 from flask import Blueprint, jsonify, Response
-from psycopg2.extras import DictCursor
 
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.views.sql.metadata import *
@@ -17,7 +16,7 @@ def get_release_statistics() -> Response:
 
     results = {}
 
-    def get_query_results(cursor: DictCursor, query: str) -> List[Tuple[int, int]]:
+    def get_query_results(cursor, query: str) -> List[Tuple[int, int]]:
         cursor.execute(query, [])
         return cursor.fetchall()
 

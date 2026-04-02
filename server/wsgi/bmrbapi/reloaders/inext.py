@@ -4,8 +4,6 @@ import logging
 import os
 
 import pandas as pd
-import psycopg2
-import psycopg2.extras
 
 from bmrbapi.utils.connections import PostgresConnection
 
@@ -63,11 +61,12 @@ CREATE TABLE web.inext_data
                 # Comma-separated dataframe columns
                 cols = ','.join(list(df.columns))
                 # SQL query to execute
-                query = f"INSERT INTO web.inext_data ({cols}) VALUES %s"
+                placeholders = ','.join(['%s'] * len(df.columns))
+                query = f"INSERT INTO web.inext_data ({cols}) VALUES ({placeholders})"
 
                 try:
-                    psycopg2.extras.execute_values(cur, query, tuples)
-                except (Exception, psycopg2.DatabaseError) as error:
+                    cur.executemany(query, tuples)
+                except Exception as error:
                     logging.exception("Error: %s", error)
                     conn.rollback()
                     raise error

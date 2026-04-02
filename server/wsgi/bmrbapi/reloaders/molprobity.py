@@ -84,8 +84,12 @@ CREATE TABLE molprobity.distributions_working(experiment_type TEXT,
                                             hydrogen_flip_state, backbone_trim_state], stdout=PIPE, stderr=PIPE)
 
                         # Copy to the results to the appropriate table
-                        cur.copy_from(stats_calc.stderr, 'molprobity.distributions_working', sep=",", null="-1")
-                        cur.copy_from(stats_calc.stdout, 'molprobity.averages_working', sep=",", null="-1.000000")
+                        with cur.copy("COPY molprobity.distributions_working FROM STDIN (DELIMITER ',', NULL '-1')") as copy:
+                            while data := stats_calc.stderr.read(8192):
+                                copy.write(data)
+                        with cur.copy("COPY molprobity.averages_working FROM STDIN (DELIMITER ',', NULL '-1.000000')") as copy:
+                            while data := stats_calc.stdout.read(8192):
+                                copy.write(data)
 
                         stats_calc.wait()
 
@@ -105,7 +109,9 @@ CREATE TABLE molprobity.distributions_working(experiment_type TEXT,
         pdb_csv = BytesIO(urlopen(pdb_url).read())
         cur.execute("DROP TABLE IF EXISTS molprobity.pdb_info_working;")
         cur.execute("CREATE TABLE molprobity.pdb_info_working(pdb TEXT, title TEXT, experiment_type TEXT);")
-        cur.copy_expert("COPY molprobity.pdb_info_working from STDIN WITH CSV HEADER QUOTE '\"';", pdb_csv)
+        with cur.copy("COPY molprobity.pdb_info_working FROM STDIN WITH CSV HEADER QUOTE '\"'") as copy:
+            while data := pdb_csv.read(8192):
+                copy.write(data)
         # Update which entries are available
         cur.execute("ALTER TABLE molprobity.pdb_info_working ADD COLUMN valid BOOLEAN DEFAULT False;")
         cur.execute("""
@@ -188,15 +194,16 @@ def molprobity_full() -> bool:
                                       'oneline_files/combined/allonelinebuild.out.csv')
         orig_location = os.path.join(configuration['molprobity_directory'],
                                      'oneline_files/combined/allonelineorig.out.csv')
-        with open(nobuild_location, 'r') as nobuild_file:
-            cur.copy_from(nobuild_file, 'tmp_table', sep=':', null='')
-        with open(build_location, 'r') as build_file:
-            cur.copy_from(build_file, 'tmp_table', sep=':', null='')
-        with open(orig_location, 'r') as orig_file:
-            cur.copy_from(orig_file, 'tmp_table', sep=':', null='')
+        for csv_path in [nobuild_location, build_location, orig_location]:
+            with open(csv_path, 'rb') as csv_file:
+                with cur.copy("COPY tmp_table FROM STDIN (DELIMITER ':', NULL '')") as copy:
+                    while data := csv_file.read(8192):
+                        copy.write(data)
 
         # Do the residue file
-        cur.copy_expert("copy molprobity.residue_tmp FROM STDIN DELIMITER ':' CSV;", cmd.stdout)
+        with cur.copy("COPY molprobity.residue_tmp FROM STDIN DELIMITER ':' CSV") as copy:
+            while data := cmd.stdout.read(8192):
+                copy.write(data)
 
         # Check stderr
         stderr = cmd.stderr.read()

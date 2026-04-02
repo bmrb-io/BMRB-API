@@ -7,7 +7,7 @@ import logging
 import optparse
 import sys
 
-import psycopg2
+import psycopg
 
 from bmrbapi.utils.configuration import configuration
 
@@ -16,7 +16,7 @@ def get_postgres_connection(user, host, database, port):
     """ Returns a connection to postgres and a cursor."""
 
     # Errors connecting will be handled upstream
-    return psycopg2.connect(user=user, host=host, database=database, port=port).cursor()
+    return psycopg.connect(user=user, host=host, dbname=database, port=port).cursor()
 
 
 # Specify some basic information about our command

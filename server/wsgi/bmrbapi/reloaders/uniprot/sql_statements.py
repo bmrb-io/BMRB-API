@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS web.uniprot_mappings_tmp
 bulk_insert = '''
 INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence,
                                       details)
-VALUES %s'''
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'''
 
 insert_clean_ready = '''
 INSERT INTO web.uniprot_mappings_tmp (bmrb_id, entity_id, pdb_chain, pdb_id, link_type, uniprot_id, protein_sequence,

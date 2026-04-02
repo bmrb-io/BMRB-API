@@ -1,8 +1,6 @@
 import logging
 import os
 
-from psycopg2.extras import execute_values
-
 from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection, RedisConnection
 
@@ -66,9 +64,10 @@ def timedomain() -> None:
 CREATE TABLE IF NOT EXISTS web.timedomain_data (
  bmrbid text PRIMARY KEY,
  size numeric,
- sets numeric);
- DELETE FROM web.timedomain_data WHERE TRUE;''')
-        execute_values(cur, '''INSERT INTO web.timedomain_data(bmrbid, size, sets) VALUES %s;''', precalculated_values)
+ sets numeric)''')
+        cur.execute('DELETE FROM web.timedomain_data WHERE TRUE')
+        cur.executemany('INSERT INTO web.timedomain_data(bmrbid, size, sets) VALUES (%s, %s, %s)',
+                        precalculated_values)
         cur.execute('''
 GRANT USAGE ON schema web TO PUBLIC;
 GRANT SELECT ON ALL TABLES IN schema web TO PUBLIC;

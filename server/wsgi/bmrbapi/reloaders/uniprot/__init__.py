@@ -2,8 +2,6 @@ import csv
 import logging
 import os
 
-from psycopg2.extras import execute_values
-
 from bmrbapi.reloaders.uniprot import sql_statements as sql_statements
 from bmrbapi.reloaders.uniprot.file_mappers import UniProtMapper, PDBMapper, UniProtValidator
 from bmrbapi.utils.connections import PostgresConnection
@@ -68,6 +66,6 @@ def uniprot():
                     yield each_line
 
         cur.execute(sql_statements.create_mappings_table)
-        execute_values(cur, sql_statements.bulk_insert, row_gen(), page_size=100)
+        cur.executemany(sql_statements.bulk_insert, row_gen())
         cur.execute(sql_statements.insert_clean_ready)
         psql_conn.commit()

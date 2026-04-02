@@ -8,9 +8,10 @@ from tempfile import NamedTemporaryFile
 from typing import List, Dict, Iterable, Set
 from urllib.parse import quote
 
-import psycopg2
+import psycopg
 from flask import jsonify, request, Blueprint, url_for
-from psycopg2 import ProgrammingError
+from psycopg import sql
+from psycopg.errors import ProgrammingError
 
 import bmrbapi.views.sql.search as sql_statements
 from bmrbapi.exceptions import RequestException, ServerException
@@ -19,7 +20,7 @@ from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.decorators import require_content_type_json
 from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, select as qselect, \
     get_database_from_entry_id, get_valid_entries_from_redis, \
-    get_category_and_tag, wrap_it_up, select as querymod_select
+    get_category_and_tag, select as querymod_select
 
 # Set up the blueprint
 search_endpoints = Blueprint('search', __name__)
@@ -205,7 +206,7 @@ ORDER BY count(DISTINCT atom_shift."Val") DESC) sq
 
         # Send query string if in debug mode
         if configuration['debug']:
-            result['debug'] = cur.query
+            result['debug'] = {'query': sql, 'params': terms}
 
         for entry in cur:
             title = entry[3].replace("\n", "") if entry[3] else None
@@ -370,7 +371,7 @@ WHERE
                       'data': cur.fetchall()}
             # Send query string if in debug mode
             if configuration['debug']:
-                result['debug'] = cur.query
+                result['debug'] = {'query': sql, 'params': args}
             return jsonify(result)
         else:
             return jsonify(cur.fetchall())
@@ -388,10 +389,13 @@ def get_all_values_for_tag(tag_name):
         # Use Entry_ID normally, but occasionally use ID depending on the context
         id_field = get_entry_id_tag(tag_name, database=database)
 
-        query = '''SELECT "%s", array_agg(%%s) from "%s" GROUP BY "%s";'''
-        query = query % (id_field, params[0], id_field)
+        query = sql.SQL('SELECT {id_field}, array_agg({tag}) FROM {table} GROUP BY {id_field}').format(
+            id_field=sql.Identifier(id_field),
+            tag=sql.Identifier(params[1]),
+            table=sql.Identifier(params[0])
+        )
         try:
-            cur.execute(query, [wrap_it_up(params[1])])
+            cur.execute(query)
         except ProgrammingError as e:
             sp = str(e).split('\n')
             if len(sp) > 3:
@@ -412,7 +416,7 @@ def get_all_values_for_tag(tag_name):
                 res[x[0]] = sub_res
 
         if configuration['debug']:
-            res['query'] = cur.query
+            res['query'] = query.as_string(cur)
 
     return res
 
@@ -583,7 +587,7 @@ def instant():
     with PostgresConnection() as cur:
         try:
             cur.execute(instant_query_one, [term, term, term])
-        except psycopg2.ProgrammingError:
+        except psycopg.errors.ProgrammingError:
             if configuration['debug']:
                 raise
             return [{"label": "Instant search temporarily offline.", "value": "error",
@@ -614,12 +618,13 @@ def instant():
 
         debug = {}
         if configuration['debug']:
-            debug['query1'] = cur.query
+            debug['query1'] = {'query': instant_query_one, 'params': [term, term, term]}
 
         # Second query
         try:
+            cur.execute("SELECT set_limit(.5)")
             cur.execute(instant_query_two, [term, term, term, term])
-        except psycopg2.ProgrammingError:
+        except psycopg.errors.ProgrammingError:
             if configuration['debug']:
                 raise
             return [{"label": "Instant search temporarily offline.", "value": "error",
@@ -647,7 +652,7 @@ def instant():
 
                 result.append(res)
         if configuration['debug']:
-            debug['query2'] = cur.query
+            debug['query2'] = {'query': instant_query_two, 'params': [term, term, term, term]}
             result.append({"debug": debug})
 
     def needs_remove(negated_term_list, check_result):

@@ -12,9 +12,8 @@ from typing import Union, List, Generator, Tuple, Optional
 import pynmrstar
 import simplejson as json
 from flask import request
-from psycopg2 import ProgrammingError
-from psycopg2.extensions import AsIs
-from psycopg2.extras import DictCursor
+from psycopg import sql
+from psycopg.errors import ProgrammingError
 from redis import StrictRedis
 
 from bmrbapi.exceptions import RequestException, ServerException
@@ -123,12 +122,6 @@ def get_valid_entries_from_redis(search_ids: Union[str, list],
                 raise RequestException("Entry '%s' does not exist in the public database." % entry_id, status_code=404)
 
 
-def wrap_it_up(item: all) -> AsIs:
-    """ Quote items in a way that postgres accepts and that doesn't allow
-    SQL injection."""
-    return AsIs('"' + item + '"')
-
-
 def get_category_and_tag(tag_name: str) -> List[str]:
     """ Returns the tag category and the tag formatted as needed for DB
     queries. Returns an error if an invalid tag is provided. """
@@ -164,56 +157,50 @@ def select(fetch_list: List[str], table: str, where_dict: dict = None, database:
     if modifiers is None:
         modifiers = []
 
-    # Make sure they aren't trying to inject (parameterized queries are safe while
-    # this is not, but there is no way to parametrize a table name...)
+    # Make sure they aren't trying to inject
     if '"' in table:
         raise RequestException("Invalid 'from' parameter.")
 
-    # Prepare the query
+    table_ref = sql.SQL("{}.{}").format(sql.Identifier(database), sql.Identifier(table))
+    data_params = []
+
+    # Build SELECT clause
     if len(fetch_list) == 1 and fetch_list[0] == "*":
-        parameters = []
-    else:
-        parameters = [wrap_it_up(x) for x in fetch_list]
-    query = "SELECT "
-    if "count" in modifiers:
-        # Build the 'select * from *' part of the query
-        query += "count(" + "),count(".join(["%s"] * len(fetch_list))
-        query += ') from %s."%s"' % (database, table)
-    else:
-        if len(fetch_list) == 1 and fetch_list[0] == "*":
-            query += '* from %s."%s"' % (database, table)
+        if "count" in modifiers:
+            select_clause = sql.SQL("count(*)")
         else:
-            # Build the 'select * from *' part of the query
-            query += ",".join(["%s"] * len(fetch_list))
-            query += ' from %s."%s"' % (database, table)
+            select_clause = sql.SQL("*")
+    else:
+        columns = [sql.Identifier(x) for x in fetch_list]
+        if "count" in modifiers:
+            select_clause = sql.SQL(",").join(
+                [sql.SQL("count({})").format(c) for c in columns]
+            )
+        else:
+            select_clause = sql.SQL(",").join(columns)
 
+    query = sql.SQL("SELECT {} FROM {}").format(select_clause, table_ref)
+
+    # Build WHERE clause
     if len(where_dict) > 0:
-        query += " WHERE"
-        need_and = False
-
+        where_parts = []
         for key in where_dict:
-            if need_and:
-                query += " AND"
             if "lower" in modifiers:
-                query += " regexp_replace(LOWER(%s),'\n','') LIKE LOWER(%s)"
+                where_parts.append(
+                    sql.SQL("regexp_replace(LOWER({}),E'\\n','') LIKE LOWER(%s)").format(sql.Identifier(key))
+                )
             else:
-                query += " regexp_replace(%s,'\n','') LIKE %s"
-            parameters.extend([wrap_it_up(key), where_dict[key].replace("*", "%")])
-            need_and = True
+                where_parts.append(
+                    sql.SQL("regexp_replace({},E'\\n','') LIKE %s").format(sql.Identifier(key))
+                )
+            data_params.append(where_dict[key].replace("*", "%"))
 
-    # TODO: build ordering in based on dictionary
-    #    if "count" not in modifiers:
-    #        query += ' ORDER BY "Entry_ID"'
-    #        # Order the parameters as ints if they are normal BMRB IDS
-    #        if database == "macromolecules":
-    #            query += "::int "
-
-    query += ';'
+        query = query + sql.SQL(" WHERE ") + sql.SQL(" AND ").join(where_parts)
 
     with PostgresConnection() as cur:
         # Do the query
         try:
-            cur.execute(query, parameters)
+            cur.execute(query, data_params if data_params else None)
             rows = cur.fetchall()
         except ProgrammingError as error:
             if configuration['debug']:
@@ -240,7 +227,7 @@ def select(fetch_list: List[str], table: str, where_dict: dict = None, database:
                     result[table + "." + search_field].append(row[s_index])
 
         if configuration['debug']:
-            result['debug'] = cur.query
+            result['debug'] = {'query': query.as_string(cur), 'params': data_params}
 
     return result
 
@@ -317,7 +304,7 @@ SELECT tagfield
             raise RequestException("Invalid tag queried, unable to determine entryidflag.")
 
 
-def get_printable_tags(category: str, cur: DictCursor) -> Tuple[List[str], List[str]]:
+def get_printable_tags(category: str, cur) -> Tuple[List[str], List[str]]:
     """ Returns a list of the tags that should be printed for the given
     category and a list of tags that are pointers."""
 
@@ -352,7 +339,7 @@ def get_printable_tags(category: str, cur: DictCursor) -> Tuple[List[str], List[
 
 
 def create_saveframe_from_db(database: str, category: str, entry_id: str, id_search_field: str,
-                             cur: DictCursor) -> Optional[pynmrstar.Saveframe]:
+                             cur) -> Optional[pynmrstar.Saveframe]:
     """ Builds a saveframe from the database. You specify the database:
     (metabolomics, macromolecules, chemcomps, combined), the category of the
     saveframe, the identifier of the saveframe, and the name of the tag that
@@ -372,7 +359,7 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
     tag_order = {x['originaltag']: x['rowindexflg'] for x in cur.fetchall()}
 
     # Set the search path
-    cur.execute('''SET search_path=%(path)s, pg_catalog;''', {'path': database})
+    cur.execute(sql.SQL('SET search_path={}, pg_catalog').format(sql.Identifier(database)))
 
     # Check if we are allowed to print it
     cur.execute('''SELECT internalflag,printflag FROM dict.cat_grp
@@ -400,10 +387,10 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
     logging.debug("Will look in table: %s", table_name)
 
     # Get the sf_id for later
-    cur.execute('''SELECT "Sf_ID","Sf_framecode" FROM %(table_name)s
-                WHERE %(search_field)s=%(id)s ORDER BY "Sf_ID"''',
-                {"id": entry_id, 'table_name': wrap_it_up(table_name),
-                 "search_field": wrap_it_up(id_search_field)})
+    cur.execute(
+        sql.SQL('SELECT "Sf_ID","Sf_framecode" FROM {} WHERE {} = %s ORDER BY "Sf_ID"').format(
+            sql.Identifier(table_name), sql.Identifier(id_search_field)
+        ), [entry_id])
 
     # There is no matching saveframe found for their search term
     # and search field
@@ -419,8 +406,9 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
     tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
 
     # Get the tag values
-    cur.execute('''SELECT * FROM %(table_name)s WHERE "Sf_ID"=%(sf_id)s''',
-                {'sf_id': sf_id, 'table_name': wrap_it_up(table_name)})
+    cur.execute(
+        sql.SQL('SELECT * FROM {} WHERE "Sf_ID" = %s').format(sql.Identifier(table_name)),
+        [sf_id])
     tag_vals = cur.fetchone()
 
     # Add the tags, and optionally add $ if the tag is a pointer
@@ -456,9 +444,9 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
             bmrb_loop.add_tag(tags_to_use)
 
             # Get the loop data
-            to_fetch = ",".join(['"' + x + '"' for x in tags_to_use])
-            query = 'SELECT ' + to_fetch
-            query += ' FROM %(table_name)s WHERE "Sf_ID" = %(id)s'
+            to_fetch_sql = sql.SQL(",").join([sql.Identifier(x) for x in tags_to_use])
+            query = sql.SQL('SELECT {} FROM {} WHERE "Sf_ID" = %s').format(
+                to_fetch_sql, sql.Identifier(each_loop))
 
             # Determine how to order the data in the loops
             order_tags = []
@@ -468,7 +456,8 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
                     if configuration['debug']:
                         print("Ordering loop %s by %s." % (each_loop, tag))
             if len(order_tags) > 0:
-                query += ' ORDER BY %s' % '"' + '","'.join(order_tags) + '"'
+                query = query + sql.SQL(' ORDER BY {}').format(
+                    sql.SQL(',').join([sql.Identifier(t) for t in order_tags]))
             else:
                 if configuration['debug']:
                     print("No order in loop: %s" % each_loop)
@@ -477,14 +466,13 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
                     if "ordinal" in tag or "Ordinal" in tag:
                         if configuration['debug']:
                             print("Found tag to order by (ordinal): %s" % tag)
-                        query += ' ORDER BY "%s"' % tag
+                        query = query + sql.SQL(' ORDER BY {}').format(sql.Identifier(tag))
                         break
 
             # Perform the query
-            cur.execute(query, {"id": sf_id,
-                                "table_name": wrap_it_up(each_loop)})
+            cur.execute(query, [sf_id])
             if configuration['debug']:
-                print(cur.query)
+                print(query.as_string(cur))
 
             # Add the data
             for row in cur:

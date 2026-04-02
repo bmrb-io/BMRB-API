@@ -13,7 +13,7 @@ def sql_initialize(host=configuration['postgres']['host'],
     initialize_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "sql", "initialize.sql")
 
     # Rather than connect directly, we use the psql client. This is because the \copy commands will not work
-    #  in psycopg2 without doing it this way
+    #  in psycopg without doing it this way
     proc = subprocess.Popen(['/usr/bin/psql', '-d', database, '-U', user, '-h', host, '-f', initialize_file,
                              '-v', 'ON_ERROR_STOP=1'],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
