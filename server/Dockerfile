@@ -31,7 +31,8 @@ COPY ./wsgi/bmrbapi/reloaders/molprobity_binary /opt/wsgi/bmrbapi/reloaders/molp
 RUN cd /opt/wsgi/bmrbapi/reloaders/molprobity_binary && make
 
 COPY ./wsgi/bmrbapi/submodules/fasta36 /opt/wsgi/bmrbapi/submodules/fasta36
-RUN cd /opt/wsgi/bmrbapi/submodules/fasta36/src && make -f ../make/Makefile.linux64_sse2 all
+RUN sed -i 's/-DPOSIX_C_SOURCE=2/-DPOSIX_C_SOURCE=2 -D_GNU_SOURCE/' /opt/wsgi/bmrbapi/submodules/fasta36/make/Makefile.linux64_sse2 && \
+    cd /opt/wsgi/bmrbapi/submodules/fasta36/src && make -f ../make/Makefile.linux64_sse2 all
 
 COPY wsgi/requirements.txt /tmp/requirements.txt
 RUN pip install --upgrade pip wheel
