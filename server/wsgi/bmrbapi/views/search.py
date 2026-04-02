@@ -1,7 +1,9 @@
+import logging
 import os
 import shlex
 import subprocess
 import textwrap
+import time
 import warnings
 from decimal import Decimal
 from tempfile import NamedTemporaryFile
@@ -23,8 +25,69 @@ from bmrbapi.utils.querymod import SUBMODULE_DIR, get_db, get_entry_id_tag, sele
     get_database_from_entry_id, get_valid_entries_from_redis, \
     get_category_and_tag, select as querymod_select
 
+logger = logging.getLogger(__name__)
+
 # Set up the blueprint
 search_endpoints = Blueprint('search', __name__)
+
+# Cache for FASTA sequence databases, keyed by polymer type.
+# Each entry: {'sequences': [...], 'fasta_file': path, 'timestamp': time.time()}
+_fasta_cache: dict = {}
+_FASTA_CACHE_TTL = 3600  # 1 hour
+
+
+def _get_fasta_db(polymer_type: str):
+    """Return (sequences, fasta_file_path) for the given polymer type, using cache when fresh."""
+
+    cached = _fasta_cache.get(polymer_type)
+    if cached and time.time() - cached['timestamp'] < _FASTA_CACHE_TTL:
+        if os.path.isfile(cached['fasta_file']):
+            return cached['sequences'], cached['fasta_file']
+
+    with PostgresConnection(schema="macromolecules") as cur:
+        cur.execute('''
+SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",
+  regexp_replace(entity."Polymer_seq_one_letter_code", E'[\\n\\r]+', '', 'g' ),
+  replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
+FROM "Entity" as entity
+  LEFT JOIN "Entry" as entry
+  ON entity."Entry_ID" = entry."ID"
+  WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [polymer_type])
+        sequences = cur.fetchall()
+
+    wrapper = textwrap.TextWrapper(width=80, expand_tabs=False,
+                                   replace_whitespace=False,
+                                   drop_whitespace=False, break_on_hyphens=False)
+    seq_strings = [">%s\n%s\n" % (x[0], "\n".join(wrapper.wrap(x[3]))) for x in sequences]
+
+    # Write to a persistent temp file (not auto-deleted)
+    fasta_file = NamedTemporaryFile(dir="/tmp", prefix="bmrb_fasta_%s_" % polymer_type.replace(" ", "_"),
+                                    suffix=".fa", delete=False)
+    try:
+        fasta_file.write("".join(seq_strings).encode())
+        fasta_file.flush()
+        fasta_file.close()
+    except Exception:
+        fasta_file.close()
+        os.unlink(fasta_file.name)
+        raise
+
+    # Clean up old cached file if it exists
+    old = _fasta_cache.get(polymer_type)
+    if old:
+        try:
+            os.unlink(old['fasta_file'])
+        except OSError:
+            pass
+
+    _fasta_cache[polymer_type] = {
+        'sequences': sequences,
+        'fasta_file': fasta_file.name,
+        'timestamp': time.time(),
+    }
+    logger.info("Rebuilt FASTA cache for '%s': %d sequences", polymer_type, len(sequences))
+
+    return sequences, fasta_file.name
 
 
 def get_extra_data_available(bmrb_id):
@@ -512,37 +575,18 @@ def fasta_search(sequence):
     if not os.path.isfile(fasta_binary):
         raise ServerException("Unable to perform FASTA search. Server improperly installed.")
 
-    with PostgresConnection(schema="macromolecules") as cur:
-        cur.execute('''
-SELECT ROW_NUMBER() OVER (ORDER BY 1) AS id, entity."Entry_ID",entity."ID",
-  regexp_replace(entity."Polymer_seq_one_letter_code", E'[\\n\\r]+', '', 'g' ),
-  replace(regexp_replace(entry."Title", E'[\\n\\r]+', ' ', 'g' ), '  ', ' ')
-FROM "Entity" as entity
-  LEFT JOIN "Entry" as entry
-  ON entity."Entry_ID" = entry."ID"
-  WHERE entity."Polymer_seq_one_letter_code" IS NOT NULL AND "Polymer_type" = %s''', [a_type])
+    sequences, db_file = _get_fasta_db(a_type)
 
-        sequences = cur.fetchall()
-
-    wrapper = textwrap.TextWrapper(width=80, expand_tabs=False,
-                                   replace_whitespace=False,
-                                   drop_whitespace=False, break_on_hyphens=False)
-    seq_strings = [">%s\n%s\n" % (x[0], "\n".join(wrapper.wrap(x[3]))) for x in sequences]
-
-    # Use temporary files to store the FASTA search string and FASTA DB
-    with NamedTemporaryFile(dir="/tmp") as fasta_file, \
-            NamedTemporaryFile(dir="/tmp") as sequence_file:
-        fasta_file.write((">query\n%s" % sequence.upper()).encode())
-        fasta_file.flush()
-
-        sequence_file.write(("".join(seq_strings)).encode())
-        sequence_file.flush()
+    # Use a temporary file for the query sequence only
+    with NamedTemporaryFile(dir="/tmp") as query_file:
+        query_file.write((">query\n%s" % sequence.upper()).encode())
+        query_file.flush()
 
         # Set up the FASTA arguments
         fasta_arguments = [fasta_binary, "-m", "8"]
         if e_val:
             fasta_arguments.extend(["-E", e_val])
-        fasta_arguments.extend([fasta_file.name, sequence_file.name])
+        fasta_arguments.extend([query_file.name, db_file])
 
         # Run FASTA
         res = subprocess.check_output(fasta_arguments, stderr=subprocess.STDOUT).decode()
