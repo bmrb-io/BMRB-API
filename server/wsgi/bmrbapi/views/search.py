@@ -311,11 +311,8 @@ WHERE
 
     # See if a specific residue is needed
     if comp_id:
-        sql += "("
-        for comp in comp_id:
-            sql += '''"Atom_chem_shift.Comp_ID" = %s OR '''
-            args.append(comp.upper())
-        sql += "1 = 2) AND "
+        sql += '''"Atom_chem_shift.Comp_ID" = ANY(%s) AND '''
+        args.append([c.upper() for c in comp_id])
 
     # See if specific phs are needed
     if phs:
