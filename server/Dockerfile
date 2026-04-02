@@ -10,6 +10,7 @@ RUN apk update && \
         perl \
         postgresql-libs \
         wget \
+        pcre \
         postgresql-client && \
     apk --no-cache add --virtual .build-deps \
         gcc \
@@ -19,7 +20,8 @@ RUN apk update && \
         make \
         zlib-dev \
         g++ \
-        linux-headers && \
+        linux-headers \
+        pcre-dev && \
     update-ca-certificates && \
     apk --update add tzdata && \
     cp /usr/share/zoneinfo/America/Chicago /etc/localtime && \
