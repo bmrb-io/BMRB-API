@@ -2,6 +2,7 @@ wheel
 setuptools
 flask==2.3.2
 psycopg[binary]==3.3.3
+psycopg_pool==3.3.0
 simplejson==3.19.3
 python-json-logger==2.0.4
 flask-cors==5.0.0

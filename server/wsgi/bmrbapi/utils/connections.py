@@ -1,11 +1,46 @@
+import logging
+from typing import Optional
+
 import psycopg
 import redis
 from psycopg import sql
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 from redis.sentinel import Sentinel
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.utils.configuration import configuration
+
+logger = logging.getLogger(__name__)
+
+# Module-level connection pools, created lazily on first use
+_pools: dict[str, ConnectionPool] = {}
+
+
+def _get_pool(ets: bool = False, write_access: bool = False) -> ConnectionPool:
+    """Get or create a connection pool for the given connection type."""
+
+    key = 'ets' if ets else ('write' if write_access else 'read')
+    if key not in _pools:
+        if ets:
+            conninfo = psycopg.conninfo.make_conninfo(
+                host=configuration['ets']['host'],
+                user=configuration['ets']['user'],
+                dbname=configuration['ets']['database'],
+                port=configuration['ets']['port'],
+            )
+        else:
+            user = (configuration['postgres']['reload_user'] if write_access
+                    else configuration['postgres']['user'])
+            conninfo = psycopg.conninfo.make_conninfo(
+                host=configuration['postgres']['host'],
+                user=user,
+                dbname=configuration['postgres']['database'],
+                port=configuration['postgres']['port'],
+            )
+        _pools[key] = ConnectionPool(conninfo, min_size=2, max_size=20, open=True)
+        logger.info("Created connection pool '%s' (min=2, max=20)", key)
+    return _pools[key]
 
 
 class DictRow(list):
@@ -69,6 +104,8 @@ class PostgresConnection:
         self._ets = ets
         self._reload = write_access
         self._real_dict = real_dict_cursor
+        self._conn: Optional[psycopg.Connection] = None
+        self._pool: Optional[ConnectionPool] = None
 
         # Check the schema
         if schema:
@@ -82,26 +119,25 @@ class PostgresConnection:
 
         row_factory = dict_row if self._real_dict else compat_row_factory
 
-        if self._ets:
-            self._conn = psycopg.connect(host=configuration['ets']['host'],
-                                         user=configuration['ets']['user'],
-                                         dbname=configuration['ets']['database'],
-                                         port=configuration['ets']['port'],
-                                         row_factory=row_factory)
-        else:
-            user = configuration['postgres']['user'] if not self._reload else configuration['postgres']['reload_user']
-            self._conn = psycopg.connect(host=configuration['postgres']['host'],
-                                         user=user,
-                                         dbname=configuration['postgres']['database'],
-                                         port=configuration['postgres']['port'],
-                                         row_factory=row_factory)
+        self._pool = _get_pool(ets=self._ets, write_access=self._reload)
+        self._conn = self._pool.getconn()
+        self._conn.row_factory = row_factory
+
         cursor = self._conn.cursor()
         if self._schema:
             cursor.execute(sql.SQL('SET search_path=public,{}').format(sql.Identifier(self._schema)))
         return cursor
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._conn.close()
+        if self._conn and self._pool:
+            # Reset search_path before returning to pool so the next user gets a clean connection
+            if self._schema:
+                try:
+                    self._conn.execute("RESET search_path")
+                except Exception:
+                    pass
+            self._pool.putconn(self._conn)
+            self._conn = None
 
     def commit(self):
         self._conn.commit()
