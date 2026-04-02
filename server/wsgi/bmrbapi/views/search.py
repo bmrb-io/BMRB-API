@@ -9,7 +9,8 @@ from typing import List, Dict, Iterable, Set
 from urllib.parse import quote
 
 import psycopg
-from flask import jsonify, request, Blueprint, url_for
+import simplejson
+from flask import jsonify, request, Blueprint, Response, stream_with_context, url_for
 from psycopg import sql
 from psycopg.errors import ProgrammingError
 
@@ -362,19 +363,41 @@ WHERE
     sql += '''database=%s'''
     args.append(database)
 
-    # Do the query
-    with PostgresConnection(real_dict_cursor=dictionary_result) as cur:
-        cur.execute(sql, args)
+    # Do the query, streaming results to avoid loading everything into memory
+    def generate():
+        batch_size = 5000
+        with PostgresConnection(real_dict_cursor=dictionary_result) as cur:
+            cur.execute(sql, args)
 
-        if not dictionary_result:
-            result = {'columns': [desc[0] for desc in cur.description],
-                      'data': cur.fetchall()}
-            # Send query string if in debug mode
-            if configuration['debug']:
-                result['debug'] = {'query': sql, 'params': args}
-            return jsonify(result)
-        else:
-            return jsonify(cur.fetchall())
+            if not dictionary_result:
+                columns = [desc[0] for desc in cur.description]
+                yield '{"columns": ' + simplejson.dumps(columns) + ', "data": ['
+                first = True
+                while True:
+                    rows = cur.fetchmany(batch_size)
+                    if not rows:
+                        break
+                    for row in rows:
+                        if not first:
+                            yield ','
+                        first = False
+                        yield simplejson.dumps(list(row))
+                yield ']}'
+            else:
+                yield '['
+                first = True
+                while True:
+                    rows = cur.fetchmany(batch_size)
+                    if not rows:
+                        break
+                    for row in rows:
+                        if not first:
+                            yield ','
+                        first = False
+                        yield simplejson.dumps(dict(row.items()))
+                yield ']'
+
+    return Response(stream_with_context(generate()), content_type='application/json')
 
 
 @search_endpoints.route('/search/get_all_values_for_tag/<tag_name>')
