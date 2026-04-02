@@ -248,8 +248,8 @@ def get_status():
             stats[key]['num_chemical_shifts'] = int(pg.fetchone()['reltuples'])
 
     try:
-        stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"]).strip()
-    except subprocess.CalledProcessError:
+        stats['version'] = subprocess.check_output(["git", "describe", "--abbrev=0"], stderr=subprocess.DEVNULL).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'version.txt'), 'r') as version_file:
             stats['version'] = version_file.read().strip()
 

@@ -136,6 +136,12 @@ class PostgresConnection:
                     self._conn.execute("RESET search_path")
                 except Exception:
                     pass
+            # Rollback any open transaction before returning to pool to avoid
+            # "rolling back returned connection" warnings from psycopg_pool
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
             self._pool.putconn(self._conn)
             self._conn = None
 
