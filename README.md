@@ -372,10 +372,14 @@ abundant naturally occurring isotope for each atom.
 
 **/search/chemical_shifts[?database=$database][...]**
 
-Returns all of the chemical shifts in the BMRB for the specified atom type. You
-can omit the atom type to fetch all chemical shifts and you can use `*` as a
-wild card character. Optionally specify `macromolecule` or `metabolomics` for the
-database argument to search a specific database. `macromolecule` is the default.
+Returns all of the chemical shifts in the BMRB that match the provided filters.
+You can use `*` as a wild card character for `atom_id`. Optionally specify
+`macromolecule` or `metabolomics` for the database argument to search a specific
+database. `macromolecule` is the default.
+
+**At least one filter parameter must be provided** (`atom_type`, `atom_id`, `comp_id`,
+`shift`, `ph`, or `temperature`). If you want all chemical shifts, they are available
+[on the FTP site](https://bmrb.io/ftp/pub/bmrb/relational_tables/nmr-star3.1/Atom_chem_shift.csv).
 
 In addition, the following parameters can be provided using the
 [standard notation](https://en.wikipedia.org/wiki/Query_string#Web_forms) to

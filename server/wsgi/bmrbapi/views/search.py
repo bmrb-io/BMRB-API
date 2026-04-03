@@ -339,6 +339,11 @@ def get_chemical_shifts():
     database: str = get_db("macromolecules", valid_list=['macromolecules', 'metabolomics'])
     dictionary_result: bool = request.args.get('dictionary_result', False)
 
+    if not any([shift_val, atom_type, atom_id, comp_id, phs, temperatures]):
+        raise RequestException('Please apply at least one filter to your query. If you want all chemical shifts,'
+                               ' they are available on the FTP site at'
+                               ' /ftp/pub/bmrb/relational_tables/nmr-star3.1/Atom_chem_shift.csv')
+
     sql = '''
 SELECT "Atom_chem_shift.Entry_ID",
        "Atom_chem_shift.Entity_ID",
