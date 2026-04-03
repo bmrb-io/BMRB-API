@@ -11,7 +11,7 @@ gitpython==3.1.43
 Flask-Mail==0.10.0
 pynmrstar==3.5.0
 pybmrb==3.0.8
-requests==2.32.3
+requests>=2.32.3,<=3
 marshmallow==3.23.0
 marshmallow_enum==1.5.1
 pybtex==0.25.1
