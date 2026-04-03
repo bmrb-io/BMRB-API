@@ -9,7 +9,7 @@ macromolecule and metabolomics databases is accessible through the API.
 While the API is free to use and doesn't require an API key, if you
 submit a large number of queries you may be rate limited.
 
-The URL of the API is [api.bmrb.io](http://api.bmrb.io/). If
+The URL of the API is [api.bmrb.io](https://api.bmrb.io/). If
 you navigate there you will see links to all active versions of the API.
 
 To see an interactive Jupyter notebook that demonstrates using the BMRB and PDB APIs, please
@@ -40,9 +40,9 @@ substantial changes to the API have been made.
 ### API URLs
 
 From the root of the API server, first add the version you want to query. For
-example, [api.bmrb.io/v2/](http://api.bmrb.io/v2/) for the
+example, [api.bmrb.io/v2/](https://api.bmrb.io/v2/) for the
 release version v2, or
-[api.bmrb.io/current/](http://api.bmrb.io/current/)
+[api.bmrb.io/current/](https://api.bmrb.io/current/)
 to ensure your query goes to the current API version, whatever that is at the
 time. It is suggested that you use the /current/ version for development
 and a fixed version for software releases. This will ensure that your
@@ -88,11 +88,11 @@ Some examples:
 Python:
 ```python
 import requests
-requests.get("http://api.bmrb.io/v2/status", headers={"Application":"My Application"})
+requests.get("https://api.bmrb.io/v2/status", headers={"Application":"My Application"})
 ```
 Curl:
 ```bash
-curl "http://api.bmrb.io/v2/status" -H 'Application: Curl Script'
+curl "https://api.bmrb.io/v2/status" -H 'Application: Curl Script'
 ```
 
 ## REST API
@@ -130,7 +130,7 @@ of entries in each database, the number of chemical shifts in each database, and
 the last time each database was updated. The available methods are also
 returned, as well as the version number of the API.
 
-[Link](http://api.bmrb.io/v2/status)
+[Link](https://api.bmrb.io/v2/status)
 
 #### List entries (GET)
 
@@ -138,13 +138,13 @@ returned, as well as the version number of the API.
 
 Returns a list of all entries.
 
-Example: [List all entries](http://api.bmrb.io/v2/list_entries)
+Example: [List all entries](https://api.bmrb.io/v2/list_entries)
 
-Example: [List macromolecule entries](http://api.bmrb.io/v2/list_entries?database=macromolecules)
+Example: [List macromolecule entries](https://api.bmrb.io/v2/list_entries?database=macromolecules)
 
-Example: [List metabolomics entries](http://api.bmrb.io/v2/list_entries?database=metabolomics)
+Example: [List metabolomics entries](https://api.bmrb.io/v2/list_entries?database=metabolomics)
 
-Example: [List chemcomp entries](http://api.bmrb.io/v2/list_entries?database=chemcomps)
+Example: [List chemcomp entries](https://api.bmrb.io/v2/list_entries?database=chemcomps)
 
 #### Store entry (POST)
 
@@ -177,17 +177,17 @@ By default returns the given BMRB entry in [JSON format](ENTRY.md#entry). If
 
 The formats available are:
 
-* `json` - The default format. Returns the entry in JSON format. [Example](http://api.bmrb.io/v2/entry/15000)
+* `json` - The default format. Returns the entry in JSON format. [Example](https://api.bmrb.io/v2/entry/15000)
 * `rawnmrstar` - The entry is returned in pure NMR-STAR format. There is
 no wrapping JSON. If you need to fetch a large number of NMR-STAR entries
-in text form you may be better served getting them from the [FTP site](https://bmrb.io/ftp/pub/bmrb/entry_directories/). [Example](http://api.bmrb.io/v2/entry/15000?format=rawnmrstar)
+in text form you may be better served getting them from the [FTP site](https://bmrb.io/ftp/pub/bmrb/entry_directories/). [Example](https://api.bmrb.io/v2/entry/15000?format=rawnmrstar)
 * `zlib` - A zlib-compressed JSON representation of the entry is returned.
 This is how the entries are stored in the API database and is therefore the
 absolute fastest way to retrieve an entry. This format mainly exists
 to enable the [PyNMR-STAR python library](https://github.com/uwbmrb/PyNMRSTAR) to
 fetch entries as quickly as possible and it is not expected you will
 benefit from the moderately faster entry access considering the additional
-code complexity required. [Example](http://api.bmrb.io/v2/entry/15000?format=zlib)
+code complexity required. [Example](https://api.bmrb.io/v2/entry/15000?format=zlib)
 
 #### Retrieve one or more saveframes by category (GET)
 
@@ -203,9 +203,9 @@ formats are the same as described in the entry method.
 You may provide the URL parameter saveframe_category=`saveframe_category` multiple times
 to retrieve multiple saveframes.
 
-Example: [Querying for the entry information saveframe](http://api.bmrb.io/v2/entry/15000?saveframe_category=entry_information)
+Example: [Querying for the entry information saveframe](https://api.bmrb.io/v2/entry/15000?saveframe_category=entry_information)
 
-Example: [Querying for the entry information and citation saveframes](http://api.bmrb.io/v2/entry/15000?saveframe_category=entry_information&saveframe_category=citations)
+Example: [Querying for the entry information and citation saveframes](https://api.bmrb.io/v2/entry/15000?saveframe_category=entry_information&saveframe_category=citations)
 
 #### Retrieve one or more saveframes by name (GET)
 
@@ -221,9 +221,9 @@ formats are the same as described in the entry method.
 You may provide the URL parameter saveframe_name=`saveframe_name` multiple times
 to retrieve multiple saveframes.
 
-Example: [Querying for the entry information saveframe by name](http://api.bmrb.io/v2/entry/15000?saveframe_name=entry_information)
+Example: [Querying for the entry information saveframe by name](https://api.bmrb.io/v2/entry/15000?saveframe_name=entry_information)
 
-Example: [Querying for the saveframes with the name entry_information and citation_1](http://api.bmrb.io/v2/entry/15000?saveframe_name=entry_information&saveframe_name=citation_2)
+Example: [Querying for the saveframes with the name entry_information and citation_1](https://api.bmrb.io/v2/entry/15000?saveframe_name=entry_information&saveframe_name=citation_2)
 
 #### Retrieve one or more loops (GET)
 
@@ -239,9 +239,9 @@ formats are the same as described in the entry method.
 You may provide the URL parameter loop=`loop_category` multiple times
 to retrieve multiple saveframes.
 
-Example: [Query of the entry author loop](http://api.bmrb.io/v2/entry/15000?loop=Entry_author)
+Example: [Query of the entry author loop](https://api.bmrb.io/v2/entry/15000?loop=Entry_author)
 
-Example: [Query of the entry author loop and the sample component loop](http://api.bmrb.io/v2/entry/15000?loop=Entry_author&loop=Sample_component)
+Example: [Query of the entry author loop and the sample component loop](https://api.bmrb.io/v2/entry/15000?loop=Entry_author&loop=Sample_component)
 
 #### Retreive one or more tags (GET)
 
@@ -249,9 +249,9 @@ Example: [Query of the entry author loop and the sample component loop](http://a
 
 Returns tags of the specified type(s) for a given entry.
 
-Example: [Fetching the entry title](http://api.bmrb.io/v2/entry/15000?tag=Entry.Title)
+Example: [Fetching the entry title](https://api.bmrb.io/v2/entry/15000?tag=Entry.Title)
 
-Example: [Fetching the entry title and citation title](http://api.bmrb.io/v2/entry/15000?tag=Entry.Title&tag=Citation.Title)
+Example: [Fetching the entry title and citation title](https://api.bmrb.io/v2/entry/15000?tag=Entry.Title&tag=Citation.Title)
 
 #### Fetch the citation information for the entry (GET)
 
@@ -268,9 +268,9 @@ tag:
 
 Examples:
 
-* [JSON-LD](http://api.bmrb.io/v2/entry/15000/citation?format=json-ld)
-* [BibTeX](http://api.bmrb.io/v2/entry/15000/citation?format=bibtex)
-* [Text](http://api.bmrb.io/v2/entry/15000/citation?format=text)
+* [JSON-LD](https://api.bmrb.io/v2/entry/15000/citation?format=json-ld)
+* [BibTeX](https://api.bmrb.io/v2/entry/15000/citation?format=bibtex)
+* [Text](https://api.bmrb.io/v2/entry/15000/citation?format=text)
 
 #### Fetch information on the NMR experiments (GET)
 
@@ -284,7 +284,7 @@ The information returned:
 * Sample experimental condition information
 * NMR spectrometer information
 
-Example: [Experiments for entry bmse000001](http://api.bmrb.io/v2/entry/bmse000001/experiments)
+Example: [Experiments for entry bmse000001](https://api.bmrb.io/v2/entry/bmse000001/experiments)
 
 #### Get tag enumerations (GET)
 
@@ -299,13 +299,13 @@ values for the tag.
 * `enumerations` - The tag values returned are the only legal values for the tag.
 * `null` - There are no saved enumerations for the tag.
 
-Example: [List of common NMR-STAR versions](http://api.bmrb.io/v2/enumerations/Entry.NMR_STAR_version)
+Example: [List of common NMR-STAR versions](https://api.bmrb.io/v2/enumerations/Entry.NMR_STAR_version)
 
 You can narrow the results to those starting with the value you provide in the
 `term` parameter in the query string. This will return the results in a form
 that can be used by JQuery's auto-complete.
 
-Example: [List of common NMR-STAR versions starting with 2](http://api.bmrb.io/v2/enumerations/Entry.NMR_STAR_version?term=2)
+Example: [List of common NMR-STAR versions starting with 2](https://api.bmrb.io/v2/enumerations/Entry.NMR_STAR_version?term=2)
 
 #### Instant search (GET)
 
@@ -332,7 +332,7 @@ you to use it in interactive applications. A non-exhaustive list of the search f
 * Additional data available (e.g. residual dipolar couplings)
 
 You can use this endpoint to do a "general search" against the entire BMBR
-archive. [Example link for "john markley mouse"](http://api.bmrb.io/v2/instant?term=john%20markley%20mouse).
+archive. [Example link for "john markley mouse"](https://api.bmrb.io/v2/instant?term=john%20markley%20mouse).
 It will return results that can be used by JQuery auto-complete with some additional fields provided. This means
 it returns a list of dictionaries, each of which corresponds to one matching entry.
 Entries are only listed once even if multiple fields matches. The entry
@@ -415,11 +415,11 @@ this parameter is no longer needed.
 
 Examples:
 
-* [All CA chemical shifts](http://api.bmrb.io/v2/search/chemical_shifts?atom_id=CA)
-* [All HB* chemical shifts](http://api.bmrb.io/v2/search/chemical_shifts?atom_id=HB*)
-* [All C1 chemical shifts from metabolomics database](http://api.bmrb.io/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
-* [All asparagine C chemical shifts within .01 of 175.1 ppm](http://api.bmrb.io/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
-* [All shifts within .03 of 103 or 130 in residue PHE or TRP](http://api.bmrb.io/v2/search/chemical_shifts?comp_id=TRP&comp_id=PHE&shift=103&shift=130)
+* [All CA chemical shifts](https://api.bmrb.io/v2/search/chemical_shifts?atom_id=CA)
+* [All HB* chemical shifts](https://api.bmrb.io/v2/search/chemical_shifts?atom_id=HB*)
+* [All C1 chemical shifts from metabolomics database](https://api.bmrb.io/v2/search/chemical_shifts?atom_id=C1&database=metabolomics)
+* [All asparagine C chemical shifts within .01 of 175.1 ppm](https://api.bmrb.io/v2/search/chemical_shifts?atom_id=C&comp_id=ASN&shift=175.1&threshold=.01)
+* [All shifts within .03 of 103 or 130 in residue PHE or TRP](https://api.bmrb.io/v2/search/chemical_shifts?comp_id=TRP&comp_id=PHE&shift=103&shift=130)
 
 #### Perform a FASTA search (GET)
 
@@ -457,7 +457,7 @@ Parameters:
 * `hthresh` The threshold to use when matching protons. Default: .01 (ppm)
 * `solvent` Filter results to only include ones observed in the specified solvent. 
 
-Example: [Search for peaks 2.075, 3.11, and 39.31](http://api.bmrb.io/v2/search/multiple_shift_search?shift=2.075&shift=3.11&shift=39.31)
+Example: [Search for peaks 2.075, 3.11, and 39.31](https://api.bmrb.io/v2/search/multiple_shift_search?shift=2.075&shift=3.11&shift=39.31)
 
 #### Get entries with tag matching value (GET)
 
@@ -468,7 +468,7 @@ value of at least one instance of tag `tag_name`. The search is done
 case-insensitively. You may optionally specify a database if you want
 to query the metabolomics or chemcomp database rather than the macromolecule one.
 
-Example: [All entries which used solid-state NMR](http://api.bmrb.io/v2/search/get_id_by_tag_value/Entry.Experimental_method_subtype/solid-state)
+Example: [All entries which used solid-state NMR](https://api.bmrb.io/v2/search/get_id_by_tag_value/Entry.Experimental_method_subtype/solid-state)
 
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](https://bmrb.io/dictionary/tag.php) for reference.
@@ -482,9 +482,9 @@ and the values are lists of all of the values of the given tag in each entry.
 This allows you to get all of the values of a given tag in the BMRB archive for
 a given database.
 
-Example: [The citation titles for all entries in the macromolecule database](http://api.bmrb.io/v2/search/get_all_values_for_tag/Citation.Title)
+Example: [The citation titles for all entries in the macromolecule database](https://api.bmrb.io/v2/search/get_all_values_for_tag/Citation.Title)
 
-Example: [The compound names for all compounds in the metabolomics database](http://api.bmrb.io/v2/search/get_all_values_for_tag/Chem_comp.Name?database=metabolomics)
+Example: [The compound names for all compounds in the metabolomics database](https://api.bmrb.io/v2/search/get_all_values_for_tag/Chem_comp.Name?database=metabolomics)
 
 Note that you need the proper tag capitalization for this method. Use
 [the dictionary](https://bmrb.io/dictionary/tag.php) for reference.
@@ -514,7 +514,7 @@ during deposition it will appear here.
 The `comment` field will only be present if it has a non-null value. It will contain any recorded
 notes on how the specific PDB ID is related to the queried BMRB ID if present.
 
-Example: [PDB IDs associated with BMRB ID 15000](http://api.bmrb.io/v2/search/get_pdb_ids_from_bmrb_id/15000)
+Example: [PDB IDs associated with BMRB ID 15000](https://api.bmrb.io/v2/search/get_pdb_ids_from_bmrb_id/15000)
 
 #### Get associated BMRB IDs for a given PDB ID (GET)
 
@@ -541,7 +541,7 @@ during deposition it will appear here.
 The `comment` field will usually be `null`, but if not, it will contain any recorded
 notes on how the specific BMRB ID is related to the queried PDB ID.
 
-Example: [BMRB IDs associated with PDB ID 2JM0](http://api.bmrb.io/v2/search/get_bmrb_ids_from_pdb_id/2JM0)
+Example: [BMRB IDs associated with PDB ID 2JM0](https://api.bmrb.io/v2/search/get_bmrb_ids_from_pdb_id/2JM0)
 
 ### Bulk Mappings
 
@@ -567,8 +567,8 @@ Parameters:
 
 Examples:
 
-* [Exactly linked BMRB -> PDB mapping in text](http://api.bmrb.io/v2/mappings/bmrb/pdb?format=text&match_type=exact)
-* [BLAST linked PDB -> BMRB mapping in json](http://api.bmrb.io/v2/mappings/pdb/bmrb?format=text&match_type=blast)
+* [Exactly linked BMRB -> PDB mapping in text](https://api.bmrb.io/v2/mappings/bmrb/pdb?format=text&match_type=exact)
+* [BLAST linked PDB -> BMRB mapping in json](https://api.bmrb.io/v2/mappings/pdb/bmrb?format=text&match_type=blast)
 
 #### Get a bulk BMRB<->UniProt ID mapping
 
@@ -592,8 +592,8 @@ Parameters:
 
 Examples:
 
-* [All link types BMRB -> UniProt mapping in text](http://api.bmrb.io/v2/mappings/bmrb/uniprot?format=text&match_type=all)
-* [BLAST linked UniProt -> BMRB mapping in json](http://api.bmrb.io/v2/mappings/uniprot/bmrb?format=json&match_type=blast)
+* [All link types BMRB -> UniProt mapping in text](https://api.bmrb.io/v2/mappings/bmrb/uniprot?format=text&match_type=all)
+* [BLAST linked UniProt -> BMRB mapping in json](https://api.bmrb.io/v2/mappings/uniprot/bmrb?format=json&match_type=blast)
 
 
 ### Software
@@ -604,7 +604,7 @@ Examples:
 
 Returns a summary of all software packages used in BMRB entries.
 
-Example: [All software packages used](http://api.bmrb.io/v2/software/)
+Example: [All software packages used](https://api.bmrb.io/v2/software/)
 
 #### Software used in an entry (GET)
 
@@ -618,7 +618,7 @@ list of software will be a list with the following four values in order:
 * `software_task` The purpose of the software in this investigation.
 * `softare_vender` The software vendor.
 
-[Example for entry 15000](http://api.bmrb.io/v2/software/entry/15000)
+[Example for entry 15000](https://api.bmrb.io/v2/software/entry/15000)
 
 #### Which entries used a given software package (GET)
 
@@ -630,7 +630,7 @@ is done case-insensitive and does not require perfect matches. For example,
 
 You may optionally specify which database to use.
 
-Example: [Entries using SPARKY](http://api.bmrb.io/v2/software/package/sparky?database=macromolecules)
+Example: [Entries using SPARKY](https://api.bmrb.io/v2/software/package/sparky?database=macromolecules)
 
 ### MolProbity
 
@@ -640,7 +640,7 @@ Example: [Entries using SPARKY](http://api.bmrb.io/v2/software/package/sparky?da
 
 Returns the full one-line MolProbity results for the given PDB ID.
 
-Example: [PDB 2DOG](http://api.bmrb.io/v2/molprobity/2dog/oneline)
+Example: [PDB 2DOG](https://api.bmrb.io/v2/molprobity/2dog/oneline)
 
 #### Get residue MolProbity results for a PDB ID (GET)
 
@@ -654,7 +654,7 @@ Parameters:
 * `r` Specify the residue to query. May be specified multiple times to get the
 results for multiple residues.
 
-Example: [PDB 2DOG residues 10-13](http://api.bmrb.io/v2/molprobity/2dog/residue?r=10&r=11&r=12&r=13)
+Example: [PDB 2DOG residues 10-13](https://api.bmrb.io/v2/molprobity/2dog/residue?r=10&r=11&r=12&r=13)
 
 ### Protein-oriented endpoints
 
@@ -673,6 +673,6 @@ the default.
 
 Examples: 
 
-* [Results for all UniProt IDs in hupo-psi-id format](http://api.bmrb.io/v2/protein/uniprot?format=hupo-psi-id)
-* [Results for UniProt ID P02769 in json format](http://api.bmrb.io/v2/protein/uniprot/P02769?format=json)
+* [Results for all UniProt IDs in hupo-psi-id format](https://api.bmrb.io/v2/protein/uniprot?format=hupo-psi-id)
+* [Results for UniProt ID P02769 in json format](https://api.bmrb.io/v2/protein/uniprot/P02769?format=json)
 
