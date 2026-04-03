@@ -15,10 +15,10 @@ class GetEntry(Schema):
         zlib = "zlib"
 
     format = CustomErrorEnum(Format)
-    saveframe_category = fields.String(multiple=True)
-    saveframe_name = fields.String(multiple=True)
-    loop = fields.String(multiple=True)
-    tag = fields.String(multiple=True)
+    saveframe_category = fields.String(metadata={'multiple': True})
+    saveframe_name = fields.String(metadata={'multiple': True})
+    loop = fields.String(metadata={'multiple': True})
+    tag = fields.String(metadata={'multiple': True})
 
 
 class GetSoftwareByEntry(Schema):
@@ -26,11 +26,11 @@ class GetSoftwareByEntry(Schema):
 
 
 class GetExperimentData(Schema):
-    shift = fields.Float(multiple=True)
+    shift = fields.Float(metadata={'multiple': True})
     threshold = fields.Float()
     atom_type = fields.String()
-    atom_id = fields.String(multiple=True)
-    comp_id = fields.String(multiple=True)
+    atom_id = fields.String(metadata={'multiple': True})
+    comp_id = fields.String(metadata={'multiple': True})
     conditions = fields.Bool()
 
 

@@ -1,15 +1,14 @@
 import enum
 
-from marshmallow import Schema
-from marshmallow_enum import EnumField
+from marshmallow import Schema, fields
 
 __all__ = ['DatabaseSchema', 'CustomErrorEnum']
 
 
-class CustomErrorEnum(EnumField):
+class CustomErrorEnum(fields.Enum):
     def __init__(self, enum_object):
         super().__init__(enum_object, by_value=True,
-                         error="Invalid value provided. Please select from [{values}]")
+                         error_messages={'unknown': 'Invalid value provided. Please select from [{choices}]'})
 
 
 class DatabaseSchema(Schema):

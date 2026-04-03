@@ -12,7 +12,7 @@ import simplejson
 from flask import Flask, request, jsonify, url_for, render_template
 from flask.json.provider import JSONProvider
 from flask_mail import Mail
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter as JsonLogFormatter
 from werkzeug.exceptions import NotFound
 
 from bmrbapi.exceptions import RequestException, ServerException
@@ -81,7 +81,7 @@ rlogger.addHandler(request_log)
 rlogger.propagate = False
 
 # JSON logger
-json_formatter = jsonlogger.JsonFormatter()
+json_formatter = JsonLogFormatter()
 application_json = RotatingFileHandler(request_json_file, maxBytes=1048576, backupCount=100)
 application_json.setFormatter(json_formatter)
 jlogger = logging.getLogger("jlogger")

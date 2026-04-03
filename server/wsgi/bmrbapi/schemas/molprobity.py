@@ -10,4 +10,4 @@ class MolprobityOneline(Schema):
 class MolprobityResidue(Schema):
     """ A MolProbity residue specific search"""
 
-    r = fields.String(multiple=True)
+    r = fields.String(metadata={'multiple': True})

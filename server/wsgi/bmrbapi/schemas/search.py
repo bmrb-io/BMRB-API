@@ -16,17 +16,17 @@ class MultipleShiftSearch(DatabaseSchema):
     nthresh = fields.Float()
     cthresh = fields.Float()
     hthresh = fields.Float()
-    s = fields.Float(multiple=True)
+    s = fields.Float(metadata={'multiple': True})
     solvent = fields.String()
-    shift = fields.Float(multiple=True)
+    shift = fields.Float(metadata={'multiple': True})
 
 
 class GetChemicalShifts(DatabaseSchema):
-    shift = fields.Float(multiple=True)
+    shift = fields.Float(metadata={'multiple': True})
     threshold = fields.Float()
     atom_type = fields.String()
-    atom_id = fields.String(multiple=True)
-    comp_id = fields.String(multiple=True)
+    atom_id = fields.String(metadata={'multiple': True})
+    comp_id = fields.String(metadata={'multiple': True})
     ph = fields.Float()
     ph_threshold = fields.Float()
     temperature = fields.Float()
