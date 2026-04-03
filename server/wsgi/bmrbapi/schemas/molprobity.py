@@ -1,6 +1,10 @@
 from marshmallow import fields, Schema
 
-__all__ = ['MolprobityResidue']
+__all__ = ['MolprobityOneline', 'MolprobityResidue']
+
+
+class MolprobityOneline(Schema):
+    pass
 
 
 class MolprobityResidue(Schema):
