@@ -5,7 +5,6 @@
 
 import logging
 import os
-import sys
 import time
 import xml.etree.cElementTree as eTree
 import zipfile
@@ -15,6 +14,7 @@ from xml.etree.ElementTree import tostring as xml_tostring
 import pynmrstar
 from lxml import etree
 
+from bmrbapi.utils.configuration import configuration
 from bmrbapi.utils.connections import PostgresConnection
 
 
@@ -26,6 +26,8 @@ def xml(result_location):
          WHERE status like 'rel%' AND lit_search_required LIKE 'N'
          ORDER BY bmrbnum""")
         entry_data = c.fetchall()
+
+    substitution_count = configuration['macromolecule_entry_directory'].count("%s")
 
     # Set up the validation code and import the schema
     schema_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "xml_generate",
@@ -71,7 +73,9 @@ def xml(result_location):
         try:
             logging.info("Loading entry: %s" % entry)
             try:
-                parsed = pynmrstar.Entry.from_database(entry)
+                entry_dir = configuration['macromolecule_entry_directory'] % ((entry,) * substitution_count)
+                entry_file = os.path.join(entry_dir, f"bmr{entry}_3.str")
+                parsed = pynmrstar.Entry.from_file(entry_file)
 
                 # Generate the xml
                 DataRecord = eTree.SubElement(root, "DataRecord")
@@ -182,10 +186,7 @@ def xml(result_location):
             except IOError:
                 logging.info("Skipping %d because no file found on disk." % entry)
         except Exception as err:
-            import traceback
-            print("An exception occurred while processing entry %d: %s" % (entry, str(err)))
-            traceback.print_exc()
-            sys.exit(1)
+            logging.error("An exception occurred while processing entry %d: %s", entry, err, exc_info=True)
 
     # Do one final validation of the full tree
     xmlschema.assertValid(etree.parse(BytesIO(xml_tostring(root, encoding="us-ascii"))))
