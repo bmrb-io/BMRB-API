@@ -395,8 +395,6 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
         _dict_cache[table_key] = cur.fetchone()['tagcategory']
     table_name = _dict_cache[table_key]
 
-    logging.debug("Will look in table: %s", table_name)
-
     # Figure out which tags to display (cached per table)
     tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
 
