@@ -442,9 +442,6 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
 
     # Add the loops
     for each_loop in loops:
-
-        logging.debug("Doing loop: %s", each_loop)
-
         tags_to_use, pointer_tags = get_printable_tags(each_loop, cur)
 
         # If there are any tags in the loop to use
