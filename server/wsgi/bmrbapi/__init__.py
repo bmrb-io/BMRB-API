@@ -195,7 +195,9 @@ def robots_txt():
     return """
 User-agent: *
 Disallow: /current/entry/*/simulate_hsqc
-Disallow: /search/chemical_shifts
+Disallow: /v2/entry/*/simulate_hsqc
+Disallow: /current/search/chemical_shifts
+Disallow: /v2/search/chemical_shifts
 """, 200, {'Content-Type': 'text/plain'}
 
 
