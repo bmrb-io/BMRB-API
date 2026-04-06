@@ -4,7 +4,6 @@
 import logging
 import os
 import subprocess
-import time
 import traceback
 from logging.handlers import RotatingFileHandler, SMTPHandler
 
@@ -12,7 +11,6 @@ import simplejson
 from flask import Flask, request, jsonify, url_for, render_template
 from flask.json.provider import JSONProvider
 from flask_mail import Mail
-from pythonjsonlogger.json import JsonFormatter as JsonLogFormatter
 from werkzeug.exceptions import NotFound
 
 from bmrbapi.exceptions import RequestException, ServerException
@@ -51,14 +49,8 @@ local_dir = os.path.dirname(__file__)
 # Set up the logging
 
 # First figure out where to log
-request_log_file = os.path.join(local_dir, "logs", "requests.log")
 application_log_file = os.path.join(local_dir, "logs", "application.log")
-request_json_file = os.path.join(local_dir, "logs", "json_requests.log")
 if querymod.configuration.get('log'):
-    if configuration['log'].get('json'):
-        request_json_file = configuration['log']['json']
-    if configuration['log'].get('request'):
-        request_log_file = configuration['log']['request']
     if configuration['log'].get('application'):
         application_log_file = configuration['log']['application']
 
@@ -68,26 +60,6 @@ application_log = RotatingFileHandler(application_log_file, maxBytes=1048576, ba
 application_log.setFormatter(app_formatter)
 application.logger.addHandler(application_log)
 application.logger.setLevel(logging.WARNING)
-
-# Set up the request loggers
-
-# Plain text logger
-request_formatter = logging.Formatter('[%(asctime)s]: %(message)s')
-request_log = RotatingFileHandler(request_log_file, maxBytes=1048576, backupCount=100)
-request_log.setFormatter(request_formatter)
-rlogger = logging.getLogger("rlogger")
-rlogger.setLevel(logging.INFO)
-rlogger.addHandler(request_log)
-rlogger.propagate = False
-
-# JSON logger
-json_formatter = JsonLogFormatter()
-application_json = RotatingFileHandler(request_json_file, maxBytes=1048576, backupCount=100)
-application_json.setFormatter(json_formatter)
-jlogger = logging.getLogger("jlogger")
-jlogger.setLevel(logging.INFO)
-jlogger.addHandler(application_json)
-jlogger.propagate = False
 
 # Set up the SMTP handler
 if (querymod.configuration.get('smtp')
@@ -164,28 +136,9 @@ def handle_other_errors(error):
         return ServerException(f"Server error. Contact {configuration['smtp']['from_address']}.").to_response()
 
 
-# Set up logging
 @application.before_request
-def log_request():
-    """ Log all requests. """
-
-    try:
-        user_agent = request.headers.get('User-Agent', '?').split()[0]
-    except IndexError:
-        user_agent = '?'
-
-    rlogger.info("%s %s %s %s %s", request.remote_addr, request.method,
-                 request.full_path,
-                 user_agent,
-                 request.headers.get('Application', 'unknown'))
-
-    jlogger.info({"user-agent": request.headers.get('User-Agent'),
-                  "method": request.method, "endpoint": request.endpoint,
-                  "application": request.headers.get('Application'),
-                  "path": request.full_path, "ip": request.remote_addr,
-                  "local": querymod.check_local_ip(), "time": time.time()})
-
-    # Run the custom validator on all requests
+def validate_request():
+    """ Validate all requests. """
     validate_parameters()
 
 
