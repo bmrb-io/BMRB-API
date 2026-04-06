@@ -17,6 +17,20 @@ logger = logging.getLogger(__name__)
 _pools: dict[str, ConnectionPool] = {}
 
 
+def reset_pools():
+    """Close and discard all connection pools.
+
+    Must be called in forked child processes (e.g. via multiprocessing.Pool initializer)
+    so that each worker creates its own fresh connections instead of inheriting
+    the parent's SSL-tainted file descriptors."""
+    for pool in _pools.values():
+        try:
+            pool.close()
+        except Exception:
+            pass
+    _pools.clear()
+
+
 def _get_pool(ets: bool = False, write_access: bool = False) -> ConnectionPool:
     """Get or create a connection pool for the given connection type."""
 

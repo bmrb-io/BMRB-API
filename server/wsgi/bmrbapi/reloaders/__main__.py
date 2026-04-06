@@ -18,7 +18,7 @@ from bmrbapi.reloaders.timedomain import timedomain
 from bmrbapi.reloaders.uniprot import uniprot
 from bmrbapi.reloaders.xml_generate import xml
 from bmrbapi.utils.configuration import configuration
-from bmrbapi.utils.connections import PostgresConnection, RedisConnection
+from bmrbapi.utils.connections import PostgresConnection, RedisConnection, reset_pools
 
 loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 to_process = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
@@ -254,7 +254,10 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
 
     logger.info('Updating entries in Redis...')
 
-    with multiprocessing.Pool(processes=options.processors) as pool:
+    # Close parent's connection pools before forking to avoid inheriting SSL connections
+    reset_pools()
+
+    with multiprocessing.Pool(processes=options.processors, initializer=reset_pools) as pool:
         for res in pool.map(one_entry, to_process['combined']):
             add_to_loaded(res)
 
