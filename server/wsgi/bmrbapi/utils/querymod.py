@@ -27,6 +27,10 @@ SUBMODULE_DIR = os.path.join(os.path.dirname(_QUERYMOD_DIR), "submodules")
 # Set up logging
 logging.basicConfig()
 
+# Cache for dictionary metadata that is static across all entries.
+# Populated lazily on first access per process (safe with multiprocessing fork).
+_dict_cache = {}
+
 
 def locate_entry(entry_id: str, r_conn: StrictRedis) -> str:
     """ Determines what the Redis key is for an entry given the database
@@ -308,6 +312,10 @@ def get_printable_tags(category: str, cur) -> Tuple[List[str], List[str]]:
     """ Returns a list of the tags that should be printed for the given
     category and a list of tags that are pointers."""
 
+    cache_key = ('printable_tags', category)
+    if cache_key in _dict_cache:
+        return _dict_cache[cache_key]
+
     # Figure out the loop tags
     cur.execute('''SELECT a.tagfield,a.internalflag,p.printflag,a.dictionaryseq,a.sfpointerflg
                 FROM dict.adit_item_tbl a JOIN dict.validator_printflags p ON p.dictionaryseq = a.dictionaryseq
@@ -335,6 +343,7 @@ def get_printable_tags(category: str, cur) -> Tuple[List[str], List[str]]:
             if configuration['debug']:
                 print("Skipping private tag: %s" % row[0])
 
+    _dict_cache[cache_key] = (tags_to_use, pointer_tags)
     return tags_to_use, pointer_tags
 
 
@@ -348,24 +357,23 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
     You can optionally pass a cursor to reuse an existing postgresql
     connection."""
 
-    # Look up information about the tags to use later
-    # cur.execute('''SELECT adit_item_tbl.originaltag,adit_item_tbl.internalflag,
-    # printflag,adit_item_tbl.dictionaryseq,rowindexflg FROM dict.adit_item_tbl,
-    # dict.adit_item_tbl WHERE adit_item_tbl.originaltag=
-    # adit_item_tbl.originaltag''')
+    # Get the list of which tags should be used to order data (cached - same for all entries)
+    if 'tag_order' not in _dict_cache:
+        cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
+        _dict_cache['tag_order'] = {x['originaltag']: x['rowindexflg'] for x in cur.fetchall()}
+    tag_order = _dict_cache['tag_order']
 
-    # Get the list of which tags should be used to order data
-    cur.execute('''SELECT originaltag,rowindexflg from dict.adit_item_tbl''')
-    tag_order = {x['originaltag']: x['rowindexflg'] for x in cur.fetchall()}
-
-    # Set the search path
+    # Set the search path (needed for unqualified data table references below)
     cur.execute(sql.SQL('SET search_path={}, pg_catalog').format(sql.Identifier(database)))
 
-    # Check if we are allowed to print it
-    cur.execute('''SELECT internalflag,printflag FROM dict.cat_grp
-                WHERE sfcategory=%(sf_cat)s ORDER BY groupid''',
-                {'sf_cat': category})
-    internalflag, printflag = cur.fetchone()
+    # Check if we are allowed to print it (cached per category)
+    cat_grp_key = ('cat_grp', category)
+    if cat_grp_key not in _dict_cache:
+        cur.execute('''SELECT internalflag,printflag FROM dict.cat_grp
+                    WHERE sfcategory=%(sf_cat)s ORDER BY groupid''',
+                    {'sf_cat': category})
+        _dict_cache[cat_grp_key] = cur.fetchone()
+    internalflag, printflag = _dict_cache[cat_grp_key]
 
     # Sorry, we won't print internal saveframes
     if internalflag == "Y":
@@ -378,57 +386,59 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
                         "%s.%s", database, category)
         return None
 
-    # Get table name from category name
-    cur.execute("""SELECT DISTINCT tagcategory FROM dict.adit_item_tbl
-                WHERE originalcategory=%(category)s AND loopflag<>'Y'""",
-                {"category": category})
-    table_name = cur.fetchone()['tagcategory']
+    # Get table name from category name (cached per category)
+    table_key = ('table_name', category)
+    if table_key not in _dict_cache:
+        cur.execute("""SELECT DISTINCT tagcategory FROM dict.adit_item_tbl
+                    WHERE originalcategory=%(category)s AND loopflag<>'Y'""",
+                    {"category": category})
+        _dict_cache[table_key] = cur.fetchone()['tagcategory']
+    table_name = _dict_cache[table_key]
 
     logging.debug("Will look in table: %s", table_name)
 
-    # Get the sf_id for later
+    # Figure out which tags to display (cached per table)
+    tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
+
+    # Fetch the saveframe row — single query replaces the former Sf_ID lookup + separate tag value fetch
     cur.execute(
-        sql.SQL('SELECT "Sf_ID","Sf_framecode" FROM {} WHERE {} = %s ORDER BY "Sf_ID"').format(
+        sql.SQL('SELECT * FROM {} WHERE {} = %s ORDER BY "Sf_ID"').format(
             sql.Identifier(table_name), sql.Identifier(id_search_field)
         ), [entry_id])
+    tag_vals = cur.fetchone()
 
-    # There is no matching saveframe found for their search term
-    # and search field
-    if cur.rowcount == 0:
+    # There is no matching saveframe found for their search term and search field
+    if tag_vals is None:
         raise RequestException("No matching saveframe found.")
-    sf_id, sf_framecode = cur.fetchone()
+
+    sf_id = tag_vals['Sf_ID']
+    sf_framecode = tag_vals['Sf_framecode']
+    # Save column metadata now — cached get_printable_tags won't touch the cursor,
+    # but on first call per worker it would overwrite cur.description
+    col_description = cur.description
 
     # Create the NMR-STAR saveframe
     built_frame = pynmrstar.Saveframe.from_scratch(sf_framecode)
     built_frame.tag_prefix = "_" + table_name
 
-    # Figure out which tags to display
-    tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
-
-    # Get the tag values
-    cur.execute(
-        sql.SQL('SELECT * FROM {} WHERE "Sf_ID" = %s').format(sql.Identifier(table_name)),
-        [sf_id])
-    tag_vals = cur.fetchone()
-
     # Add the tags, and optionally add $ if the tag is a pointer
-    for pos, tag in enumerate(cur.description):
+    for pos, tag in enumerate(col_description):
         if tag.name in tags_to_use:
             if tag.name in pointer_tags:
                 built_frame.add_tag(tag.name, "$" + tag_vals[pos])
             else:
                 built_frame.add_tag(tag.name, tag_vals[pos])
 
-    # Figure out which loops we might need to insert
-    cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.adit_item_tbl
-                WHERE originalcategory=%(category)s GROUP BY tagcategory ORDER BY seq''',
-                {'category': category})
-
-    # The first result is the saveframe, so drop it
-    cur.fetchone()
-
-    # Figure out which loops we might need to add
-    loops = [x['tagcategory'] for x in cur.fetchall()]
+    # Figure out which loops we might need to insert (cached per category)
+    loops_key = ('loops', category)
+    if loops_key not in _dict_cache:
+        cur.execute('''SELECT tagcategory,min(dictionaryseq) AS seq FROM dict.adit_item_tbl
+                    WHERE originalcategory=%(category)s GROUP BY tagcategory ORDER BY seq''',
+                    {'category': category})
+        # The first result is the saveframe, so drop it
+        cur.fetchone()
+        _dict_cache[loops_key] = [x['tagcategory'] for x in cur.fetchall()]
+    loops = _dict_cache[loops_key]
 
     # Add the loops
     for each_loop in loops:
