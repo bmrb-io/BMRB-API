@@ -4,23 +4,22 @@
 
 CREATE extension IF NOT EXISTS pg_trgm;
 
--- Put an index on tables that we will be querying often. Even though we will primarily use our custom table,
---  the indexes are still helpful for certain other queries we will make against this table
-DO $$
-BEGIN
-    BEGIN
-        CREATE INDEX error_on_duplicates ON macromolecules."Atom_chem_shift" (CAST("Val" AS FLOAT), "Atom_type");
-        CREATE INDEX ON metabolomics."Atom_chem_shift" (CAST("Val" AS FLOAT), "Atom_type");
-
-        -- These four are four the multiple peak search supporting solvents
-        CREATE INDEX ON metabolomics."Chem_shift_experiment" ("Entry_ID", "Sample_ID");
-        CREATE INDEX ON macromolecules."Chem_shift_experiment" ("Entry_ID", "Sample_ID");
-        CREATE INDEX ON metabolomics."Sample_component" ("Entry_ID", "Sample_ID");
-        CREATE INDEX ON macromolecules."Sample_component" ("Entry_ID", "Sample_ID");
-    EXCEPTION
-        WHEN OTHERS THEN RAISE NOTICE 'Skipping chemical_shift index creation because at least one index already exists.';
-    END;
-END $$;
+-- The indexes on the entry tables -- macromolecules/metabolomics
+-- "Atom_chem_shift" (CAST("Val" AS FLOAT), "Atom_type"), and "Entry_ID",
+-- "Sample_ID" on "Chem_shift_experiment" and "Sample_component" -- used to be
+-- created here. dbloader builds them now, in loader/indexes.py, as part of
+-- loading the archive.
+--
+-- Two reasons that is the better place. It builds them on the shadow schema
+-- before the swap, so the exclusive locks land on a schema nobody can see yet
+-- rather than on tables the website is reading; and the archive is never live
+-- and unindexed, which it was for as long as this job took to get here.
+--
+-- They cannot simply be left here as well. `CREATE INDEX ON tbl (...)` invents
+-- a new name each time rather than colliding, so running both made a second,
+-- identical copy of each index -- twice the build time and twice the disk, for
+-- nothing. The EXCEPTION handler that used to wrap this did not prevent that:
+-- it only fires on the one index that was explicitly named.
 
 DROP MATERIALIZED VIEW IF EXISTS web.query_grid_tmp;
 CREATE MATERIALIZED VIEW web.query_grid_tmp AS
