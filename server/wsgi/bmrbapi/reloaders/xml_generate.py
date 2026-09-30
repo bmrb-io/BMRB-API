@@ -3,6 +3,7 @@
 
 # The contact e-mail for this project at Reuters is: megan.force@thomsonreuters.com
 
+import datetime
 import logging
 import os
 import time
@@ -67,6 +68,11 @@ def xml(result_location):
             tmp = eTree.SubElement(parent, name)
             tmp.text = value
 
+    # Entries left out of the export, and entries whose release date came from the file rather than ETS. Both are
+    #  summarized at the end, so that they are hard to miss in the job's stderr.
+    failed = []
+    no_ets_date = []
+
     # Go through each entry
     for entry, release_date in entry_data:
 
@@ -77,8 +83,16 @@ def xml(result_location):
                 entry_file = os.path.join(entry_dir, f"bmr{entry}_3.str")
                 parsed = pynmrstar.Entry.from_file(entry_file)
 
-                # Generate the xml
-                DataRecord = eTree.SubElement(root, "DataRecord")
+                # ETS should always have the release date of a released entry, but has been seen without one
+                #  (53486). The file says when it was released too, so use that, and report the mismatch.
+                if release_date is None:
+                    release_date = datetime.date.fromisoformat(
+                        str(get_tag(parsed, "_Entry.Original_release_date", 0)))
+                    no_ets_date.append(entry)
+
+                # Generate the xml. Built detached and attached to root only once it validates, so that a
+                #  record abandoned half way does not end up in the tree.
+                DataRecord = eTree.Element("DataRecord")
                 DataRecord.set("ProviderID", str(entry))
 
                 # Header
@@ -182,11 +196,23 @@ def xml(result_location):
 
                 # We've added everything. Now validate this entry against the schema
                 xmlschema.assertValid(etree.parse(BytesIO(xml_tostring(DataRecord, encoding="us-ascii"))))
+                root.append(DataRecord)
 
             except IOError:
                 logging.info("Skipping %d because no file found on disk." % entry)
         except Exception as err:
             logging.error("An exception occurred while processing entry %d: %s", entry, err, exc_info=True)
+            failed.append(entry)
+
+    if no_ets_date:
+        logging.warning("XML export: %d entries have no release date in ETS; used _Entry.Original_release_date "
+                        "from the file instead. Fix them in ETS: %s",
+                        len(no_ets_date), ", ".join(str(x) for x in no_ets_date))
+    if failed:
+        logging.critical("*" * 80)
+        logging.critical("XML export: %d entries OMITTED from the XML, see the errors above: %s",
+                         len(failed), ", ".join(str(x) for x in failed))
+        logging.critical("*" * 80)
 
     # Do one final validation of the full tree
     xmlschema.assertValid(etree.parse(BytesIO(xml_tostring(root, encoding="us-ascii"))))
