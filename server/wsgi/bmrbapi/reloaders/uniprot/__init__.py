@@ -10,9 +10,12 @@ from bmrbapi.utils.connections import PostgresConnection
 def uniprot():
     psql_conn = PostgresConnection(write_access=True)
     this_dir = os.path.dirname(os.path.abspath(__file__))
+    # uniprot_primary_accession.csv replaces uniprot_validate.csv, which had rewritten 843 of 1,479 IDs to a
+    #  secondary accession (see UniProtValidator); a new name makes the fix take effect without clearing a
+    #  cache by hand.
     with UniProtMapper('uniname.csv') as uni_name, \
             PDBMapper('pdb_uniprot.csv') as pdb_map, \
-            UniProtValidator('uniprot_validate.csv') as uniprot_validator, \
+            UniProtValidator('uniprot_primary_accession.csv') as uniprot_validator, \
             open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'w') as uniprot_seq_file, \
             psql_conn as cur:
 
