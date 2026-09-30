@@ -171,10 +171,18 @@ if options.timedomain:
     timedomain()
     logger.info('Finished timedomain data reload...')
 
+# Reloaders that failed. The rest still run -- a bad entry in the XML export is no reason to leave Redis stale --
+#  and then the process exits non-zero, so that the failure is not just a line in the log.
+failed = []
+
 if options.xml:
     logger.info('Doing XML generation...')
-    xml(configuration['internal_data_directory'])
-    logger.info('Finished XML reload...')
+    try:
+        xml(configuration['internal_data_directory'])
+        logger.info('Finished XML reload...')
+    except Exception:
+        logger.exception('XML generation failed.')
+        failed.append('xml')
 
 if options.uniprot:
     logger.info('Doing UniProt reload...')
@@ -294,3 +302,7 @@ if options.molprobity_full:
     logger.info('Doing full MolProbity reload...')
     molprobity_full()
     logger.info('Finished full MolProbity reload...')
+
+if failed:
+    logger.critical('Failed: %s', ', '.join(failed))
+    sys.exit(1)
