@@ -1,74 +1,39 @@
-import csv
 import logging
-import os
 
-from bmrbapi.reloaders.uniprot import sql_statements as sql_statements
-from bmrbapi.reloaders.uniprot.file_mappers import UniProtMapper, PDBMapper, UniProtValidator
-from bmrbapi.utils.connections import PostgresConnection
+#
+# The UniProt reloader that used to be here -- building web.uniprot_mappings
+# and the web.hupo_psi_id materialized view -- now lives in the dbloader
+# repository, in `loader/uniprot.py`, run by the web stage of the reload:
+#
+#   ~/git/dictionary/dbloader/loader/uniprot.py
+#   deployed at /projects/BMRB/software/dictionary-meta/dbloader/
+#
+# It moved for the reason sql/initialize.sql and the timedomain scan did. The
+# reload builds `web` as web_new and swaps it in wholesale, so anything not
+# built into web_new beforehand is dropped with the old schema: the first
+# release that did that took uniprot_mappings with it, and the summary pages
+# failed on the missing relation. This module wrote `web.` and
+# `macromolecules.` by name, so it could not target the shadow schemas; and
+# hupo_psi_id, a view over macromolecules tables, cannot outlive a swap that
+# replaces them.
+#
+# The lookups were rewritten on the way (see 3c7dabe, which fixed them here
+# first): PDB chains come from SIFTS' bulk file rather than RCSB's retired
+# describeMol API, entry names and accessions from rest.uniprot.org, and IDs
+# are replaced by the primary accession rather than the last secondary one.
+# Nothing is cached across runs any more.
+#
 
 
-def uniprot():
-    psql_conn = PostgresConnection(write_access=True)
-    this_dir = os.path.dirname(os.path.abspath(__file__))
-    # uniprot_primary_accession.csv replaces uniprot_validate.csv, which had rewritten 843 of 1,479 IDs to a
-    #  secondary accession (see UniProtValidator); a new name makes the fix take effect without clearing a
-    #  cache by hand.
-    with UniProtMapper('uniname.csv') as uni_name, \
-            PDBMapper('pdb_uniprot.csv') as pdb_map, \
-            UniProtValidator('uniprot_primary_accession.csv') as uniprot_validator, \
-            open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'w') as uniprot_seq_file, \
-            psql_conn as cur:
+def uniprot() -> None:
+    """Deprecated: the database reload does this now. Accepted and ignored.
 
-        cur.execute(sql_statements.author_and_pdb_links)
-        sequences = cur.fetchall()
-        for line in sequences:
-            for pos, item in enumerate(line):
-                if item is None:
-                    line[pos] = ''
+    Kept, rather than removed along with the `--uniprot` option, so that a
+    condor job or a hand-run passing --uniprot does not die on an
+    unrecognized argument.
+    """
 
-        sequences_out = csv.writer(uniprot_seq_file)
-        sequences_out.writerow(
-            ['bmrb_id', 'entity_id', 'pdb_chain', 'pdb_id', 'link_type', 'uniprot_id', 'protein_sequence', 'details'])
-
-        for line in sequences:
-            pdb_id = line[3].upper()
-            full_chain_id = line[2].upper()
-            if full_chain_id:
-                chain_id = full_chain_id[0]
-            else:
-                chain_id = None
-
-            # Only search for a UniProt ID if we don't already have an author one
-            if not line[5]:
-                uniprot_id = pdb_map.get_uniprot(pdb_id, chain_id, bmrb_id=line[0])
-                if uniprot_id:
-                    line[4] = 'pdb'
-                    line[5] = uniprot_id
-                else:
-                    if len(full_chain_id) > 1 and pdb_id:
-                        logging.info('A multichar sequence didn\'t match: %s.%s', pdb_id, full_chain_id)
-
-            # Make sure the author didn't provide a nickname
-            if "." in line[5]:
-                line[5] = line[5].replace('.', '-')
-            if "_" in line[5]:
-                line[5] = uni_name.get_uniprot(line[5])
-
-            # Validate the uniprot
-            line[5] = uniprot_validator.validate_uniprot(line[5], line[0])
-
-            sequences_out.writerow(line)
-        uniprot_seq_file.close()
-
-        # Put it in postgresql
-        def row_gen():
-            with open(os.path.join(this_dir, 'sequences_uniprot.csv'), 'r') as seq_file_read:
-                csv_reader = csv.reader(seq_file_read)
-                next(csv_reader)
-                for each_line in csv_reader:
-                    yield each_line
-
-        cur.execute(sql_statements.create_mappings_table)
-        cur.executemany(sql_statements.bulk_insert, row_gen())
-        cur.execute(sql_statements.insert_clean_ready)
-        psql_conn.commit()
+    logging.warning('--uniprot is obsolete and does nothing. web.uniprot_mappings and '
+                    'web.hupo_psi_id are now built by dbloader/loader/uniprot.py, inside the '
+                    'database reload, so that they land on the shadow schema before the swap. '
+                    'See the comment in bmrbapi/reloaders/uniprot/__init__.py.')
