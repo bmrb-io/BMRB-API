@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level connection pools, created lazily on first use
 _pools: dict[str, ConnectionPool] = {}
+_redis: Optional[redis.StrictRedis] = None
 
 
 def reset_pools():
@@ -23,12 +24,15 @@ def reset_pools():
     Must be called in forked child processes (e.g. via multiprocessing.Pool initializer)
     so that each worker creates its own fresh connections instead of inheriting
     the parent's SSL-tainted file descriptors."""
+    global _redis
+
     for pool in _pools.values():
         try:
             pool.close()
         except Exception:
             pass
     _pools.clear()
+    _redis = None
 
 
 def _get_pool(ets: bool = False, write_access: bool = False) -> ConnectionPool:
@@ -55,6 +59,26 @@ def _get_pool(ets: bool = False, write_access: bool = False) -> ConnectionPool:
         _pools[key] = ConnectionPool(conninfo, min_size=2, max_size=20, open=True)
         logger.info("Created connection pool '%s' (min=2, max=20)", key)
     return _pools[key]
+
+
+def _get_redis() -> redis.StrictRedis:
+    """Get or create the Redis client. It keeps its own pool of connections."""
+
+    global _redis
+    if _redis is None:
+        password = configuration['redis']['password'] if configuration['redis']['password'] else None
+        sentinels = configuration['redis']['sentinels']
+
+        # If there is only one sentinel, just treat that as the Redis instance itself, and not a sentinel
+        if len(sentinels) == 1:
+            _redis = redis.StrictRedis(host=sentinels[0][0], port=sentinels[0][1],
+                                       db=configuration['redis']['db'], password=password)
+        else:
+            # The sentinels are asked for the master whenever a connection is made, so failover is followed
+            _redis = Sentinel(sentinels, socket_timeout=0.5).master_for(configuration['redis']['master_name'],
+                                                                         db=configuration['redis']['db'],
+                                                                         password=password)
+    return _redis
 
 
 class DictRow(list):
@@ -167,40 +191,15 @@ class PostgresConnection:
 
 
 class RedisConnection:
-    """ Figures out where the master redis instance is (and other parameters
-    needed to connect like which database to use), and opens a connection
-    to it. It passes back that connection object, using a context manager
-    to clean up after use.
+    """ Gives access to the master redis instance, using a context manager.
 
-    If only one "sentinel" is defined, then just connect directly to that machine rather than checking the sentinels. """
-
-    def __init__(self):
-        """ Creates a connection instance. Optionally specify a non-default db. """
-
-        # If there is only one sentinel, just treat that as the Redis instance itself, and not a sentinel
-        if len(configuration['redis']['sentinels']) == 1:
-            self._redis_host = configuration['redis']['sentinels'][0][0]
-            self._redis_port = configuration['redis']['sentinels'][0][1]
-        else:
-            # Connect to the sentinels to determine the master
-            try:
-                sentinel = Sentinel(configuration['redis']['sentinels'], socket_timeout=0.5)
-                self._redis_host, self._redis_port = sentinel.discover_master(configuration['redis']['master_name'])
-
-            # Raise an exception if we cannot connect to the database server
-            except redis.sentinel.MasterNotFoundError:
-                raise ServerException('Could not determine Redis host. Sentinels offline?')
+    The client (and its connection pool) is created once per process and reused, so
+    connections stay open between requests. If only one "sentinel" is defined, then
+    just connect directly to that machine rather than checking the sentinels. """
 
     def __enter__(self) -> redis.StrictRedis:
-        try:
-            password = configuration['redis']['password'] if configuration['redis']['password'] else None
-            self._redis_con = redis.StrictRedis(host=self._redis_host,
-                                                port=self._redis_port,
-                                                db=configuration['redis']['db'],
-                                                password=password)
-        except redis.exceptions.ConnectionError:
-            raise ServerException('Could not connect to Redis server.')
-        return self._redis_con
+        return _get_redis()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._redis_con.close()
+        if exc_type is redis.sentinel.MasterNotFoundError:
+            raise ServerException('Could not determine Redis host. Sentinels offline?') from exc_val
