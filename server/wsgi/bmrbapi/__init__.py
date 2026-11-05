@@ -11,7 +11,7 @@ import simplejson
 from flask import Flask, request, jsonify, url_for, render_template
 from flask.json.provider import JSONProvider
 from flask_mail import Mail
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import NotFound, RequestEntityTooLarge
 
 from bmrbapi.exceptions import RequestException, ServerException
 from bmrbapi.schemas import validate_parameters
@@ -25,6 +25,7 @@ from bmrbapi.views.internal import internal_endpoints
 from bmrbapi.views.metadata import meta_endpoints
 from bmrbapi.views.molprobity import molprobity_endpoints
 from bmrbapi.views.search import search_endpoints
+from bmrbapi.views.software import software_endpoints
 
 # Set up the flask application
 application = Flask(__name__)
@@ -35,6 +36,17 @@ application.register_blueprint(entry_endpoints)
 application.register_blueprint(internal_endpoints)
 application.register_blueprint(dictionary_endpoints)
 application.register_blueprint(meta_endpoints)
+application.register_blueprint(software_endpoints)
+
+# Cap the size of request bodies. Without a cap, POST /entry (which pins the parsed
+#  entry in Redis for redis.upload_timeout seconds) and POST /timedomain (which writes
+#  to disk) both accept bodies of unbounded size from anonymous clients, so either one
+#  is an easy way to exhaust Redis memory or the deposition filesystem.
+#  This global ceiling is sized for POST /timedomain, where raw spectral data is
+#  legitimately large; POST /entry applies its own, much lower limit.
+application.config['MAX_CONTENT_LENGTH'] = configuration.get('max_upload_size_mb', 2048) * 1024 * 1024
+# Non-file multipart fields (/timedomain's 'selections' JSON, entry_id, email) are small.
+application.config['MAX_FORM_MEMORY_SIZE'] = 1024 * 1024
 
 # Set debug if running from command line
 if application.debug:
@@ -101,6 +113,11 @@ def handle_other_errors(error):
     """ Catches any other exceptions and formats them. Only
     displays the actual error to local clients (to prevent disclosing
     issues that could be security vulnerabilities)."""
+
+    if isinstance(error, RequestEntityTooLarge):
+        return RequestException('The uploaded data is too large. The limit is %d MB.' %
+                                configuration.get('max_upload_size_mb', 2048),
+                                status_code=413).to_response()
 
     if isinstance(error, NotFound):
         return RequestException('The requested URL was not found on the server. If you '

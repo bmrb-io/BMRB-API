@@ -31,8 +31,10 @@
     "molprobity_directory": "/websites/extras/files/pdb/molprobity/",
     "macromolecule_entry_directory": "/share/subedit/entries/bmr%s/clean",
     "metabolomics_entry_directory": "/websites/www/ftp/pub/bmrb/metabolomics/entry_directories/%s",
-    "local-ips": ["127.0.0.1", "your.sub.net"],
-    "secret_key": "CHANGE_ME!",
+    "local-ips": ["127.0.0.1", "10.0.0.0/8"],
+    "timedomain_deposition_directory": "/projects/BMRB/depositions/timedomain_upload",
+    "max_upload_size_mb": 2048,
+    "max_entry_upload_size_mb": 100,
     "log": {
         "json": "/tmp/api_json_configure.log",
         "request": "/tmp/api_request_configure.log",

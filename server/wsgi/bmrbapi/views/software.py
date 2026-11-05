@@ -3,10 +3,10 @@ from flask import jsonify, Blueprint
 from bmrbapi.utils.connections import PostgresConnection
 from bmrbapi.utils.querymod import get_db
 
-software_blueprint = Blueprint('software', __name__)
+software_endpoints = Blueprint('software', __name__)
 
 
-@software_blueprint.route('/software')
+@software_endpoints.route('/software')
 def get_software_summary():
     """ Returns a summary of all software used in all entries. """
 
@@ -24,7 +24,7 @@ FROM "Software"
         return jsonify({"columns": column_names, "data": cur.fetchall()})
 
 
-@software_blueprint.route('/software/package/<package_name>')
+@software_endpoints.route('/software/package/<package_name>')
 def get_software_by_package(package_name):
     """ Returns the entries that used a particular software package. Search
     is done case-insensitive and is an x in y search rather than x == y

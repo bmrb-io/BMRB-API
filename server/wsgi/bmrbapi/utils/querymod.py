@@ -4,6 +4,7 @@
 provided through the REST interface. This is where the real work
 is done; restapi.py mainly just calls the methods here and returns the results.
 """
+import ipaddress
 import logging
 import os
 import zlib
@@ -40,7 +41,10 @@ def locate_entry(entry_id: str, r_conn: StrictRedis) -> str:
         return "metabolomics:entry:%s" % entry_id
     elif entry_id.startswith("chemcomp"):
         return "chemcomps:entry:%s" % entry_id
-    elif len(entry_id) == 32:
+    # 64 characters is a sha256 hex digest, as handed out by POST /entry; 32 is the
+    #  md5 digest that endpoint used to hand out, still accepted so that IDs issued
+    #  before the switch keep working until they expire.
+    elif len(entry_id) in (32, 64):
         entry_loc = "uploaded:entry:%s" % entry_id
 
         # Update the expiration time if the entry is used
@@ -572,10 +576,31 @@ def get_db(default: str = "macromolecules", valid_list: List[str] = None) -> str
 
 
 def check_local_ip() -> bool:
-    """ Checks if the given IP is a local user."""
+    """ Checks if the request came from one of the addresses configured in 'local-ips'.
 
-    for local_address in configuration['local-ips']:
-        if request.remote_addr.startswith(local_address):
+    Entries in 'local-ips' may be single addresses ('127.0.0.1') or CIDR networks
+    ('10.1.0.0/16'). Comparison is done on parsed addresses rather than on string
+    prefixes: a prefix match would treat '127.0.0.123' as '127.0.0.1', and a subnet
+    written as '10.1' as matching '10.123.4.5'. """
+
+    remote_addr = request.remote_addr
+    if not remote_addr:
+        logging.warning('Rejecting request with no remote address.')
+        return False
+
+    try:
+        remote = ipaddress.ip_address(remote_addr)
+    except ValueError:
+        logging.warning('Could not parse the remote address: %s', remote_addr)
+        return False
+
+    for local_address in configuration.get('local-ips', []):
+        try:
+            network = ipaddress.ip_network(local_address, strict=False)
+        except ValueError:
+            logging.warning("Ignoring unparsable entry in the 'local-ips' configuration: %s", local_address)
+            continue
+        if remote in network:
             return True
 
     return False

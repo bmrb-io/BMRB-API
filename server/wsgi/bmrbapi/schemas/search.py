@@ -57,7 +57,8 @@ class FastaSearch(Schema):
         dna = "dna"
 
     type = CustomErrorEnum(ResidueTypes)
-    e_val = fields.String()
+    # Must be a number: it is passed through to the fasta36 binary as the value of -E.
+    e_val = fields.Float()
 
 
 class Instant(DatabaseSchema):

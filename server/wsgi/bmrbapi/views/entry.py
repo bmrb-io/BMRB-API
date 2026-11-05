@@ -2,7 +2,7 @@ import os
 import subprocess
 import tempfile
 import zlib
-from hashlib import md5
+from hashlib import sha256
 from time import time as unix_time
 from typing import List, Dict, Union
 
@@ -175,10 +175,24 @@ def get_entry(entry_id=None):
 
     # If they are storing
     if request.method == "POST":
+
+        # The global MAX_CONTENT_LENGTH is sized for /timedomain's raw spectral data, which
+        #  is far larger than any NMR-STAR file. Apply a tighter limit here, because every
+        #  accepted upload is pinned in Redis for redis.upload_timeout seconds and anyone
+        #  may post.
+        entry_limit = configuration.get('max_entry_upload_size_mb', 100) * 1024 * 1024
+        if request.content_length is not None and request.content_length > entry_limit:
+            raise RequestException("The uploaded entry is too large. The limit is %d MB." %
+                                   (entry_limit // (1024 * 1024)), status_code=413)
+
         uploaded_data = request.data
 
         if not uploaded_data:
             raise RequestException("No data uploaded. Please post the NMR-STAR file as the request body.")
+
+        if len(uploaded_data) > entry_limit:
+            raise RequestException("The uploaded entry is too large. The limit is %d MB." %
+                                   (entry_limit // (1024 * 1024)), status_code=413)
 
         if request.content_type == "application/json":
             try:
@@ -191,7 +205,7 @@ def get_entry(entry_id=None):
             except ValueError as e:
                 raise RequestException("Invalid uploaded NMR-STAR file. Exception: %s" % e)
 
-        key = md5(uploaded_data).hexdigest()
+        key = sha256(uploaded_data).hexdigest()
 
         with RedisConnection() as r:
             r.setex("uploaded:entry:%s" % key, configuration['redis']['upload_timeout'],

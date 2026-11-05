@@ -574,6 +574,15 @@ def fasta_search(sequence):
     a_type = request.args.get('type', 'polymer')
     e_val = request.args.get('e_val')
 
+    # This reaches an external binary's argv, so don't rely only on the schema having
+    #  checked it. Normalizing through float() also drops anything that could be read
+    #  as a second argument.
+    if e_val is not None:
+        try:
+            e_val = repr(float(e_val))
+        except (TypeError, ValueError):
+            raise RequestException('Invalid e_val specified. It must be a number.')
+
     # Map the type to the exact name
     a_type = {'polymer': 'polypeptide(L)', 'rna': 'polyribonucleotide', 'dna': 'polydeoxyribonucleotide'}[a_type]
 
