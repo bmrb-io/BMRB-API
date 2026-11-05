@@ -8,7 +8,7 @@ flask-cors==6.0.2
 redis==7.4.0
 gitpython==3.1.46
 Flask-Mail==0.10.0
-pynmrstar==3.5.0
+pynmrstar==3.6.1
 pybmrb==3.0.9
 requests>=2.32.3,<=3
 marshmallow==4.2.4

@@ -5,7 +5,7 @@ import logging
 import os
 import subprocess
 import traceback
-from logging.handlers import RotatingFileHandler, SMTPHandler
+from logging.handlers import SMTPHandler
 
 import simplejson
 from flask import Flask, request, jsonify, url_for, render_template
@@ -46,19 +46,7 @@ if application.debug:
 # Set up paths for imports and such
 local_dir = os.path.dirname(__file__)
 
-# Set up the logging
-
-# First figure out where to log
-application_log_file = os.path.join(local_dir, "logs", "application.log")
-if querymod.configuration.get('log'):
-    if configuration['log'].get('application'):
-        application_log_file = configuration['log']['application']
-
-# Set up the standard logger
-app_formatter = logging.Formatter('[%(asctime)s]:%(levelname)s:%(funcName)s: %(message)s')
-application_log = RotatingFileHandler(application_log_file, maxBytes=1048576, backupCount=100)
-application_log.setFormatter(app_formatter)
-application.logger.addHandler(application_log)
+# Set up logging to stderr (captured by Docker)
 application.logger.setLevel(logging.WARNING)
 
 # Set up the SMTP handler

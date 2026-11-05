@@ -18,7 +18,7 @@ from bmrbapi.reloaders.timedomain import timedomain
 from bmrbapi.reloaders.uniprot import uniprot
 from bmrbapi.reloaders.xml_generate import xml
 from bmrbapi.utils.configuration import configuration
-from bmrbapi.utils.connections import PostgresConnection, RedisConnection
+from bmrbapi.utils.connections import PostgresConnection, RedisConnection, reset_pools
 
 loaded = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
 to_process = {'metabolomics': [], 'macromolecules': [], 'chemcomps': []}
@@ -171,10 +171,18 @@ if options.timedomain:
     timedomain()
     logger.info('Finished timedomain data reload...')
 
+# Reloaders that failed. The rest still run -- a bad entry in the XML export is no reason to leave Redis stale --
+#  and then the process exits non-zero, so that the failure is not just a line in the log.
+failed = []
+
 if options.xml:
     logger.info('Doing XML generation...')
-    xml(configuration['internal_data_directory'])
-    logger.info('Finished XML reload...')
+    try:
+        xml(configuration['internal_data_directory'])
+        logger.info('Finished XML reload...')
+    except Exception:
+        logger.exception('XML generation failed.')
+        failed.append('xml')
 
 if options.uniprot:
     logger.info('Doing UniProt reload...')
@@ -254,7 +262,10 @@ if options.chemcomps or options.macromolecules or options.metabolomics:
 
     logger.info('Updating entries in Redis...')
 
-    with multiprocessing.Pool(processes=options.processors) as pool:
+    # Close parent's connection pools before forking to avoid inheriting SSL connections
+    reset_pools()
+
+    with multiprocessing.Pool(processes=options.processors, initializer=reset_pools) as pool:
         for res in pool.map(one_entry, to_process['combined']):
             add_to_loaded(res)
 
@@ -291,3 +302,7 @@ if options.molprobity_full:
     logger.info('Doing full MolProbity reload...')
     molprobity_full()
     logger.info('Finished full MolProbity reload...')
+
+if failed:
+    logger.critical('Failed: %s', ', '.join(failed))
+    sys.exit(1)

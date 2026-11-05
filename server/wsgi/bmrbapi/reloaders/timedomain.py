@@ -1,78 +1,44 @@
 import logging
-import os
 
-from bmrbapi.utils.configuration import configuration
-from bmrbapi.utils.connections import PostgresConnection, RedisConnection
+#
+# The time domain scan that used to be here -- walking each entry's
+# timedomain_data directory and filling web.timedomain_data -- now lives in the
+# dbloader repository, in `loader/webextras.py` (`load_timedomain`), with the
+# table declared in `webschema.sql`:
+#
+#   ~/git/dictionary/dbloader/loader/webextras.py
+#   deployed at /projects/BMRB/software/dictionary-meta/dbloader/
+#
+# It moved with webapi.sql (was sql/initialize.sql), which reads
+# web.timedomain_data while building query_grid and instant_extra_search_terms.
+# The two have to run in that order and inside the same schema swap, so
+# splitting them across two repositories and two condor jobs was not an option.
+#
+# The port takes its entry list from the archive the loader just built rather
+# than from Redis, so it can no longer scan a list that disagrees with what is
+# actually in the database. The set-counting rules are unchanged, quirks
+# included -- an archive beside a directory of the same name counts once, and a
+# lone wrapper directory is descended into -- because they determine published
+# numbers.
+#
+# Where the directories live is configurable there (`[web] timedomain_dir`),
+# because this module's `macromolecule_entry_directory` and dbloader's
+# `entrydir` did not agree on whether the entry subdirectory has a `clean`
+# level. It reports how many entries it found, so a wrong pattern shows up as a
+# warning rather than as an archive that appears to have no time domain data.
+#
 
 
 def timedomain() -> None:
-    """Creates the time domain links table."""
+    """Deprecated: the database reload does this now. Accepted and ignored.
 
-    def get_dir_size(start_path='.'):
-        total_size = 0
-        for dir_path, dir_names, file_names in os.walk(start_path):
-            for f in file_names:
-                fp = os.path.join(dir_path, f)
-                total_size += os.path.getsize(fp)
-        return total_size
+    Kept, rather than removed along with the `--timedomain` option, so that a
+    deployed condor job still passing --timedomain does not die on an
+    unrecognized argument. Drop both once updater_dag no longer sends it.
+    """
 
-    def get_data_sets(path):
-        sets = 0
-        last_set = ""
-
-        # See if there is a folder
-        for f in os.listdir(path):
-            f_path = os.path.join(path, f)
-            if os.path.isdir(f_path):
-                sets += 1
-                last_set = f_path
-            # See if they have an archive without a folder
-            elif os.path.isfile(f_path):
-                matching_dir = f.replace(".zip", "").replace(".gz", "").replace(".bz2", "").replace('.tar', '')
-                # Don't count the same directory twice
-                if not os.path.isdir(os.path.join(path, matching_dir)):
-                    sets += 1
-
-        # Handle when the data sets are in a single folder
-        if sets == 1:
-            if last_set:
-                child_sets = get_data_sets(last_set)
-                if child_sets > 1:
-                    return child_sets
-        return sets
-
-    def td_data_getter():
-        substitution_count = configuration['macromolecule_entry_directory'].count("%s")
-
-        with RedisConnection() as r:
-            all_entries = [_.decode() for _ in r.lrange('macromolecules:entry_list', 0, -1)]
-        for entry_id in all_entries:
-            td_dir = os.path.join(
-                configuration['macromolecule_entry_directory'] % ((entry_id,) * substitution_count),
-                'timedomain_data')
-            if os.path.exists(td_dir):
-                logging.debug(f'Processing TD directory: {td_dir}')
-                yield entry_id, get_dir_size(td_dir), get_data_sets(td_dir)
-            else:
-                pass
-
-    precalculated_values = list(td_data_getter())
-
-    psql = PostgresConnection(write_access=True)
-    with psql as cur:
-        cur.execute('''
-CREATE TABLE IF NOT EXISTS web.timedomain_data (
- bmrbid text PRIMARY KEY,
- size numeric,
- sets numeric)''')
-        cur.execute('DELETE FROM web.timedomain_data WHERE TRUE')
-        cur.executemany('INSERT INTO web.timedomain_data(bmrbid, size, sets) VALUES (%s, %s, %s)',
-                        precalculated_values)
-        cur.execute('''
-GRANT USAGE ON schema web TO PUBLIC;
-GRANT SELECT ON ALL TABLES IN schema web TO PUBLIC;
-ALTER DEFAULT PRIVILEGES IN schema web GRANT SELECT ON TABLES TO PUBLIC;
-GRANT ALL PRIVILEGES ON TABLE web.timedomain_data to web;
-GRANT ALL PRIVILEGES ON TABLE web.timedomain_data to bmrb;
-''')
-        psql.commit()
+    logging.warning('--timedomain is obsolete and does nothing. The scan it used to run '
+                    'is now load_timedomain() in dbloader/loader/webextras.py, run inside '
+                    'the database reload so that web.timedomain_data is filled before '
+                    'webapi.sql reads it and lands on the shadow schema before the swap. '
+                    'See the comment in bmrbapi/reloaders/timedomain.py.')
