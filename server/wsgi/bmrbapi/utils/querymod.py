@@ -363,9 +363,6 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
         _dict_cache['tag_order'] = {x['originaltag']: x['rowindexflg'] for x in cur.fetchall()}
     tag_order = _dict_cache['tag_order']
 
-    # Set the search path (needed for unqualified data table references below)
-    cur.execute(sql.SQL('SET search_path={}, pg_catalog').format(sql.Identifier(database)))
-
     # Check if we are allowed to print it (cached per category)
     cat_grp_key = ('cat_grp', category)
     if cat_grp_key not in _dict_cache:
@@ -398,10 +395,12 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
     # Figure out which tags to display (cached per table)
     tags_to_use, pointer_tags = get_printable_tags(table_name, cur)
 
-    # Fetch the saveframe row — single query replaces the former Sf_ID lookup + separate tag value fetch
+    # Fetch the saveframe row — single query replaces the former Sf_ID lookup + separate tag value fetch. The
+    # tables are named with their schema, rather than by setting search_path, which would stay set on the pooled
+    # connection after this returns.
     cur.execute(
         sql.SQL('SELECT * FROM {} WHERE {} = %s ORDER BY "Sf_ID"').format(
-            sql.Identifier(table_name), sql.Identifier(id_search_field)
+            sql.Identifier(database, table_name), sql.Identifier(id_search_field)
         ), [entry_id])
     tag_vals = cur.fetchone()
 
@@ -438,12 +437,24 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
         _dict_cache[loops_key] = [x['tagcategory'] for x in cur.fetchall()]
     loops = _dict_cache[loops_key]
 
+    # The loops with tags to print, in tables that have any rows. Most of the loop tables a saveframe category
+    # allows are empty, so asking which aren't, all in one query, saves a query of each of them. (Whether the table
+    # has rows at all, rather than rows of this saveframe, which on a table without an index on Sf_ID would cost a
+    # second scan of it. It is asked every time, so a table that has rows after a reload is never left out.)
+    printable = [each_loop for each_loop in loops if get_printable_tags(each_loop, cur)[0]]
+    present = set()
+    if printable:
+        cur.execute(sql.SQL(' UNION ALL ').join(
+            sql.SQL('SELECT {} WHERE EXISTS (SELECT 1 FROM {})').format(
+                sql.Literal(each_loop), sql.Identifier(database, each_loop))
+            for each_loop in printable))
+        present = {row[0] for row in cur.fetchall()}
+
     # Add the loops
-    for each_loop in loops:
+    for each_loop in printable:
         tags_to_use, pointer_tags = get_printable_tags(each_loop, cur)
 
-        # If there are any tags in the loop to use
-        if len(tags_to_use) > 0:
+        if each_loop in present:
             # Create the loop
             bmrb_loop = pynmrstar.Loop.from_scratch(category=each_loop)
             bmrb_loop.add_tag(tags_to_use)
@@ -451,7 +462,7 @@ def create_saveframe_from_db(database: str, category: str, entry_id: str, id_sea
             # Get the loop data
             to_fetch_sql = sql.SQL(",").join([sql.Identifier(x) for x in tags_to_use])
             query = sql.SQL('SELECT {} FROM {} WHERE "Sf_ID" = %s').format(
-                to_fetch_sql, sql.Identifier(each_loop))
+                to_fetch_sql, sql.Identifier(database, each_loop))
 
             # Determine how to order the data in the loops
             order_tags = []
